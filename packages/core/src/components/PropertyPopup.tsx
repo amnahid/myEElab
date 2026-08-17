@@ -204,6 +204,22 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
                 <input type="text" value={editingComponent.params.dc || editingComponent.params.value || '0'} onChange={e => updateComponentParams(editingComponent.id, { dc: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
               </div>
             )}
+            {editingComponent.params.type === 'ac' && (
+              <>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>DC Bias ({editingComponent.type === 'vsource' ? 'V' : 'A'})</label>
+                  <input type="text" value={editingComponent.params.dc || '0'} onChange={e => updateComponentParams(editingComponent.id, { dc: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>AC Magnitude ({editingComponent.type === 'vsource' ? 'V' : 'A'})</label>
+                  <input type="text" value={editingComponent.params.acMag || '1'} onChange={e => updateComponentParams(editingComponent.id, { acMag: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>AC Phase (°)</label>
+                  <input type="text" value={editingComponent.params.acPhase || '0'} onChange={e => updateComponentParams(editingComponent.id, { acPhase: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
+                </div>
+              </>
+            )}
             {editingComponent.params.type === 'sin' && (
               <>
                 <div>
@@ -223,37 +239,6 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
           </>
         )}
 
-        {editingComponent && editingComponent.type === 'powersupply' && (
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>DC Voltage (V)</label>
-            <input type="text" value={editingComponent.params.dc || '5'} onChange={e => updateComponentParams(editingComponent.id, { dc: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
-          </div>
-        )}
-
-        {editingComponent && editingComponent.type === 'functiongenerator' && (
-          <>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Waveform</label>
-              <select 
-                value={editingComponent.params.type || 'sine'} 
-                onChange={e => updateComponentParams(editingComponent.id, { type: e.target.value })}
-                style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }}
-              >
-                <option value="sine">Sine</option>
-                <option value="square">Square</option>
-                <option value="triangle">Triangle</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Amplitude (V)</label>
-              <input type="text" value={editingComponent.params.amplitude || '5'} onChange={e => updateComponentParams(editingComponent.id, { amplitude: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Frequency (Hz)</label>
-              <input type="text" value={editingComponent.params.frequency || '1k'} onChange={e => updateComponentParams(editingComponent.id, { frequency: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
-            </div>
-          </>
-        )}
 
         {editingComponent && ['diode', 'npn', 'pnp', 'nmos', 'pmos', 'opamp'].includes(editingComponent.type) && (
           <div>

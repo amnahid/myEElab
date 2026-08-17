@@ -23,6 +23,7 @@ export const ComponentLibrary: Record<string, { name?: string, type?: string, pi
     defaultParams: { inductance: "1m" }
   },
   vsource: {
+    name: "Voltage Source",
     pins: [
       { id: "1", label: "+", offset: { x: 0, y: -20 } },
       { id: "2", label: "-", offset: { x: 0, y: 20 } },
@@ -30,6 +31,7 @@ export const ComponentLibrary: Record<string, { name?: string, type?: string, pi
     defaultParams: { dc: "5", type: "dc" }
   },
   isource: {
+    name: "Current Source",
     pins: [
       { id: "1", label: "+", offset: { x: 0, y: -20 } },
       { id: "2", label: "-", offset: { x: 0, y: 20 } },
@@ -102,24 +104,7 @@ export const ComponentLibrary: Record<string, { name?: string, type?: string, pi
     ],
     defaultParams: { model: "LM358" }
   },
-  powersupply: {
-    type: "powersupply",
-    name: "Power Supply",
-    pins: [
-      { id: "1", label: "+", offset: { x: 0, y: -40 } },
-      { id: "2", label: "-", offset: { x: 0, y: 40 } },
-    ],
-    defaultParams: { dc: "5" }
-  },
-  functiongenerator: {
-    type: "functiongenerator",
-    name: "Function Generator",
-    pins: [
-      { id: "1", label: "+", offset: { x: 0, y: -40 } },
-      { id: "2", label: "-", offset: { x: 0, y: 40 } },
-    ],
-    defaultParams: { type: "sine", amplitude: "5", frequency: "1k" }
-  },
+
   oscilloscope: {
     type: "oscilloscope",
     name: "Oscilloscope",

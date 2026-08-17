@@ -111,22 +111,6 @@ const ComponentIcons: Record<string, React.ReactNode> = {
       <path d="M 20 12 h 4" />
     </svg>
   ),
-  powersupply: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <rect x="6" y="8" width="12" height="6" fill="currentColor" opacity="0.2" />
-      <circle cx="8" cy="17" r="1" />
-      <circle cx="16" cy="17" r="1" />
-    </svg>
-  ),
-  functiongenerator: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="M 6 12 q 3 -6 6 0 t 6 0" />
-      <circle cx="8" cy="17" r="1" />
-      <circle cx="16" cy="17" r="1" />
-    </svg>
-  ),
   oscilloscope: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="4" width="20" height="16" rx="2" />
@@ -179,9 +163,10 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
   ),
   vsource: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="6" y="4" width="12" height="16" fill="#2c3e50" rx="2" />
-      <rect x="6" y="4" width="12" height="4" fill="#e74c3c" rx="2" />
-      <text x="12" y="14" fill="white" fontSize="8" textAnchor="middle" stroke="none">9V</text>
+      <rect x="4" y="4" width="16" height="16" fill="#ecf0f1" rx="2" />
+      <rect x="6" y="6" width="12" height="6" fill="#000" rx="1" />
+      <circle cx="8" cy="16" r="2" fill="#e74c3c" />
+      <circle cx="16" cy="16" r="2" fill="#34495e" />
     </svg>
   ),
   isource: (
@@ -250,22 +235,7 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
       <line x1="20" y1="16" x2="22" y2="16" stroke="#bdc3c7" strokeWidth="2" />
     </svg>
   ),
-  powersupply: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="4" width="20" height="16" fill="#34495e" rx="2" />
-      <rect x="6" y="8" width="12" height="6" fill="#1abc9c" />
-      <circle cx="8" cy="17" r="1" fill="#e74c3c" />
-      <circle cx="16" cy="17" r="1" fill="#3498db" />
-    </svg>
-  ),
-  functiongenerator: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="4" width="20" height="16" fill="#2c3e50" rx="2" />
-      <path d="M 6 12 q 3 -6 6 0 t 6 0" stroke="#f1c40f" strokeWidth="1.5" />
-      <circle cx="8" cy="17" r="1" fill="#e74c3c" />
-      <circle cx="16" cy="17" r="1" fill="#3498db" />
-    </svg>
-  ),
+
   oscilloscope: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="4" width="20" height="16" fill="#34495e" rx="2" />

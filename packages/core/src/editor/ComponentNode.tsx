@@ -158,26 +158,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Text text="-" x={-7} y={-14} fontSize={10} fill={strokeColor} />
           </Group>
         );
-      case 'powersupply':
-        return (
-          <Group>
-            <Rect x={-20} y={-20} width={40} height={40} stroke={strokeColor} strokeWidth={2} fill="transparent" />
-            <Text text="DC" x={-8} y={-15} fontSize={10} fill={strokeColor} />
-            <Text text="+" x={-4} y={-35} fontSize={10} fill={strokeColor} />
-            <Text text="-" x={-4} y={25} fontSize={10} fill={strokeColor} />
-            <Line points={[0, -20, 0, -40]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[0, 20, 0, 40]} stroke={strokeColor} strokeWidth={2} />
-          </Group>
-        );
-      case 'functiongenerator':
-        return (
-          <Group>
-            <Circle x={0} y={0} radius={20} stroke={strokeColor} strokeWidth={2} fill="transparent" />
-            <Path data="M -10 0 Q -5 -10 0 0 T 10 0" stroke={strokeColor} strokeWidth={2} fill="transparent" />
-            <Line points={[0, -20, 0, -40]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[0, 20, 0, 40]} stroke={strokeColor} strokeWidth={2} />
-          </Group>
-        );
+
       case 'oscilloscope':
         return (
           <Group>
@@ -274,26 +255,57 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
         );
       }
       case 'vsource': {
-        return (
-          <Group>
-            <Line points={[0, -20, 0, -14]} stroke="#e74c3c" strokeWidth={2} />
-            <Line points={[0, 14, 0, 20]} stroke="#2c3e50" strokeWidth={2} />
-            <Rect x={-10} y={-14} width={20} height={28} fill={bodyColor || '#2c3e50'} cornerRadius={3} stroke="#1a252f" strokeWidth={1} />
-            <Rect x={-4} y={-14} width={8} height={4} fill="#95a5a6" cornerRadius={1} />
-            <Text text="+" x={-4} y={-11} fontSize={8} fill="white" />
-            <Text text={component.params?.dc ? `${component.params.dc}V` : '9V'} x={-8} y={2} fontSize={7} fill="white" />
-          </Group>
-        );
+        const sourceType = component.params?.type || 'dc';
+        if (sourceType === 'sin' || sourceType === 'ac') {
+          return (
+            <Group>
+              <Line points={[0, -20, 0, -14]} stroke="#e74c3c" strokeWidth={2} />
+              <Line points={[0, 14, 0, 20]} stroke="#2c3e50" strokeWidth={2} />
+              <Rect x={-15} y={-14} width={30} height={28} fill={bodyColor || '#34495e'} cornerRadius={3} stroke="#2c3e50" strokeWidth={1} />
+              <Rect x={-12} y={-10} width={24} height={10} fill="#000" cornerRadius={1} />
+              <Path data="M -8 -5 Q -4 -8 0 -5 T 8 -5" stroke="#0f0" strokeWidth={1} fill="transparent" />
+              <Text text="FUNC" x={-10} y={4} fontSize={8} fill="#bdc3c7" />
+            </Group>
+          );
+        } else {
+          return (
+            <Group>
+              <Line points={[0, -20, 0, -14]} stroke="#e74c3c" strokeWidth={2} />
+              <Line points={[0, 14, 0, 20]} stroke="#2c3e50" strokeWidth={2} />
+              <Rect x={-15} y={-14} width={30} height={28} fill={bodyColor || '#ecf0f1'} cornerRadius={3} stroke="#bdc3c7" strokeWidth={1} />
+              <Rect x={-12} y={-10} width={24} height={10} fill="#000" cornerRadius={1} />
+              <Text text={component.params?.dc ? `${component.params.dc}V` : '5V'} x={-10} y={-8} fontSize={8} fill="#e74c3c" />
+              <Text text="DC PWR" x={-12} y={4} fontSize={7} fill="#7f8c8d" />
+            </Group>
+          );
+        }
       }
-      case 'isource':
-        return (
-          <Group>
-            <Line points={[0, -20, 0, -10]} stroke="#bdc3c7" strokeWidth={2} />
-            <Line points={[0, 10, 0, 20]} stroke="#bdc3c7" strokeWidth={2} />
-            <Circle x={0} y={0} radius={10} fill={bodyColor || '#8e44ad'} stroke="#6c3483" strokeWidth={1} />
-            <Line points={[0, 5, 0, -5, -3, -2, 0, -5, 3, -2]} stroke="white" strokeWidth={1.5} />
-          </Group>
-        );
+      case 'isource': {
+        const iSourceType = component.params?.type || 'dc';
+        if (iSourceType === 'sin' || iSourceType === 'ac') {
+          return (
+            <Group>
+              <Line points={[0, -20, 0, -14]} stroke="#e74c3c" strokeWidth={2} />
+              <Line points={[0, 14, 0, 20]} stroke="#2c3e50" strokeWidth={2} />
+              <Rect x={-15} y={-14} width={30} height={28} fill={bodyColor || '#34495e'} cornerRadius={3} stroke="#2c3e50" strokeWidth={1} />
+              <Rect x={-12} y={-10} width={24} height={10} fill="#000" cornerRadius={1} />
+              <Path data="M -8 -5 Q -4 -8 0 -5 T 8 -5" stroke="#3498db" strokeWidth={1} fill="transparent" />
+              <Text text="I~" x={-5} y={4} fontSize={8} fill="#bdc3c7" />
+            </Group>
+          );
+        } else {
+          return (
+            <Group>
+              <Line points={[0, -20, 0, -14]} stroke="#e74c3c" strokeWidth={2} />
+              <Line points={[0, 14, 0, 20]} stroke="#2c3e50" strokeWidth={2} />
+              <Rect x={-15} y={-14} width={30} height={28} fill={bodyColor || '#ecf0f1'} cornerRadius={3} stroke="#bdc3c7" strokeWidth={1} />
+              <Rect x={-12} y={-10} width={24} height={10} fill="#000" cornerRadius={1} />
+              <Text text={component.params?.dc ? `${component.params.dc}A` : '1mA'} x={-10} y={-8} fontSize={8} fill="#3498db" />
+              <Text text="I DC" x={-7} y={4} fontSize={7} fill="#7f8c8d" />
+            </Group>
+          );
+        }
+      }
       case 'ground':
         return (
           <Group>
@@ -351,35 +363,6 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
           </Group>
         );
       }
-      case 'powersupply': {
-        return (
-          <Group>
-            <Rect x={-40} y={-30} width={80} height={60} fill={bodyColor || '#2c3e50'} cornerRadius={5} stroke="#1a252f" strokeWidth={2} />
-            <Rect x={-30} y={-20} width={60} height={25} fill="#000" cornerRadius={2} />
-            <Text text={component.params?.dc ? `${component.params.dc} V` : '5.00 V'} x={-22} y={-15} fontSize={14} fill="#e74c3c" fontFamily="monospace" />
-            <Circle x={0} y={-30} radius={4} fill="#e74c3c" />
-            <Circle x={0} y={30} radius={4} fill="#34495e" />
-            <Line points={[0, -30, 0, -40]} stroke="#e74c3c" strokeWidth={2} />
-            <Line points={[0, 30, 0, 40]} stroke="#34495e" strokeWidth={2} />
-            <Text text="+" x={4} y={-38} fontSize={10} fill="#fff" />
-            <Text text="-" x={4} y={28} fontSize={10} fill="#fff" />
-          </Group>
-        );
-      }
-      case 'functiongenerator': {
-        return (
-          <Group>
-            <Rect x={-40} y={-30} width={80} height={60} fill={bodyColor || '#34495e'} cornerRadius={5} stroke="#2c3e50" strokeWidth={2} />
-            <Rect x={-30} y={-20} width={40} height={15} fill="#000" cornerRadius={2} />
-            <Text text={component.params?.frequency ? `${component.params.frequency}Hz` : '1kHz'} x={-25} y={-16} fontSize={10} fill="#2ecc71" fontFamily="monospace" />
-            <Circle x={25} y={-12} radius={6} fill="#7f8c8d" />
-            <Circle x={0} y={-30} radius={4} fill="#e74c3c" />
-            <Circle x={0} y={30} radius={4} fill="#34495e" />
-            <Line points={[0, -30, 0, -40]} stroke="#e74c3c" strokeWidth={2} />
-            <Line points={[0, 30, 0, 40]} stroke="#34495e" strokeWidth={2} />
-          </Group>
-        );
-      }
       case 'oscilloscope': {
         return (
           <Group>
@@ -419,9 +402,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
        dx = 15; dy = -10;
     }
 
-    if (type === 'powersupply') {
-       dx = 15; dy = -10;
-    }
+
 
     const bgFill = theme === 'dark' ? '#1e1e2e' : '#f0f0f0';
 
