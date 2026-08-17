@@ -357,12 +357,12 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Rect x={-40} y={-30} width={80} height={60} fill={bodyColor || '#2c3e50'} cornerRadius={5} stroke="#1a252f" strokeWidth={2} />
             <Rect x={-30} y={-20} width={60} height={25} fill="#000" cornerRadius={2} />
             <Text text={component.params?.dc ? `${component.params.dc} V` : '5.00 V'} x={-22} y={-15} fontSize={14} fill="#e74c3c" fontFamily="monospace" />
-            <Circle x={-20} y={15} radius={6} fill="#e74c3c" />
-            <Circle x={20} y={15} radius={6} fill="#34495e" />
-            <Line points={[-20, 15, -20, 30]} stroke="#e74c3c" strokeWidth={2} />
-            <Line points={[20, 15, 20, 30]} stroke="#34495e" strokeWidth={2} />
-            <Text text="+" x={-23} y={23} fontSize={10} fill="#fff" />
-            <Text text="-" x={18} y={22} fontSize={10} fill="#fff" />
+            <Circle x={0} y={-30} radius={4} fill="#e74c3c" />
+            <Circle x={0} y={30} radius={4} fill="#34495e" />
+            <Line points={[0, -30, 0, -40]} stroke="#e74c3c" strokeWidth={2} />
+            <Line points={[0, 30, 0, 40]} stroke="#34495e" strokeWidth={2} />
+            <Text text="+" x={4} y={-38} fontSize={10} fill="#fff" />
+            <Text text="-" x={4} y={28} fontSize={10} fill="#fff" />
           </Group>
         );
       }
@@ -373,10 +373,10 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Rect x={-30} y={-20} width={40} height={15} fill="#000" cornerRadius={2} />
             <Text text={component.params?.frequency ? `${component.params.frequency}Hz` : '1kHz'} x={-25} y={-16} fontSize={10} fill="#2ecc71" fontFamily="monospace" />
             <Circle x={25} y={-12} radius={6} fill="#7f8c8d" />
-            <Circle x={-20} y={15} radius={6} fill="#e74c3c" />
-            <Circle x={10} y={15} radius={6} fill="#34495e" />
-            <Line points={[-20, 15, -20, 30]} stroke="#e74c3c" strokeWidth={2} />
-            <Line points={[10, 15, 10, 30]} stroke="#34495e" strokeWidth={2} />
+            <Circle x={0} y={-30} radius={4} fill="#e74c3c" />
+            <Circle x={0} y={30} radius={4} fill="#34495e" />
+            <Line points={[0, -30, 0, -40]} stroke="#e74c3c" strokeWidth={2} />
+            <Line points={[0, 30, 0, 40]} stroke="#34495e" strokeWidth={2} />
           </Group>
         );
       }
@@ -386,10 +386,10 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Rect x={-40} y={-30} width={80} height={60} fill={bodyColor || '#2c3e50'} cornerRadius={5} stroke="#1a252f" strokeWidth={2} />
             <Rect x={-35} y={-25} width={50} height={40} fill="#111" cornerRadius={3} />
             <Path data="M -30 0 Q -25 -15 -20 0 T -10 0 T 0 0 T 10 0" stroke="#2ecc71" strokeWidth={1} fill="transparent" />
-            <Circle x={25} y={-10} radius={6} fill="#95a5a6" />
-            <Circle x={25} y={10} radius={6} fill="#95a5a6" />
-            <Line points={[25, -10, 40, -10]} stroke="#95a5a6" strokeWidth={2} />
-            <Line points={[25, 10, 40, 10]} stroke="#95a5a6" strokeWidth={2} />
+            <Circle x={-25} y={-20} radius={4} fill="#95a5a6" />
+            <Circle x={-25} y={20} radius={4} fill="#95a5a6" />
+            <Line points={[-25, -20, -40, -20]} stroke="#95a5a6" strokeWidth={2} />
+            <Line points={[-25, 20, -40, 20]} stroke="#95a5a6" strokeWidth={2} />
           </Group>
         );
       }

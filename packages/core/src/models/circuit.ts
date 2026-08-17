@@ -7,7 +7,7 @@ export interface Pin {
   id: string;        // stable id, unique within its component type
   label: string;      // e.g. "anode", "gate", "+"
   offset: Point;       // position relative to component origin, pre-rotation
-  breadboardOffset?: Point; // optional override for breadboard view
+
 }
 
 export interface ComponentInstance {

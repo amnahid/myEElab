@@ -36,7 +36,7 @@ export class NodeResolver {
     return this.pointToNodeId.get(key)!;
   }
 
-  public resolve(circuit: Circuit, activeView: 'schematic' | 'breadboard' = 'schematic'): { components: Map<string, Map<string, string>>, wires: Map<string, string> } {
+  public resolve(circuit: Circuit): { components: Map<string, Map<string, string>>, wires: Map<string, string> } {
     // 1. Process all wires
     const wirePoints = new Map<string, number>();
     for (const wire of circuit.wires) {
@@ -61,7 +61,7 @@ export class NodeResolver {
       const pinMap = new Map<string, number>();
       for (const pin of libComp.pins) {
         // Apply mirroring (flip horizontally)
-        const baseOffset = (activeView === 'breadboard' && pin.breadboardOffset) ? pin.breadboardOffset : pin.offset;
+        const baseOffset = pin.offset;
         const mirroredOffsetX = comp.mirrored ? -baseOffset.x : baseOffset.x;
         const mirroredOffsetY = baseOffset.y;
 

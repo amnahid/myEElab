@@ -106,8 +106,8 @@ export const ComponentLibrary: Record<string, { name?: string, type?: string, pi
     type: "powersupply",
     name: "Power Supply",
     pins: [
-      { id: "1", label: "+", offset: { x: 0, y: -40 }, breadboardOffset: { x: -20, y: 30 } },
-      { id: "2", label: "-", offset: { x: 0, y: 40 }, breadboardOffset: { x: 20, y: 30 } },
+      { id: "1", label: "+", offset: { x: 0, y: -40 } },
+      { id: "2", label: "-", offset: { x: 0, y: 40 } },
     ],
     defaultParams: { dc: "5" }
   },
@@ -115,8 +115,8 @@ export const ComponentLibrary: Record<string, { name?: string, type?: string, pi
     type: "functiongenerator",
     name: "Function Generator",
     pins: [
-      { id: "1", label: "+", offset: { x: 0, y: -40 }, breadboardOffset: { x: -20, y: 30 } },
-      { id: "2", label: "-", offset: { x: 0, y: 40 }, breadboardOffset: { x: 10, y: 30 } },
+      { id: "1", label: "+", offset: { x: 0, y: -40 } },
+      { id: "2", label: "-", offset: { x: 0, y: 40 } },
     ],
     defaultParams: { type: "sine", amplitude: "5", frequency: "1k" }
   },
@@ -124,8 +124,8 @@ export const ComponentLibrary: Record<string, { name?: string, type?: string, pi
     type: "oscilloscope",
     name: "Oscilloscope",
     pins: [
-      { id: "1", label: "CH1+", offset: { x: -40, y: -20 }, breadboardOffset: { x: 40, y: -10 } },
-      { id: "2", label: "CH1-", offset: { x: -40, y: 20 }, breadboardOffset: { x: 40, y: 10 } },
+      { id: "1", label: "CH1+", offset: { x: -40, y: -20 } },
+      { id: "2", label: "CH1-", offset: { x: -40, y: 20 } },
     ],
     defaultParams: {}
   },

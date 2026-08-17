@@ -154,7 +154,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
       const sin = Math.round(Math.sin(rotRad));
 
       for (const pin of libComp.pins) {
-        const baseOffset = (activeView === 'breadboard' && pin.breadboardOffset) ? pin.breadboardOffset : pin.offset;
+        const baseOffset = pin.offset;
         const mirroredOffsetX = comp.mirrored ? -baseOffset.x : baseOffset.x;
         const mirroredOffsetY = baseOffset.y;
         
@@ -337,7 +337,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             />
           ))}
 
-          {activeView === 'schematic' && circuit.wires.filter(w => !selectedIds.includes(w.id)).map(wire => (
+          {circuit.wires.filter(w => !selectedIds.includes(w.id)).map(wire => (
             <WireNode 
               key={wire.id} 
               wire={wire} 
@@ -346,7 +346,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
               onSelect={(e) => {
                 if (mode === 'probe') {
                   const resolver = new NodeResolver();
-                  const resolved = resolver.resolve(circuit, activeView);
+                  const resolved = resolver.resolve(circuit);
                   const node = resolved.wires.get(wire.id);
                   if (node && typeof node === 'string' && node !== '0') {
                     const stage = e.target.getStage();
@@ -408,7 +408,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
               onSelect={(e) => {
                 if (mode === 'probe') {
                   const resolver = new NodeResolver();
-                  const resolved = resolver.resolve(circuit, activeView);
+                  const resolved = resolver.resolve(circuit);
                   const pins = resolved.components.get(comp.id);
                   if (pins && typeof pins !== 'string') {
                     const node = pins.get("1");
@@ -460,7 +460,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
           })}
 
           {/* 3. Selected Wires */}
-          {activeView === 'schematic' && circuit.wires.filter(w => selectedIds.includes(w.id)).map(wire => (
+          {circuit.wires.filter(w => selectedIds.includes(w.id)).map(wire => (
             <WireNode 
               key={wire.id} 
               wire={wire} 
@@ -469,7 +469,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
               onSelect={(e) => {
                 if (mode === 'probe') {
                   const resolver = new NodeResolver();
-                  const resolved = resolver.resolve(circuit, activeView);
+                  const resolved = resolver.resolve(circuit);
                   const node = resolved.wires.get(wire.id);
                   if (node && typeof node === 'string' && node !== '0') {
                     const stage = e.target.getStage();
@@ -527,7 +527,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
               onSelect={(e) => {
                 if (mode === 'probe') {
                   const resolver = new NodeResolver();
-                  const resolved = resolver.resolve(circuit, activeView);
+                  const resolved = resolver.resolve(circuit);
                   const pins = resolved.components.get(comp.id);
                   if (pins && typeof pins !== 'string') {
                     const node = pins.get("1");
@@ -618,7 +618,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             return (
               <React.Fragment key={`pins-${comp.id}`}>
                 {libComp.pins.map(pin => {
-                  const baseOffset = (activeView === 'breadboard' && pin.breadboardOffset) ? pin.breadboardOffset : pin.offset;
+                  const baseOffset = pin.offset;
                   const mirroredOffsetX = comp.mirrored ? -baseOffset.x : baseOffset.x;
                   const mirroredOffsetY = baseOffset.y;
                   const rotatedOffsetX = mirroredOffsetX * cos - mirroredOffsetY * sin;
@@ -644,7 +644,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
         {nodeVoltages && Object.keys(nodeVoltages).length > 0 && (
           (() => {
             const resolver = new NodeResolver();
-            const { components, wires } = resolver.resolve(circuit, activeView);
+            const { components, wires } = resolver.resolve(circuit);
             
             // To render the node voltage, we can find the first coordinate associated with each node
             const nodeCoords = new Map<string, {x: number, y: number}>();
