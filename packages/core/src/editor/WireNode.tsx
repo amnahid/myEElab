@@ -38,9 +38,9 @@ export const WireNode: React.FC<Props> = ({ wire, isSelected, onSelect, onPointD
           x={p.x}
           y={p.y}
           radius={4}
-          hitStrokeWidth={12}
+          hitStrokeWidth={24}
           fill="white"
-          stroke="blue"
+          stroke="#2980b9"
           strokeWidth={2}
           draggable
           onDragStart={() => {

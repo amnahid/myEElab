@@ -116,8 +116,43 @@ export class NodeResolver {
     for (const [key, pointId] of this.pointToNodeId.entries()) {
       const [px, py] = key.split(',').map(Number);
       const p = { x: px, y: py };
+      
+      let onSegments = [];
+      let endpointSegments = [];
+      let endpointCount = 0;
+      let interiorCount = 0;
+      
       for (const seg of allSegments) {
         if (this.distanceToSegment(p, seg.a, seg.b) <= 4) {
+          const atA = Math.hypot(p.x - seg.a.x, p.y - seg.a.y) <= 4;
+          const atB = Math.hypot(p.x - seg.b.x, p.y - seg.b.y) <= 4;
+          if (atA || atB) {
+            endpointCount++;
+            endpointSegments.push(seg);
+          } else {
+            interiorCount++;
+            onSegments.push(seg);
+          }
+        }
+      }
+      
+      let isPin = false;
+      for (const pins of compPins.values()) {
+        for (const pid of pins.values()) {
+          if (pid === pointId) isPin = true;
+        }
+      }
+      if (isPin) endpointCount++;
+      
+      const totalDegree = endpointCount + (interiorCount * 2);
+      
+      // Approach B: Only allow auto-connections if they form a T-junction (degree <= 3) or if it's purely endpoints connecting.
+      // This prevents 4-way crossings from unintentionally connecting.
+      if (totalDegree <= 3 || interiorCount === 0) {
+        for (const seg of onSegments) {
+          this.union(pointId, seg.aId);
+        }
+        for (const seg of endpointSegments) {
           this.union(pointId, seg.aId);
         }
       }

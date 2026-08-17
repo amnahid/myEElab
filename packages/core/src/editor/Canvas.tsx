@@ -18,8 +18,9 @@ interface CanvasProps {
 export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
   const { circuit, mode, componentToPlace, addComponent, updateComponentPosition, selectedIds, setSelection, addWire, stagePos, scale, setStageView, setEditingComponent, updateWirePoint, setMode, probes, toggleProbe, activeView } = useEditorStore();
   
-  const [drawingWirePoints, setDrawingWirePoints] = useState<{x: number, y: number}[]>([]);
   const [mousePos, setMousePos] = useState<{x: number, y: number} | null>(null);
+  const [previewSnapPos, setPreviewSnapPos] = useState<{x: number, y: number} | null>(null);
+  const [drawingWirePoints, setDrawingWirePoints] = useState<{x: number, y: number}[]>([]);
   const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
 
   // Compute ratlines (breadboard to schematic sync)
@@ -140,7 +141,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
     return bestPos;
   };
 
-  const getMagneticSnap = (rawPos: {x: number, y: number}, maxDist = 30) => {
+  const getMagneticSnap = (rawPos: {x: number, y: number}, maxDist = 30, ignorePoint?: { wireId: string, index: number }) => {
     let closestDist = maxDist; // Use provided maxDist for snap radius
     let snapPos = null;
 
@@ -176,6 +177,8 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
     // Also check wire vertices and segments for T-junctions
     for (const wire of circuit.wires) {
       for (let i = 0; i < wire.points.length; i++) {
+        if (ignorePoint && ignorePoint.wireId === wire.id && ignorePoint.index === i) continue;
+        
         const wp = wire.points[i];
         const dist = Math.hypot(rawPos.x - wp.x, rawPos.y - wp.y);
         if (dist < closestDist) {
@@ -183,6 +186,8 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
           snapPos = { x: wp.x, y: wp.y };
         }
         if (i > 0) {
+          if (ignorePoint && ignorePoint.wireId === wire.id && (ignorePoint.index === i || ignorePoint.index === i - 1)) continue;
+          
           const a = wire.points[i - 1];
           const b = wire.points[i];
           const l2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
@@ -363,77 +368,85 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             />
           ))}
 
-          {circuit.wires.map(wire => {
-            const isSelected = selectedIds.includes(wire.id);
-            return (
-            <WireNode 
-              key={wire.id} 
-              wire={wire} 
-              isSelected={isSelected}
-              theme={theme}
-              onSelect={(e) => {
-                if (mode === 'probe') {
-                  const resolver = new NodeResolver();
-                  const resolved = resolver.resolve(circuit);
-                  const node = resolved.wires.get(wire.id);
-                  if (node && typeof node === 'string' && node !== '0') {
-                    const stage = e.target.getStage();
-                    const pointer = stage.getPointerPosition();
-                    const rawX = (pointer.x - stage.x()) / stage.scaleX();
-                    const rawY = (pointer.y - stage.y()) / stage.scaleX();
-                    
-                    let minSqDist = Infinity;
-                    let closest = { x: rawX, y: rawY };
-                    for (let i = 0; i < wire.points.length - 1; i++) {
-                      const p1 = wire.points[i];
-                      const p2 = wire.points[i + 1];
-                      const l2 = Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2);
-                      if (l2 === 0) continue;
-                      let t = ((rawX - p1.x) * (p2.x - p1.x) + (rawY - p1.y) * (p2.y - p1.y)) / l2;
-                      t = Math.max(0, Math.min(1, t));
-                      const projX = p1.x + t * (p2.x - p1.x);
-                      const projY = p1.y + t * (p2.y - p1.y);
-                      const distSq = Math.pow(rawX - projX, 2) + Math.pow(rawY - projY, 2);
-                      if (distSq < minSqDist) {
-                        minSqDist = distSq;
-                        closest = { x: projX, y: projY };
+          {/* Render in z-index order: Unselected Wires -> Unselected Components -> Junction Dots -> Selected Wires -> Selected Components */}
+          {(() => {
+            const renderWire = (wire: any) => {
+              const isSelected = selectedIds.includes(wire.id);
+              return (
+                <WireNode 
+                  key={wire.id} 
+                  wire={wire} 
+                  isSelected={isSelected}
+                  theme={theme}
+                  onSelect={(e) => {
+                    if (mode === 'probe') {
+                      const resolver = new NodeResolver();
+                      const resolved = resolver.resolve(circuit);
+                      const node = resolved.wires.get(wire.id);
+                      if (node && typeof node === 'string' && node !== '0') {
+                        const stage = e.target.getStage();
+                        const pointer = stage.getPointerPosition();
+                        const rawX = (pointer.x - stage.x()) / stage.scaleX();
+                        const rawY = (pointer.y - stage.y()) / stage.scaleX();
+                        
+                        let minSqDist = Infinity;
+                        let closest = { x: rawX, y: rawY };
+                        for (let i = 0; i < wire.points.length - 1; i++) {
+                          const p1 = wire.points[i];
+                          const p2 = wire.points[i + 1];
+                          const l2 = Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2);
+                          if (l2 === 0) continue;
+                          let t = ((rawX - p1.x) * (p2.x - p1.x) + (rawY - p1.y) * (p2.y - p1.y)) / l2;
+                          t = Math.max(0, Math.min(1, t));
+                          const projX = p1.x + t * (p2.x - p1.x);
+                          const projY = p1.y + t * (p2.y - p1.y);
+                          const distSq = Math.pow(rawX - projX, 2) + Math.pow(rawY - projY, 2);
+                          if (distSq < minSqDist) {
+                            minSqDist = distSq;
+                            closest = { x: projX, y: projY };
+                          }
+                        }
+                        toggleProbe(node, closest.x, closest.y);
+                      }
+                    } else if (mode === 'select') {
+                      e.cancelBubble = true;
+                      if (!e.evt.shiftKey && !selectedIds.includes(wire.id)) {
+                        setSelection([wire.id]);
+                      } else if (e.evt.shiftKey) {
+                        setSelection([...selectedIds, wire.id]);
                       }
                     }
-                    toggleProbe(node, closest.x, closest.y);
-                  }
-                } else if (mode === 'select') {
-                  e.cancelBubble = true;
-                  if (!e.evt.shiftKey && !selectedIds.includes(wire.id)) {
-                    setSelection([wire.id]);
-                  } else if (e.evt.shiftKey) {
-                    setSelection([...selectedIds, wire.id]);
-                  }
-                }
-              }}
-              onPointDragStart={() => {
-                if (!selectedIds.includes(wire.id)) {
-                  setSelection([wire.id]);
-                }
-                useEditorStore.temporal.getState().pause();
-              }}
-              onPointDragEnd={(index, x, y) => {
-                const snapped = getMagneticSnap({x, y}) || {
-                  x: Math.round(x / 10) * 10,
-                  y: Math.round(y / 10) * 10
-                };
-                useEditorStore.temporal.getState().resume();
-                updateWirePoint(wire.id, index, snapped);
-              }}
-              onPointDragMove={(index, x, y) => {
-                updateWirePoint(wire.id, index, { x, y });
-              }}
-              onDblClick={() => setEditingComponent(wire.id)}
-            />
-          )})}
+                  }}
+                  onPointDragStart={() => {
+                    if (!selectedIds.includes(wire.id)) {
+                      setSelection([wire.id]);
+                    }
+                    useEditorStore.temporal.getState().pause();
+                  }}
+                  onPointDragEnd={(index, x, y) => {
+                    const snapped = getMagneticSnap({x, y}, 30, { wireId: wire.id, index }) || {
+                      x: Math.round(x / 10) * 10,
+                      y: Math.round(y / 10) * 10
+                    };
+                    useEditorStore.temporal.getState().resume();
+                    updateWirePoint(wire.id, index, snapped);
+                    setPreviewSnapPos(null);
+                  }}
+                  onPointDragMove={(index, x, y) => {
+                    updateWirePoint(wire.id, index, { x, y });
+                    const snap = getMagneticSnap({x, y}, 30, { wireId: wire.id, index });
+                    if (snap) {
+                      setPreviewSnapPos(snap);
+                    } else {
+                      setPreviewSnapPos(null);
+                    }
+                  }}
+                  onDblClick={() => setEditingComponent(wire.id)}
+                />
+              );
+            };
 
-          {/* 3.5 Junction Dots */}
-          {(() => {
-            const junctionDots: React.ReactNode[] = [];
+            const junctionDots = [];
             const getPointKey = (x: number, y: number) => `${Math.round(x * 100) / 100},${Math.round(y * 100) / 100}`;
             
             const segments = [];
@@ -465,7 +478,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                }
             }
 
-            for (const ptStr of allPoints) {
+            for (const ptStr of Array.from(allPoints)) {
               const [px, py] = ptStr.split(',').map(Number);
               let degree = 0;
               for (const seg of segments) {
@@ -486,7 +499,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                   if (atEndpoint) {
                      degree += 1;
                   } else {
-                     degree += 2; // T-junction on the middle of a segment
+                     degree += 2;
                   }
                 }
               }
@@ -496,127 +509,138 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                  );
               }
             }
-            return junctionDots;
-          })()}
 
-          {/* Calculate Multimeter readings once */}
-          {(() => {
-             const readings: Record<string, string> = {};
-             if (nodeVoltages && Object.keys(nodeVoltages).length > 0) {
-               const resolver = new NodeResolver();
-               const { components } = resolver.resolve(circuit);
-               for (const comp of circuit.components) {
-                 if (comp.type === 'multimeter') {
-                   const pinMap = components.get(comp.id);
-                   if (pinMap) {
-                     const n1 = pinMap.get('1') || '0';
-                     const n2 = pinMap.get('2') || '0';
-                     let reading = 0;
-                     if (comp.params.mode === 'current') {
-                       const branchName = `v.vmm_${comp.id.replace(/-/g, '').toLowerCase()}#branch`;
-                       reading = nodeVoltages[branchName] || 0;
-                     } else {
-                       const v1 = n1 === '0' ? 0 : (nodeVoltages[`v(${n1})`] || 0);
-                       const v2 = n2 === '0' ? 0 : (nodeVoltages[`v(${n2})`] || 0);
-                       reading = v1 - v2;
-                     }
-                     const abs = Math.abs(reading);
-                     let formatted = '0.00 V';
-                     if (comp.params.mode === 'current') {
-                        if (abs === 0) formatted = '0.00 A';
-                        else if (abs >= 1) formatted = `${parseFloat(reading.toFixed(3))} A`;
-                        else if (abs >= 1e-3) formatted = `${parseFloat((reading * 1e3).toFixed(3))} mA`;
-                        else if (abs >= 1e-6) formatted = `${parseFloat((reading * 1e6).toFixed(3))} µA`;
-                        else formatted = `${reading.toExponential(2)} A`;
-                     } else {
-                        if (abs === 0) formatted = '0.00 V';
-                        else if (abs >= 1e3) formatted = `${parseFloat((reading / 1e3).toFixed(3))} kV`;
-                        else if (abs >= 1) formatted = `${parseFloat(reading.toFixed(3))} V`;
-                        else if (abs >= 1e-3) formatted = `${parseFloat((reading * 1e3).toFixed(3))} mV`;
-                        else if (abs >= 1e-6) formatted = `${parseFloat((reading * 1e6).toFixed(3))} µV`;
-                        else formatted = `${reading.toExponential(2)} V`;
-                     }
-                     readings[comp.id] = formatted;
-                   }
-                 }
-               }
-             }
+            const readings: Record<string, string> = {};
+            if (nodeVoltages && Object.keys(nodeVoltages).length > 0) {
+              const resolver = new NodeResolver();
+              const { components } = resolver.resolve(circuit);
+              for (const comp of circuit.components) {
+                if (comp.type === 'multimeter') {
+                  const pinMap = components.get(comp.id);
+                  if (pinMap) {
+                    const n1 = pinMap.get('1') || '0';
+                    const n2 = pinMap.get('2') || '0';
+                    let reading = 0;
+                    if (comp.params.mode === 'current') {
+                      const branchName = `v.vmm_${comp.id.replace(/-/g, '').toLowerCase()}#branch`;
+                      reading = nodeVoltages[branchName] || 0;
+                    } else {
+                      const v1 = n1 === '0' ? 0 : (nodeVoltages[`v(${n1})`] || 0);
+                      const v2 = n2 === '0' ? 0 : (nodeVoltages[`v(${n2})`] || 0);
+                      reading = v1 - v2;
+                    }
+                    const abs = Math.abs(reading);
+                    let formatted = '0.00 V';
+                    if (comp.params.mode === 'current') {
+                       if (abs === 0) formatted = '0.00 A';
+                       else if (abs >= 1) formatted = `${parseFloat(reading.toFixed(3))} A`;
+                       else if (abs >= 1e-3) formatted = `${parseFloat((reading * 1e3).toFixed(3))} mA`;
+                       else if (abs >= 1e-6) formatted = `${parseFloat((reading * 1e6).toFixed(3))} µA`;
+                       else formatted = `${reading.toExponential(2)} A`;
+                    } else {
+                       if (abs === 0) formatted = '0.00 V';
+                       else if (abs >= 1e3) formatted = `${parseFloat((reading / 1e3).toFixed(3))} kV`;
+                       else if (abs >= 1) formatted = `${parseFloat(reading.toFixed(3))} V`;
+                       else if (abs >= 1e-3) formatted = `${parseFloat((reading * 1e3).toFixed(3))} mV`;
+                       else if (abs >= 1e-6) formatted = `${parseFloat((reading * 1e6).toFixed(3))} µV`;
+                       else formatted = `${reading.toExponential(2)} V`;
+                    }
+                    readings[comp.id] = formatted;
+                  }
+                }
+              }
+            }
 
-             return circuit.components.map(comp => {
+            const renderComponent = (comp: any) => {
               const isSelected = selectedIds.includes(comp.id);
               const renderPos = comp.position;
               return (
-              <ComponentNode
-                key={comp.id} 
-                component={{ ...comp, position: renderPos }} 
-                mode={mode}
-                isSelected={isSelected}
-                theme={theme}
-                activeView={activeView}
-                multimeterReading={readings[comp.id]}
-                onSelect={(e) => {
-                if (mode === 'probe') {
-                  const resolver = new NodeResolver();
-                  const resolved = resolver.resolve(circuit);
-                  const pins = resolved.components.get(comp.id);
-                  if (pins && typeof pins !== 'string') {
-                     const node = pins.get("1");
-                     if (node && node !== '0') {
-                       const libComp = ComponentLibrary[comp.type];
-                       const pin = libComp?.pins.find(p => p.id === "1");
-                       let x = comp.position.x;
-                       let y = comp.position.y;
-                       if (pin) {
-                         const rotRad = (comp.rotation || 0) * Math.PI / 180;
-                         const cos = Math.round(Math.cos(rotRad));
-                         const sin = Math.round(Math.sin(rotRad));
-                         const rx = pin.offset.x * cos - pin.offset.y * sin;
-                         const ry = pin.offset.x * sin + pin.offset.y * cos;
-                         x += rx;
-                         y += ry;
-                       }
-                       toggleProbe(node, x, y);
-                     }
-                  }
-                } else if (mode === 'select') {
-                  const stage = e.target.getStage();
-                  const pos = getRelativePointerPosition(stage);
-                  const pinSnap = getMagneticSnap(pos, 12);
-                  if (!pinSnap) {
-                    if (!e.evt.shiftKey && !selectedIds.includes(comp.id)) {
-                      setSelection([comp.id]);
-                    } else if (e.evt.shiftKey) {
-                      setSelection([...selectedIds, comp.id]);
+                <ComponentNode
+                  key={comp.id} 
+                  component={{ ...comp, position: renderPos }} 
+                  mode={mode}
+                  isSelected={isSelected}
+                  theme={theme}
+                  activeView={activeView}
+                  multimeterReading={readings[comp.id]}
+                  onSelect={(e) => {
+                    if (mode === 'probe') {
+                      const resolver = new NodeResolver();
+                      const resolved = resolver.resolve(circuit);
+                      const pins = resolved.components.get(comp.id);
+                      if (pins && typeof pins !== 'string') {
+                         const node = pins.get("1");
+                         if (node && node !== '0') {
+                           const libComp = ComponentLibrary[comp.type];
+                           const pin = libComp?.pins.find(p => p.id === "1");
+                           let x = comp.position.x;
+                           let y = comp.position.y;
+                           if (pin) {
+                             const rotRad = (comp.rotation || 0) * Math.PI / 180;
+                             const cos = Math.round(Math.cos(rotRad));
+                             const sin = Math.round(Math.sin(rotRad));
+                             const rx = pin.offset.x * cos - pin.offset.y * sin;
+                             const ry = pin.offset.x * sin + pin.offset.y * cos;
+                             x += rx;
+                             y += ry;
+                           }
+                           toggleProbe(node, x, y);
+                         }
+                      }
+                    } else if (mode === 'select') {
+                      const stage = e.target.getStage();
+                      const pos = getRelativePointerPosition(stage);
+                      const pinSnap = getMagneticSnap(pos, 12);
+                      if (!pinSnap) {
+                        if (!e.evt.shiftKey && !selectedIds.includes(comp.id)) {
+                          setSelection([comp.id]);
+                        } else if (e.evt.shiftKey) {
+                          setSelection([...selectedIds, comp.id]);
+                        }
+                      }
                     }
-                  }
-                }
-              }}
-              onDblClick={() => setEditingComponent(comp.id)}
-              onDragStart={(e) => {
-                if (!selectedIds.includes(comp.id)) {
-                  setSelection([comp.id]);
-                }
-                // Optionally move to top in Konva tree so dragged items aren't hidden
-                e.target.moveToTop();
-                useEditorStore.temporal.getState().pause();
-              }}
-              onDragMove={(e) => {
-                updateComponentPosition(comp.id, { x: e.target.x(), y: e.target.y() });
-              }}
-              onDragEnd={(e) => {
-                const newPos = {
-                  x: Math.round(e.target.x() / 10) * 10,
-                  y: Math.round(e.target.y() / 10) * 10
-                };
-                useEditorStore.temporal.getState().resume();
-                updateComponentPosition(comp.id, newPos);
-              }}
-              onMouseEnter={() => setHoveredComponentId(comp.id)}
-              onMouseLeave={() => setHoveredComponentId(null)}
-            />
+                  }}
+                  onDblClick={() => setEditingComponent(comp.id)}
+                  onDragStart={(e) => {
+                    if (!selectedIds.includes(comp.id)) {
+                      setSelection([comp.id]);
+                    }
+                    e.target.moveToTop();
+                    useEditorStore.temporal.getState().pause();
+                  }}
+                  onDragMove={(e) => {
+                    updateComponentPosition(comp.id, { x: e.target.x(), y: e.target.y() });
+                  }}
+                  onDragEnd={(e) => {
+                    const newPos = {
+                      x: Math.round(e.target.x() / 10) * 10,
+                      y: Math.round(e.target.y() / 10) * 10
+                    };
+                    useEditorStore.temporal.getState().resume();
+                    updateComponentPosition(comp.id, newPos);
+                  }}
+                  onMouseEnter={() => setHoveredComponentId(comp.id)}
+                  onMouseLeave={() => setHoveredComponentId(null)}
+                />
+              );
+            };
+
+            const unselectedWires = circuit.wires.filter(w => !selectedIds.includes(w.id));
+            const selectedWires = circuit.wires.filter(w => selectedIds.includes(w.id));
+            const unselectedComps = circuit.components.filter(c => !selectedIds.includes(c.id));
+            const selectedComps = circuit.components.filter(c => selectedIds.includes(c.id));
+
+            return (
+              <>
+                {unselectedWires.map(renderWire)}
+                {unselectedComps.map(renderComponent)}
+                {junctionDots}
+                {selectedWires.map(renderWire)}
+                {selectedComps.map(renderComponent)}
+              </>
             );
-          });
-        })()}
+          })()}
+
           
           {mode === 'wire' && drawingWirePoints.length > 0 && mousePos && (
             <Line
@@ -629,6 +653,8 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
               strokeWidth={2}
             />
           )}
+          
+          
           
           {mode === 'place' && componentToPlace && mousePos && (
             <ComponentNode
@@ -690,7 +716,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
           })}
 
         {/* Render node voltages if available */}
-        {nodeVoltages && Object.keys(nodeVoltages).length > 0 && (
+        {nodeVoltages && Object.keys(nodeVoltages).length > 0 && selectedIds.length === 0 && (
           (() => {
             const resolver = new NodeResolver();
             const { components, wires } = resolver.resolve(circuit);
@@ -827,7 +853,62 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
           {probes.map(probe => (
             <ProbeKonvaNode key={`probe-${probe.nodeId}`} probe={probe} />
           ))}
-        </Layer>
+        
+          {/* Approach A: Hollow preview dot (Moved here to ensure it renders ON TOP of everything, including pin indicators) */}
+          {mode === 'wire' && drawingWirePoints.length > 0 && mousePos && (() => {
+             let onWire = false;
+             for (const wire of circuit.wires) {
+               for (let i = 0; i < wire.points.length - 1; i++) {
+                 const p1 = wire.points[i];
+                 const p2 = wire.points[i+1];
+                 const l2 = Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2);
+                 let dist = 0;
+                 if (l2 === 0) dist = Math.hypot(mousePos.x - p1.x, mousePos.y - p1.y);
+                 else {
+                   let t = ((mousePos.x - p1.x) * (p2.x - p1.x) + (mousePos.y - p1.y) * (p2.y - p1.y)) / l2;
+                   t = Math.max(0, Math.min(1, t));
+                   const projX = p1.x + t * (p2.x - p1.x);
+                   const projY = p1.y + t * (p2.y - p1.y);
+                   dist = Math.hypot(mousePos.x - projX, mousePos.y - projY);
+                 }
+                 if (dist <= 1) {
+                   onWire = true;
+                   break;
+                 }
+               }
+               if (onWire) break;
+             }
+             if (!onWire) {
+               for (const comp of circuit.components) {
+                 const libComp = ComponentLibrary[comp.type];
+                 if (!libComp) continue;
+                 const rotRad = (comp.rotation || 0) * Math.PI / 180;
+                 const cos = Math.round(Math.cos(rotRad));
+                 const sin = Math.round(Math.sin(rotRad));
+                 for (const pin of libComp.pins) {
+                   const rx = comp.mirrored ? -pin.offset.x : pin.offset.x;
+                   const ry = pin.offset.y;
+                   const px = comp.position.x + (rx * cos - ry * sin);
+                   const py = comp.position.y + (rx * sin + ry * cos);
+                   if (Math.hypot(mousePos.x - px, mousePos.y - py) <= 1) {
+                     onWire = true;
+                     break;
+                   }
+                 }
+                 if (onWire) break;
+               }
+             }
+             if (onWire) {
+               return <Circle x={mousePos.x} y={mousePos.y} radius={8} stroke={theme === 'dark' ? '#f1c40f' : '#e67e22'} strokeWidth={3} fill="transparent" listening={false} />;
+             }
+             return null;
+          })()}
+
+          {/* Preview dot for DRAGGING existing wire points */}
+          {previewSnapPos && (
+             <Circle x={previewSnapPos.x} y={previewSnapPos.y} radius={8} stroke={theme === 'dark' ? '#f1c40f' : '#e67e22'} strokeWidth={3} fill="transparent" listening={false} />
+          )}
+</Layer>
       </Stage>
     </div>
   );
