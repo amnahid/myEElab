@@ -7,7 +7,15 @@ export class NodeResolver {
   private nextNodeId = 1;
 
   private getPointKey(p: Point) {
-    return `${p.x},${p.y}`;
+    return `${Math.round(p.x)},${Math.round(p.y)}`;
+  }
+
+  private distanceToSegment(p: Point, a: Point, b: Point): number {
+    const l2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+    if (l2 === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+    let t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(p.x - (a.x + t * (b.x - a.x)), p.y - (a.y + t * (b.y - a.y)));
   }
 
   private find(i: number): number {
@@ -37,6 +45,9 @@ export class NodeResolver {
   }
 
   public resolve(circuit: Circuit): { components: Map<string, Map<string, string>>, wires: Map<string, string> } {
+    // Collect all wire segments for intersection/T-junction checks
+    const allSegments: { a: Point, b: Point, aId: number }[] = [];
+
     // 1. Process all wires
     const wirePoints = new Map<string, number>();
     for (const wire of circuit.wires) {
@@ -46,6 +57,11 @@ export class NodeResolver {
         for (let i = 1; i < wire.points.length; i++) {
           const pointId = this.addPoint(wire.points[i]);
           this.union(firstId, pointId);
+          allSegments.push({
+            a: wire.points[i - 1],
+            b: wire.points[i],
+            aId: firstId
+          });
         }
       }
     }
@@ -53,6 +69,7 @@ export class NodeResolver {
     // 2. Identify all component pins and map them to points
     const compPins = new Map<string, Map<string, number>>();
     let groundRoot: number | null = null;
+    const allPointsList: { point: Point, id: number }[] = [];
 
     for (const comp of circuit.components) {
       const libComp = ComponentLibrary[comp.type];
@@ -79,6 +96,7 @@ export class NodeResolver {
         };
         const pointId = this.addPoint(absPoint);
         pinMap.set(pin.id, pointId);
+        allPointsList.push({ point: absPoint, id: pointId });
 
         // If this is a ground component, its point must map to node "0"
         if (comp.type === "ground" && pin.label === "gnd") {
@@ -92,6 +110,17 @@ export class NodeResolver {
         }
       }
       compPins.set(comp.id, pinMap);
+    }
+
+    // 2.5 Union any point that lies on a wire segment (T-junctions & wire overlaps)
+    for (const [key, pointId] of this.pointToNodeId.entries()) {
+      const [px, py] = key.split(',').map(Number);
+      const p = { x: px, y: py };
+      for (const seg of allSegments) {
+        if (this.distanceToSegment(p, seg.a, seg.b) <= 4) {
+          this.union(pointId, seg.aId);
+        }
+      }
     }
 
     // 3. Assign netlist names to roots

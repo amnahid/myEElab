@@ -16,8 +16,9 @@ self.onmessage = async (e) => {
       const results = await sim.runSim();
       
       self.postMessage({ type: "results", results });
-    } catch (err) {
-      self.postMessage({ type: "error", error: err });
+    } catch (err: any) {
+      const message = err?.message || (typeof err === 'string' ? err : String(err));
+      self.postMessage({ type: "error", error: message });
     }
   }
 };

@@ -172,6 +172,35 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
         }
       }
     }
+
+    // Also check wire vertices and segments for T-junctions
+    for (const wire of circuit.wires) {
+      for (let i = 0; i < wire.points.length; i++) {
+        const wp = wire.points[i];
+        const dist = Math.hypot(rawPos.x - wp.x, rawPos.y - wp.y);
+        if (dist < closestDist) {
+          closestDist = dist;
+          snapPos = { x: wp.x, y: wp.y };
+        }
+        if (i > 0) {
+          const a = wire.points[i - 1];
+          const b = wire.points[i];
+          const l2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+          if (l2 > 0) {
+            let t = ((rawPos.x - a.x) * (b.x - a.x) + (rawPos.y - a.y) * (b.y - a.y)) / l2;
+            t = Math.max(0, Math.min(1, t));
+            const projX = Math.round((a.x + t * (b.x - a.x)) / 10) * 10;
+            const projY = Math.round((a.y + t * (b.y - a.y)) / 10) * 10;
+            const distSeg = Math.hypot(rawPos.x - projX, rawPos.y - projY);
+            if (distSeg < closestDist) {
+              closestDist = distSeg;
+              snapPos = { x: projX, y: projY };
+            }
+          }
+        }
+      }
+    }
+
     return snapPos;
   };
 
@@ -206,21 +235,18 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
       }
 
       if (drawingWirePoints.length === 0) {
-        // Only start wiring if we clicked a pin
-        if (pinSnap) {
-          setDrawingWirePoints([pinSnap]);
-        }
+        const startPos = pinSnap || snappedPos;
+        setDrawingWirePoints([startPos]);
       } else {
         const last = drawingWirePoints[drawingWirePoints.length - 1];
-        if (!pinSnap) {
-          if (last.x !== snappedPos.x || last.y !== snappedPos.y) {
-            setDrawingWirePoints([...drawingWirePoints, snappedPos]);
-          }
-        } else {
-          if (last.x !== pinSnap.x || last.y !== pinSnap.y) {
+        const nextPos = pinSnap || snappedPos;
+        if (last.x !== nextPos.x || last.y !== nextPos.y) {
+          if (pinSnap) {
             addWire([...drawingWirePoints, pinSnap]);
             setDrawingWirePoints([]);
             setMode('select');
+          } else {
+            setDrawingWirePoints([...drawingWirePoints, nextPos]);
           }
         }
       }

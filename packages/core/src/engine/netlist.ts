@@ -86,21 +86,7 @@ export class NetlistGenerator {
       }
     }
 
-    // Append active analysis
-    const analysis = circuit.analyses.find(a => a.kind === activeAnalysis);
-    if (analysis) {
-      if (analysis.kind === "op") {
-        lines.push(`.op`);
-      } else if (analysis.kind === "tran") {
-        lines.push(`.tran ${analysis.params.step} ${analysis.params.stop}`);
-      } else if (analysis.kind === "ac") {
-        lines.push(`.ac ${analysis.params.variation} ${analysis.params.points} ${analysis.params.fstart} ${analysis.params.fstop}`);
-      } else if (analysis.kind === "dc") {
-        lines.push(`.dc ${analysis.params.source} ${analysis.params.start} ${analysis.params.stop} ${analysis.params.step}`);
-      }
-    }
-
-    // Default Models for Semiconductors
+    // Default Models for Semiconductors & Subcircuits
     lines.push(".model 1N4148 D(IS=2.52n RS=0.568 N=1.752 CJO=4p M=0.4 tt=20n IKF=1000)");
     lines.push(".model 2N3904 NPN(IS=1E-14 VAF=100 Bf=300 IKF=0.4 XTB=1.5 BR=4 CJC=4E-12 CJE=8E-12 TR=250E-9 TF=350E-12 ITF=1 VTF=2 XTF=3 RB=10)");
     lines.push(".model 2N3906 PNP(IS=1E-14 VAF=100 Bf=200 IKF=0.4 XTB=1.5 BR=4 CJC=4.5E-12 CJE=10E-12 TR=250E-9 TF=350E-12 ITF=1 VTF=2 XTF=3 RB=10)");
@@ -113,6 +99,20 @@ export class NetlistGenerator {
 
     if (circuit.customModels) {
       lines.push(circuit.customModels);
+    }
+
+    // Append active analysis at the end, right before .end
+    const analysis = circuit.analyses.find(a => a.kind === activeAnalysis);
+    if (analysis) {
+      if (analysis.kind === "op") {
+        lines.push(`.op`);
+      } else if (analysis.kind === "tran") {
+        lines.push(`.tran ${analysis.params.step} ${analysis.params.stop}`);
+      } else if (analysis.kind === "ac") {
+        lines.push(`.ac ${analysis.params.variation} ${analysis.params.points} ${analysis.params.fstart} ${analysis.params.fstop}`);
+      } else if (analysis.kind === "dc") {
+        lines.push(`.dc ${analysis.params.source} ${analysis.params.start} ${analysis.params.stop} ${analysis.params.step}`);
+      }
     }
 
     lines.push(".end");
