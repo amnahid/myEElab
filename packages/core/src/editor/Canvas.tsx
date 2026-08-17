@@ -189,8 +189,8 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
           if (l2 > 0) {
             let t = ((rawPos.x - a.x) * (b.x - a.x) + (rawPos.y - a.y) * (b.y - a.y)) / l2;
             t = Math.max(0, Math.min(1, t));
-            const projX = Math.round((a.x + t * (b.x - a.x)) / 10) * 10;
-            const projY = Math.round((a.y + t * (b.y - a.y)) / 10) * 10;
+            const projX = a.x + t * (b.x - a.x);
+            const projY = a.y + t * (b.y - a.y);
             const distSeg = Math.hypot(rawPos.x - projX, rawPos.y - projY);
             if (distSeg < closestDist) {
               closestDist = distSeg;
@@ -401,7 +401,8 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                     }
                     toggleProbe(node, closest.x, closest.y);
                   }
-                } else {
+                } else if (mode === 'select') {
+                  e.cancelBubble = true;
                   if (!e.evt.shiftKey && !selectedIds.includes(wire.id)) {
                     setSelection([wire.id]);
                   } else if (e.evt.shiftKey) {
@@ -430,19 +431,130 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             />
           )})}
 
-          {/* 2. Components */}
-          {circuit.components.map(comp => {
-            const isSelected = selectedIds.includes(comp.id);
-            const renderPos = comp.position;
-            return (
-            <ComponentNode
-              key={comp.id} 
-              component={{ ...comp, position: renderPos }} 
-              mode={mode}
-              isSelected={isSelected}
-              theme={theme}
-              activeView={activeView}
-              onSelect={(e) => {
+          {/* 3.5 Junction Dots */}
+          {(() => {
+            const junctionDots: React.ReactNode[] = [];
+            const getPointKey = (x: number, y: number) => `${Math.round(x * 100) / 100},${Math.round(y * 100) / 100}`;
+            
+            const segments = [];
+            for (const wire of circuit.wires) {
+               for (let i = 0; i < wire.points.length - 1; i++) {
+                 segments.push({ p1: wire.points[i], p2: wire.points[i+1] });
+               }
+            }
+
+            const allPoints = new Set<string>();
+            for (const wire of circuit.wires) {
+               for (const p of wire.points) {
+                 allPoints.add(getPointKey(p.x, p.y));
+               }
+            }
+            for (const comp of circuit.components) {
+               const libComp = ComponentLibrary[comp.type];
+               if (libComp) {
+                 const rotRad = (comp.rotation || 0) * Math.PI / 180;
+                 const cos = Math.round(Math.cos(rotRad));
+                 const sin = Math.round(Math.sin(rotRad));
+                 for (const pin of libComp.pins) {
+                   const rx = comp.mirrored ? -pin.offset.x : pin.offset.x;
+                   const ry = pin.offset.y;
+                   const x = comp.position.x + (rx * cos - ry * sin);
+                   const y = comp.position.y + (rx * sin + ry * cos);
+                   allPoints.add(getPointKey(x, y));
+                 }
+               }
+            }
+
+            for (const ptStr of allPoints) {
+              const [px, py] = ptStr.split(',').map(Number);
+              let degree = 0;
+              for (const seg of segments) {
+                const l2 = Math.pow(seg.p2.x - seg.p1.x, 2) + Math.pow(seg.p2.y - seg.p1.y, 2);
+                let dist = 0;
+                if (l2 === 0) {
+                  dist = Math.hypot(px - seg.p1.x, py - seg.p1.y);
+                } else {
+                  let t = ((px - seg.p1.x) * (seg.p2.x - seg.p1.x) + (py - seg.p1.y) * (seg.p2.y - seg.p1.y)) / l2;
+                  t = Math.max(0, Math.min(1, t));
+                  const projX = seg.p1.x + t * (seg.p2.x - seg.p1.x);
+                  const projY = seg.p1.y + t * (seg.p2.y - seg.p1.y);
+                  dist = Math.hypot(px - projX, py - projY);
+                }
+                
+                if (dist <= 1) {
+                  const atEndpoint = Math.hypot(px - seg.p1.x, py - seg.p1.y) <= 1 || Math.hypot(px - seg.p2.x, py - seg.p2.y) <= 1;
+                  if (atEndpoint) {
+                     degree += 1;
+                  } else {
+                     degree += 2; // T-junction on the middle of a segment
+                  }
+                }
+              }
+              if (degree >= 3) {
+                 junctionDots.push(
+                    <Circle key={`junc-${ptStr}`} x={px} y={py} radius={3.5} fill={theme === 'dark' ? '#cdd6f4' : '#34495e'} listening={false} />
+                 );
+              }
+            }
+            return junctionDots;
+          })()}
+
+          {/* Calculate Multimeter readings once */}
+          {(() => {
+             const readings: Record<string, string> = {};
+             if (nodeVoltages && Object.keys(nodeVoltages).length > 0) {
+               const resolver = new NodeResolver();
+               const { components } = resolver.resolve(circuit);
+               for (const comp of circuit.components) {
+                 if (comp.type === 'multimeter') {
+                   const pinMap = components.get(comp.id);
+                   if (pinMap) {
+                     const n1 = pinMap.get('1') || '0';
+                     const n2 = pinMap.get('2') || '0';
+                     let reading = 0;
+                     if (comp.params.mode === 'current') {
+                       const branchName = `v.vmm_${comp.id.replace(/-/g, '').toLowerCase()}#branch`;
+                       reading = nodeVoltages[branchName] || 0;
+                     } else {
+                       const v1 = n1 === '0' ? 0 : (nodeVoltages[`v(${n1})`] || 0);
+                       const v2 = n2 === '0' ? 0 : (nodeVoltages[`v(${n2})`] || 0);
+                       reading = v1 - v2;
+                     }
+                     const abs = Math.abs(reading);
+                     let formatted = '0.00 V';
+                     if (comp.params.mode === 'current') {
+                        if (abs === 0) formatted = '0.00 A';
+                        else if (abs >= 1) formatted = `${parseFloat(reading.toFixed(3))} A`;
+                        else if (abs >= 1e-3) formatted = `${parseFloat((reading * 1e3).toFixed(3))} mA`;
+                        else if (abs >= 1e-6) formatted = `${parseFloat((reading * 1e6).toFixed(3))} µA`;
+                        else formatted = `${reading.toExponential(2)} A`;
+                     } else {
+                        if (abs === 0) formatted = '0.00 V';
+                        else if (abs >= 1e3) formatted = `${parseFloat((reading / 1e3).toFixed(3))} kV`;
+                        else if (abs >= 1) formatted = `${parseFloat(reading.toFixed(3))} V`;
+                        else if (abs >= 1e-3) formatted = `${parseFloat((reading * 1e3).toFixed(3))} mV`;
+                        else if (abs >= 1e-6) formatted = `${parseFloat((reading * 1e6).toFixed(3))} µV`;
+                        else formatted = `${reading.toExponential(2)} V`;
+                     }
+                     readings[comp.id] = formatted;
+                   }
+                 }
+               }
+             }
+
+             return circuit.components.map(comp => {
+              const isSelected = selectedIds.includes(comp.id);
+              const renderPos = comp.position;
+              return (
+              <ComponentNode
+                key={comp.id} 
+                component={{ ...comp, position: renderPos }} 
+                mode={mode}
+                isSelected={isSelected}
+                theme={theme}
+                activeView={activeView}
+                multimeterReading={readings[comp.id]}
+                onSelect={(e) => {
                 if (mode === 'probe') {
                   const resolver = new NodeResolver();
                   const resolved = resolver.resolve(circuit);
@@ -503,7 +615,8 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
               onMouseLeave={() => setHoveredComponentId(null)}
             />
             );
-          })}
+          });
+        })()}
           
           {mode === 'wire' && drawingWirePoints.length > 0 && mousePos && (
             <Line
@@ -583,7 +696,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             const { components, wires } = resolver.resolve(circuit);
             
             // To render the node voltage, we can find the first coordinate associated with each node
-            const nodeCoords = new Map<string, {x: number, y: number}>();
+            const nodeCoords = new Map<string, {x: number, y: number, dir: string}>();
             
             // For each node, collect all wire segments
             const nodeSegments = new Map<string, {p1: {x:number, y:number}, p2: {x:number, y:number}}[]>();
@@ -598,7 +711,9 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                   segs.push({ p1: wire.points[i], p2: wire.points[i+1] });
                 }
               } else if (nodeName && wire.points.length === 1) {
-                if (!nodeCoords.has(nodeName)) nodeCoords.set(nodeName, wire.points[0]);
+                if (!nodeCoords.has(nodeName)) {
+                  nodeCoords.set(nodeName, { ...wire.points[0], dir: 'down' });
+                }
               }
             }
             
@@ -614,9 +729,18 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                 }
               }
               if (longest) {
+                const dx = longest.p2.x - longest.p1.x;
+                const dy = longest.p2.y - longest.p1.y;
+                let dir = 'down';
+                if (Math.abs(dx) < Math.abs(dy)) {
+                  dir = 'left';
+                } else {
+                  dir = 'down';
+                }
                 nodeCoords.set(nodeName, { 
                   x: (longest.p1.x + longest.p2.x) / 2, 
-                  y: (longest.p1.y + longest.p2.y) / 2 
+                  y: (longest.p1.y + longest.p2.y) / 2,
+                  dir
                 });
               }
             }
@@ -637,7 +761,15 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                       const mirroredOffsetY = pin.offset.y;
                       const rx = mirroredOffsetX * cos - mirroredOffsetY * sin;
                       const ry = mirroredOffsetX * sin + mirroredOffsetY * cos;
-                      nodeCoords.set(nodeName, { x: comp.position.x + rx, y: comp.position.y + ry });
+                      
+                      let dir = 'down';
+                      if (Math.abs(rx) > Math.abs(ry)) {
+                        dir = rx > 0 ? 'left' : 'right';
+                      } else {
+                        dir = ry > 0 ? 'up' : 'down';
+                      }
+                      
+                      nodeCoords.set(nodeName, { x: comp.position.x + rx, y: comp.position.y + ry, dir });
                     }
                   }
                 }
@@ -662,7 +794,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                   <Label
                     key={`v-${nodeName}`}
                     x={coord.x}
-                    y={coord.y - 12}
+                    y={coord.y}
                     listening={false}
                   >
                     <Tag 
@@ -670,15 +802,18 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                       stroke={theme === 'dark' ? '#89b4fa' : '#3498db'} 
                       strokeWidth={1} 
                       cornerRadius={3}
+                      pointerDirection={coord.dir}
+                      pointerWidth={8}
+                      pointerHeight={8}
                       shadowColor="rgba(0,0,0,0.15)"
                       shadowBlur={3}
                     />
                     <Text
                       text={formatted}
                       fontSize={9}
+                      padding={4}
                       fill={theme === 'dark' ? '#89b4fa' : '#2980b9'}
                       fontStyle="bold"
-                      padding={3}
                     />
                   </Label>
                 );

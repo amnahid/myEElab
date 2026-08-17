@@ -20,7 +20,7 @@ export class NetlistGenerator {
     const counters: Record<string, number> = {};
 
     for (const comp of circuit.components) {
-      if (comp.type === "ground") continue; // Ground doesn't emit a component line
+      if (comp.type === "ground" || comp.type === "oscilloscope" || comp.type === "breadboard") continue;
 
       const pins = nodeMap.get(comp.id);
       if (!pins) {
@@ -31,19 +31,23 @@ export class NetlistGenerator {
       // Assign refDes if missing
       let refDes = comp.refDes;
       if (!refDes) {
-        let prefix = "X";
-        if (comp.type === "resistor") prefix = "R";
-        else if (comp.type === "capacitor") prefix = "C";
-        else if (comp.type === "inductor") prefix = "L";
-        else if (comp.type === "vsource") prefix = "V";
-        else if (comp.type === "isource") prefix = "I";
-        else if (comp.type === "diode") prefix = "D";
-        else if (comp.type === "npn" || comp.type === "pnp") prefix = "Q";
-        else if (comp.type === "nmos" || comp.type === "pmos") prefix = "M";
-        else if (comp.type === "opamp") prefix = "X";
-        
-        counters[prefix] = (counters[prefix] || 0) + 1;
-        refDes = `${prefix}${counters[prefix]}`;
+        if (comp.type === "multimeter") {
+          refDes = `${comp.params.mode === "current" ? "VMM_" : "RMM_"}${comp.id.replace(/-/g, '')}`;
+        } else {
+          let prefix = "X";
+          if (comp.type === "resistor") prefix = "R";
+          else if (comp.type === "capacitor") prefix = "C";
+          else if (comp.type === "inductor") prefix = "L";
+          else if (comp.type === "vsource") prefix = "V";
+          else if (comp.type === "isource") prefix = "I";
+          else if (comp.type === "diode") prefix = "D";
+          else if (comp.type === "npn" || comp.type === "pnp") prefix = "Q";
+          else if (comp.type === "nmos" || comp.type === "pmos") prefix = "M";
+          else if (comp.type === "opamp") prefix = "X";
+          
+          counters[prefix] = (counters[prefix] || 0) + 1;
+          refDes = `${prefix}${counters[prefix]}`;
+        }
       }
 
       // Build value string
@@ -51,11 +55,15 @@ export class NetlistGenerator {
       if (comp.type === "resistor") value = comp.params.resistance?.toString() || "1k";
       else if (comp.type === "capacitor") value = comp.params.capacitance?.toString() || "1u";
       else if (comp.type === "inductor") value = comp.params.inductance?.toString() || "1m";
+      else if (comp.type === "multimeter") {
+        if (comp.params.mode === "current") value = "DC 0";
+        else value = "1G"; // 1 Gigaohm for voltage/resistance mode
+      }
       else if (comp.type === "vsource" || comp.type === "isource") {
         if (comp.params.type === "dc" || !comp.params.type) {
            value = `DC ${comp.params.dc || comp.params.value || 0}`;
         } else if (comp.params.type === "ac") {
-           value = `AC ${comp.params.ac_mag || 1} ${comp.params.ac_phase || 0}`;
+           value = `AC ${comp.params.acMag || comp.params.ac_mag || 1} ${comp.params.acPhase || comp.params.ac_phase || 0}`;
         } else if (comp.params.type === "sin") {
            value = `SINE(${comp.params.offset || 0} ${comp.params.amplitude || 1} ${comp.params.frequency || "1k"})`;
         } else {

@@ -240,6 +240,19 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
           </>
         )}
 
+        {editingComponent && editingComponent.type === 'multimeter' && (
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Mode</label>
+            <select
+              value={editingComponent.params.mode || 'voltage'}
+              onChange={e => updateComponentParams(editingComponent.id, { mode: e.target.value })}
+              style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }}
+            >
+              <option value="voltage">DC Voltage (V)</option>
+              <option value="current">DC Current (A)</option>
+            </select>
+          </div>
+        )}
 
         {editingComponent && ['diode', 'npn', 'pnp', 'nmos', 'pmos', 'opamp'].includes(editingComponent.type) && (
           <div>

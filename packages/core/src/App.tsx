@@ -8,6 +8,8 @@ import { BodePlot } from './components/BodePlot';
 import { PropertyPopup } from './components/PropertyPopup';
 import { ProbeMenuIcon } from './editor/ProbeIcon';
 
+import { ScopeWindow } from './components/ScopeWindow';
+import { NodeResolver } from './engine/nodeResolver';
 import { ComponentLibrary } from './engine/library';
 
 const ComponentIcons: Record<string, React.ReactNode> = {
@@ -118,6 +120,15 @@ const ComponentIcons: Record<string, React.ReactNode> = {
       <circle cx="18" cy="8" r="1" />
       <circle cx="18" cy="12" r="1" />
       <circle cx="18" cy="16" r="1" />
+    </svg>
+  ),
+  multimeter: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="2" width="16" height="20" rx="2" />
+      <rect x="6" y="4" width="12" height="6" fill="currentColor" opacity="0.2" rx="1" />
+      <circle cx="12" cy="14" r="3" />
+      <circle cx="8" cy="19" r="1" />
+      <circle cx="16" cy="19" r="1" />
     </svg>
   ),
   breadboard: (
@@ -245,6 +256,15 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
       <circle cx="18" cy="16" r="1" fill="#ecf0f1" />
     </svg>
   ),
+  multimeter: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="2" width="16" height="20" fill="#f1c40f" rx="2" />
+      <rect x="6" y="4" width="12" height="6" fill="#ecf0f1" rx="1" />
+      <circle cx="12" cy="14" r="3" fill="#34495e" />
+      <circle cx="8" cy="19" r="1" fill="#c0392b" />
+      <circle cx="16" cy="19" r="1" fill="#2c3e50" />
+    </svg>
+  ),
   breadboard: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="6" width="20" height="12" fill="#ecf0f1" stroke="#bdc3c7" strokeWidth="1" rx="2" />
@@ -261,7 +281,22 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
 };
 
 function App() {
-  const { mode, setMode, deleteSelected, circuit, rotateSelected, mirrorSelected, componentToPlace, activeAnalysis, setActiveAnalysis, updateAnalysis, setCustomModels, probes, clearAll, theme, toggleTheme, activeView, setActiveView } = useEditorStore();
+  const { mode, setMode, deleteSelected, circuit, rotateSelected, mirrorSelected, componentToPlace, activeAnalysis, setActiveAnalysis, updateAnalysis, setCustomModels, probes, clearAll, editingComponentId, activeView, setActiveView } = useEditorStore();
+  const theme = useEditorStore(state => state.theme);
+  const toggleTheme = useEditorStore(state => state.toggleTheme);
+  
+  const [activeScopeId, setActiveScopeId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (editingComponentId) {
+      const comp = circuit.components.find(c => c.id === editingComponentId);
+      if (comp?.type === 'oscilloscope') {
+        setActiveScopeId(comp.id);
+        useEditorStore.getState().setEditingComponent(null);
+      }
+    }
+  }, [editingComponentId, circuit.components]);
+
   const workerRef = useRef<Worker | null>(null);
   const [nodeVoltages, setNodeVoltages] = useState<Record<string, number>>({});
   const [tranData, setTranData] = useState<{ time: number[], vectors: Record<string, number[]> }>({ time: [], vectors: {} });
@@ -704,6 +739,26 @@ function App() {
       )}
       {activeAnalysis === 'ac' && (
         <BodePlot data={acData} />
+      )}
+
+      {activeScopeId && (
+        (() => {
+          const scopeComp = circuit.components.find(c => c.id === activeScopeId);
+          if (!scopeComp) return null;
+          const resolver = new NodeResolver();
+          const { components } = resolver.resolve(circuit);
+          const nodeMap = components.get(activeScopeId);
+          if (!nodeMap) return null;
+          
+          return (
+            <ScopeWindow
+              oscilloscope={scopeComp}
+              data={tranData}
+              onClose={() => setActiveScopeId(null)}
+              nodeMap={nodeMap}
+            />
+          );
+        })()
       )}
     </div>
   );

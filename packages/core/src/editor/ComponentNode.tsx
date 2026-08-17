@@ -17,9 +17,10 @@ interface Props {
   mode: string;
   theme?: 'light' | 'dark';
   activeView?: 'schematic' | 'breadboard';
+  multimeterReading?: string;
 }
 
-export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect, onDblClick, onDragStart, onDragEnd, onDragMove, onMouseEnter, onMouseLeave, opacity = 1, mode, theme = 'light', activeView = 'schematic' }) => {
+export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect, onDblClick, onDragStart, onDragEnd, onDragMove, onMouseEnter, onMouseLeave, opacity = 1, mode, theme = 'light', activeView = 'schematic', multimeterReading }) => {
   const { type, position, color } = component;
   const defaultStroke = theme === 'dark' ? '#cdd6f4' : 'black';
   const strokeColor = isSelected ? '#3498db' : (color || defaultStroke);
@@ -169,6 +170,15 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Text text="OSC" x={-10} y={-5} fontSize={10} fill={strokeColor} />
             <Line points={[-40, -20, -25, -20]} stroke={strokeColor} strokeWidth={2} />
             <Line points={[-40, 20, -25, 20]} stroke={strokeColor} strokeWidth={2} />
+          </Group>
+        );
+      case 'multimeter':
+        return (
+          <Group>
+            <Rect x={-15} y={-20} width={30} height={40} stroke={strokeColor} strokeWidth={2} fill="transparent" />
+            <Text text={multimeterReading || "V/A"} x={-12} y={-5} fontSize={8} fill={strokeColor} />
+            <Line points={[0, -40, 0, -20]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[0, 40, 0, 20]} stroke={strokeColor} strokeWidth={2} />
           </Group>
         );
       default:
@@ -379,6 +389,22 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
           </Group>
         );
       }
+      case 'multimeter': {
+        return (
+          <Group>
+            <Rect x={-25} y={-30} width={50} height={60} fill={bodyColor || '#f1c40f'} cornerRadius={3} stroke="#d4ac0d" strokeWidth={2} />
+            <Rect x={-20} y={-25} width={40} height={15} fill="#95a5a6" cornerRadius={2} />
+            <Text text={multimeterReading || "0.00"} x={-18} y={-22} fontSize={9} fill="#2c3e50" fontStyle="bold" />
+            <Circle x={0} y={5} radius={10} fill="#34495e" />
+            <Circle x={0} y={5} radius={8} fill="#2c3e50" />
+            <Line points={[0, 5, 0, -3]} stroke="#ecf0f1" strokeWidth={2} />
+            <Circle x={-10} y={22} radius={3} fill="#c0392b" />
+            <Circle x={10} y={22} radius={3} fill="#2c3e50" />
+            <Line points={[0, -40, 0, -30]} stroke="#c0392b" strokeWidth={2} />
+            <Line points={[0, 40, 0, 30]} stroke="#2c3e50" strokeWidth={2} />
+          </Group>
+        );
+      }
       default:
         return <Circle radius={10} fill="red" />;
     }
@@ -460,7 +486,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
       }}
     >
       <Group rotation={component.rotation || 0} scaleX={component.mirrored ? -1 : 1}>
-        <Rect x={-20} y={-30} width={40} height={60} fill="transparent" />
+        <Rect x={-10} y={-20} width={20} height={40} fill="transparent" />
         {activeView === 'breadboard' ? renderPhysicalSymbol() : renderSchematicSymbol()}
       </Group>
       

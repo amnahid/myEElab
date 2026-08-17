@@ -114,6 +114,15 @@ export const ComponentLibrary: Record<string, { name?: string, type?: string, pi
     ],
     defaultParams: {}
   },
+  multimeter: {
+    type: "multimeter",
+    name: "Multimeter",
+    pins: [
+      { id: "1", label: "V/A/Ω", offset: { x: 0, y: -40 } },
+      { id: "2", label: "COM", offset: { x: 0, y: 40 } },
+    ],
+    defaultParams: { mode: "voltage" }
+  },
   breadboard: {
     type: "breadboard",
     name: "Breadboard",

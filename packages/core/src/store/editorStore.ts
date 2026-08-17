@@ -177,26 +177,62 @@ export const useEditorStore = create<EditorState>()(
             movingCompIds.has(c.id) ? { ...c, position: { x: c.position.x + dx, y: c.position.y + dy } } : c
           );
 
-            const wires = state.circuit.wires.map(w => {
-              let changed = false;
-              const newPoints = w.points.map(p => {
-                let matched = false;
-                for (const oldAbs of oldPinAbsPos) {
-                  if (Math.abs(p.x - oldAbs.x) < 1 && Math.abs(p.y - oldAbs.y) < 1) {
-                    matched = true;
-                    break;
-                  }
-                }
-                if (matched) {
-                  changed = true;
-                  return { x: p.x + dx, y: p.y + dy };
-                }
-                return p;
-              });
-              return changed ? { ...w, points: newPoints } : w;
-            });
+          const newWires = state.circuit.wires.map(w => ({ ...w, points: w.points.map(p => ({ ...p })) }));
 
-            return { circuit: { ...state.circuit, components, wires } };
+          const tJunctions: { cw: number, cp: number, pw: number, ps: number, t: number }[] = [];
+          for (let cw = 0; cw < newWires.length; cw++) {
+             for (let cp = 0; cp < newWires[cw].points.length; cp++) {
+                const J = newWires[cw].points[cp];
+                let found = false;
+                for (let pw = 0; pw < newWires.length; pw++) {
+                   for (let ps = 0; ps < newWires[pw].points.length - 1; ps++) {
+                      if (cw === pw && (cp === ps || cp === ps + 1)) continue;
+                      
+                      const A = newWires[pw].points[ps];
+                      const B = newWires[pw].points[ps+1];
+                      const l2 = Math.pow(B.x - A.x, 2) + Math.pow(B.y - A.y, 2);
+                      if (l2 === 0) continue;
+                      
+                      let t = ((J.x - A.x) * (B.x - A.x) + (J.y - A.y) * (B.y - A.y)) / l2;
+                      if (t > 0.001 && t < 0.999) {
+                         const projX = A.x + t * (B.x - A.x);
+                         const projY = A.y + t * (B.y - A.y);
+                         if (Math.hypot(J.x - projX, J.y - projY) < 1) {
+                            tJunctions.push({ cw, cp, pw, ps, t });
+                            found = true;
+                            break;
+                         }
+                      }
+                   }
+                   if (found) break;
+                }
+             }
+          }
+
+          for (let cw = 0; cw < newWires.length; cw++) {
+             for (let cp = 0; cp < newWires[cw].points.length; cp++) {
+                const p = newWires[cw].points[cp];
+                for (const oldPin of oldPinAbsPos) {
+                   if (Math.abs(p.x - oldPin.x) < 1 && Math.abs(p.y - oldPin.y) < 1) {
+                      p.x += dx;
+                      p.y += dy;
+                      break;
+                   }
+                }
+             }
+          }
+
+          for (let iter = 0; iter < 5; iter++) {
+             for (const junc of tJunctions) {
+                const A = newWires[junc.pw].points[junc.ps];
+                const B = newWires[junc.pw].points[junc.ps+1];
+                const J = newWires[junc.cw].points[junc.cp];
+                J.x = Math.round((A.x + junc.t * (B.x - A.x)) * 100) / 100;
+                J.y = Math.round((A.y + junc.t * (B.y - A.y)) * 100) / 100;
+             }
+          }
+
+          return { circuit: { ...state.circuit, components, wires: newWires } };
         }),
 
         updateComponentParams: (id, params) => set((state) => {
