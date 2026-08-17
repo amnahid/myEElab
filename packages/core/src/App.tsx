@@ -643,8 +643,19 @@ function App() {
               <div style={{ fontSize: '0.9rem', color: isDark ? '#a6adc8' : '#7f8c8d' }}>No nodes available</div>
             ) : (
               Object.entries(nodeVoltages).map(([node, v]) => (
-                <div key={node} style={{ fontSize: '0.9rem', fontFamily: 'monospace', color: colors.text }}>
-                  {node.padEnd(5)} : {v.toPrecision(4)} V
+                <div key={node} style={{ fontSize: '0.85rem', fontFamily: 'monospace', color: colors.text, display: 'flex', gap: '8px' }}>
+                  <span style={{ fontWeight: 'bold', color: '#3498db' }}>Node {node}:</span>
+                  <span>
+                    {(() => {
+                      const abs = Math.abs(v);
+                      if (abs === 0) return '0 V';
+                      if (abs >= 1e3) return `${parseFloat((v / 1e3).toFixed(3))} kV`;
+                      if (abs >= 1) return `${parseFloat(v.toFixed(3))} V`;
+                      if (abs >= 1e-3) return `${parseFloat((v * 1e3).toFixed(3))} mV`;
+                      if (abs >= 1e-6) return `${parseFloat((v * 1e6).toFixed(3))} µV`;
+                      return `${v.toExponential(2)} V`;
+                    })()}
+                  </span>
                 </div>
               ))
             )}

@@ -646,21 +646,38 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
 
             return Array.from(nodeCoords.entries()).map(([nodeName, coord]) => {
               const vStr = `v(${nodeName})`;
-              if (nodeVoltages[vStr] !== undefined) {
+              const vVal = nodeVoltages[vStr];
+              if (vVal !== undefined) {
+                const abs = Math.abs(vVal);
+                let formatted = '0V';
+                if (abs === 0) formatted = '0V';
+                else if (abs >= 1e3) formatted = `${parseFloat((vVal / 1e3).toFixed(3))}kV`;
+                else if (abs >= 1) formatted = `${parseFloat(vVal.toFixed(3))}V`;
+                else if (abs >= 1e-3) formatted = `${parseFloat((vVal * 1e3).toFixed(3))}mV`;
+                else if (abs >= 1e-6) formatted = `${parseFloat((vVal * 1e6).toFixed(3))}µV`;
+                else formatted = `${vVal.toExponential(2)}V`;
+
                 return (
                   <Label
                     key={`v-${nodeName}`}
                     x={coord.x}
-                    y={coord.y}
+                    y={coord.y - 12}
                     listening={false}
                   >
-                    <Tag fill="rgba(255, 255, 255, 0.85)" cornerRadius={3} />
+                    <Tag 
+                      fill={theme === 'dark' ? '#181825' : '#ffffff'} 
+                      stroke={theme === 'dark' ? '#89b4fa' : '#3498db'} 
+                      strokeWidth={1} 
+                      cornerRadius={3}
+                      shadowColor="rgba(0,0,0,0.15)"
+                      shadowBlur={3}
+                    />
                     <Text
-                      text={`${nodeVoltages[vStr].toFixed(3)}V`}
-                      fontSize={12}
-                      fill="#e67e22"
+                      text={formatted}
+                      fontSize={9}
+                      fill={theme === 'dark' ? '#89b4fa' : '#2980b9'}
                       fontStyle="bold"
-                      padding={4}
+                      padding={3}
                     />
                   </Label>
                 );
