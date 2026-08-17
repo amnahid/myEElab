@@ -337,11 +337,13 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             />
           ))}
 
-          {circuit.wires.filter(w => !selectedIds.includes(w.id)).map(wire => (
+          {circuit.wires.map(wire => {
+            const isSelected = selectedIds.includes(wire.id);
+            return (
             <WireNode 
               key={wire.id} 
               wire={wire} 
-              isSelected={false}
+              isSelected={isSelected}
               theme={theme}
               onSelect={(e) => {
                 if (mode === 'probe') {
@@ -374,154 +376,43 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                     toggleProbe(node, closest.x, closest.y);
                   }
                 } else {
-                  setSelection([wire.id]);
+                  if (!e.evt.shiftKey && !selectedIds.includes(wire.id)) {
+                    setSelection([wire.id]);
+                  } else if (e.evt.shiftKey) {
+                    setSelection([...selectedIds, wire.id]);
+                  }
                 }
               }}
               onPointDragStart={() => {
-                useEditorStore.temporal.getState().pause();
-              }}
-              onPointDragEnd={(index, x, y) => {
-                const snapped = getMagneticSnap({x, y}) || {
-                  x: Math.round(x / 10) * 10,
-                  y: Math.round(y / 10) * 10
-                };
-                useEditorStore.temporal.getState().resume();
-                updateWirePoint(wire.id, index, snapped);
-              }}
-              onPointDragMove={(index, x, y) => {
-                updateWirePoint(wire.id, index, { x, y });
-              }}
-            />
-          ))}
-
-          {/* 2. Unselected Components */}
-          {circuit.components.filter(c => !selectedIds.includes(c.id)).map(comp => {
-            const renderPos = comp.position;
-            return (
-            <ComponentNode
-              key={comp.id} 
-              component={{ ...comp, position: renderPos }} 
-              mode={mode}
-              isSelected={false}
-              theme={theme}
-              activeView={activeView}
-              onSelect={(e) => {
-                if (mode === 'probe') {
-                  const resolver = new NodeResolver();
-                  const resolved = resolver.resolve(circuit);
-                  const pins = resolved.components.get(comp.id);
-                  if (pins && typeof pins !== 'string') {
-                    const node = pins.get("1");
-                    if (node && node !== '0') {
-                      const libComp = ComponentLibrary[comp.type];
-                      const pin = libComp?.pins.find(p => p.id === "1");
-                      let x = comp.position.x;
-                      let y = comp.position.y;
-                      if (pin) {
-                        const rotRad = (comp.rotation || 0) * Math.PI / 180;
-                        const cos = Math.round(Math.cos(rotRad));
-                        const sin = Math.round(Math.sin(rotRad));
-                        const rx = pin.offset.x * cos - pin.offset.y * sin;
-                        const ry = pin.offset.x * sin + pin.offset.y * cos;
-                        x += rx;
-                        y += ry;
-                      }
-                      toggleProbe(node, x, y);
-                    }
-                  }
-                } else if (mode === 'select') {
-                  const stage = e.target.getStage();
-                  const pos = getRelativePointerPosition(stage);
-                  const pinSnap = getMagneticSnap(pos, 12);
-                  if (!pinSnap) {
-                    setSelection([comp.id]);
-                  }
-                }
-              }}
-              onDblClick={() => setEditingComponent(comp.id)}
-              onDragStart={() => {
-                useEditorStore.temporal.getState().pause();
-              }}
-              onDragMove={(e) => {
-                updateComponentPosition(comp.id, { x: e.target.x(), y: e.target.y() });
-              }}
-              onDragEnd={(e) => {
-                const newPos = {
-                  x: Math.round(e.target.x() / 10) * 10,
-                  y: Math.round(e.target.y() / 10) * 10
-                };
-                useEditorStore.temporal.getState().resume();
-                updateComponentPosition(comp.id, newPos);
-              }}
-              onMouseEnter={() => setHoveredComponentId(comp.id)}
-              onMouseLeave={() => setHoveredComponentId(null)}
-            />
-            );
-          })}
-
-          {/* 3. Selected Wires */}
-          {circuit.wires.filter(w => selectedIds.includes(w.id)).map(wire => (
-            <WireNode 
-              key={wire.id} 
-              wire={wire} 
-              isSelected={true}
-              theme={theme}
-              onSelect={(e) => {
-                if (mode === 'probe') {
-                  const resolver = new NodeResolver();
-                  const resolved = resolver.resolve(circuit);
-                  const node = resolved.wires.get(wire.id);
-                  if (node && typeof node === 'string' && node !== '0') {
-                    const stage = e.target.getStage();
-                    const pointer = stage.getPointerPosition();
-                    const rawX = (pointer.x - stage.x()) / stage.scaleX();
-                    const rawY = (pointer.y - stage.y()) / stage.scaleX();
-                    
-                    let minSqDist = Infinity;
-                    let closest = { x: rawX, y: rawY };
-                    for (let i = 0; i < wire.points.length - 1; i++) {
-                      const p1 = wire.points[i];
-                      const p2 = wire.points[i + 1];
-                      const l2 = Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2);
-                      if (l2 === 0) continue;
-                      let t = ((rawX - p1.x) * (p2.x - p1.x) + (rawY - p1.y) * (p2.y - p1.y)) / l2;
-                      t = Math.max(0, Math.min(1, t));
-                      const projX = p1.x + t * (p2.x - p1.x);
-                      const projY = p1.y + t * (p2.y - p1.y);
-                      const distSq = Math.pow(rawX - projX, 2) + Math.pow(rawY - projY, 2);
-                      if (distSq < minSqDist) {
-                        minSqDist = distSq;
-                        closest = { x: projX, y: projY };
-                      }
-                    }
-                    toggleProbe(node, closest.x, closest.y);
-                  }
-                } else {
+                if (!selectedIds.includes(wire.id)) {
                   setSelection([wire.id]);
                 }
+                useEditorStore.temporal.getState().pause();
               }}
               onPointDragEnd={(index, x, y) => {
                 const snapped = getMagneticSnap({x, y}) || {
                   x: Math.round(x / 10) * 10,
                   y: Math.round(y / 10) * 10
                 };
+                useEditorStore.temporal.getState().resume();
                 updateWirePoint(wire.id, index, snapped);
               }}
               onPointDragMove={(index, x, y) => {
                 updateWirePoint(wire.id, index, { x, y });
               }}
             />
-          ))}
+          )})}
 
-          {/* 4. Selected Components */}
-          {circuit.components.filter(c => selectedIds.includes(c.id)).map(comp => {
+          {/* 2. Components */}
+          {circuit.components.map(comp => {
+            const isSelected = selectedIds.includes(comp.id);
             const renderPos = comp.position;
             return (
             <ComponentNode
               key={comp.id} 
               component={{ ...comp, position: renderPos }} 
               mode={mode}
-              isSelected={true}
+              isSelected={isSelected}
               theme={theme}
               activeView={activeView}
               onSelect={(e) => {
@@ -530,26 +421,44 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                   const resolved = resolver.resolve(circuit);
                   const pins = resolved.components.get(comp.id);
                   if (pins && typeof pins !== 'string') {
-                    const node = pins.get("1");
-                    if (node && node !== '0') {
-                      const stage = e.target.getStage();
-                      const pointer = stage.getPointerPosition();
-                      const x = (pointer.x - stage.x()) / stage.scaleX();
-                      const y = (pointer.y - stage.y()) / stage.scaleX();
-                      toggleProbe(node, x, y);
-                    }
+                     const node = pins.get("1");
+                     if (node && node !== '0') {
+                       const libComp = ComponentLibrary[comp.type];
+                       const pin = libComp?.pins.find(p => p.id === "1");
+                       let x = comp.position.x;
+                       let y = comp.position.y;
+                       if (pin) {
+                         const rotRad = (comp.rotation || 0) * Math.PI / 180;
+                         const cos = Math.round(Math.cos(rotRad));
+                         const sin = Math.round(Math.sin(rotRad));
+                         const rx = pin.offset.x * cos - pin.offset.y * sin;
+                         const ry = pin.offset.x * sin + pin.offset.y * cos;
+                         x += rx;
+                         y += ry;
+                       }
+                       toggleProbe(node, x, y);
+                     }
                   }
                 } else if (mode === 'select') {
                   const stage = e.target.getStage();
                   const pos = getRelativePointerPosition(stage);
                   const pinSnap = getMagneticSnap(pos, 12);
                   if (!pinSnap) {
-                    setSelection([comp.id]);
+                    if (!e.evt.shiftKey && !selectedIds.includes(comp.id)) {
+                      setSelection([comp.id]);
+                    } else if (e.evt.shiftKey) {
+                      setSelection([...selectedIds, comp.id]);
+                    }
                   }
                 }
               }}
               onDblClick={() => setEditingComponent(comp.id)}
-              onDragStart={() => {
+              onDragStart={(e) => {
+                if (!selectedIds.includes(comp.id)) {
+                  setSelection([comp.id]);
+                }
+                // Optionally move to top in Konva tree so dragged items aren't hidden
+                e.target.moveToTop();
                 useEditorStore.temporal.getState().pause();
               }}
               onDragMove={(e) => {

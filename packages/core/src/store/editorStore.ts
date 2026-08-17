@@ -150,22 +150,31 @@ export const useEditorStore = create<EditorState>()(
           const dy = position.y - comp.position.y;
           if (dx === 0 && dy === 0) return state;
 
+          const movingCompIds = new Set(state.selectedIds);
+          movingCompIds.add(id);
+
           const oldPinAbsPos: {x: number, y: number}[] = [];
-            const libComp = ComponentLibrary[comp.type];
-            if (libComp) {
-              const rotRad = (comp.rotation || 0) * Math.PI / 180;
-              const cos = Math.round(Math.cos(rotRad));
-              const sin = Math.round(Math.sin(rotRad));
-              for (const pin of libComp.pins) {
-                const rx = pin.offset.x * cos - pin.offset.y * sin;
-                const ry = pin.offset.x * sin + pin.offset.y * cos;
-                oldPinAbsPos.push({ x: comp.position.x + rx, y: comp.position.y + ry });
+          for (const c of state.circuit.components) {
+            if (movingCompIds.has(c.id)) {
+              const libComp = ComponentLibrary[c.type];
+              if (libComp) {
+                const rotRad = (c.rotation || 0) * Math.PI / 180;
+                const cos = Math.round(Math.cos(rotRad));
+                const sin = Math.round(Math.sin(rotRad));
+                for (const pin of libComp.pins) {
+                  const mirroredOffsetX = c.mirrored ? -pin.offset.x : pin.offset.x;
+                  const mirroredOffsetY = pin.offset.y;
+                  const rx = mirroredOffsetX * cos - mirroredOffsetY * sin;
+                  const ry = mirroredOffsetX * sin + mirroredOffsetY * cos;
+                  oldPinAbsPos.push({ x: c.position.x + rx, y: c.position.y + ry });
+                }
               }
             }
+          }
 
-            const components = state.circuit.components.map(c => 
-              (c.id === id || state.selectedIds.includes(c.id)) ? { ...c, position: { x: c.position.x + dx, y: c.position.y + dy } } : c
-            );
+          const components = state.circuit.components.map(c => 
+            movingCompIds.has(c.id) ? { ...c, position: { x: c.position.x + dx, y: c.position.y + dy } } : c
+          );
 
             const wires = state.circuit.wires.map(w => {
               let changed = false;
