@@ -9,14 +9,16 @@ interface Props {
   onPointDragEnd: (index: number, x: number, y: number) => void;
   onPointDragStart?: () => void;
   onPointDragMove?: (index: number, x: number, y: number) => void;
+  onDblClick?: () => void;
   theme?: 'light' | 'dark';
 }
 
-export const WireNode: React.FC<Props> = ({ wire, isSelected, onSelect, onPointDragStart, onPointDragEnd, onPointDragMove, theme = 'light' }) => {
+export const WireNode: React.FC<Props> = ({ wire, isSelected, onSelect, onPointDragStart, onPointDragEnd, onPointDragMove, onDblClick, theme = 'light' }) => {
   const points = wire.points.flatMap(p => [p.x, p.y]);
   // Wire is selected ? bright blue : (dark ? pastel blue : dark navy)
   const defaultColor = theme === 'dark' ? '#89b4fa' : '#34495e';
-  const color = isSelected ? '#3498db' : defaultColor;
+  let color = wire.color || defaultColor;
+  if (isSelected) color = '#3498db';
 
   return (
     <Group>
@@ -27,6 +29,8 @@ export const WireNode: React.FC<Props> = ({ wire, isSelected, onSelect, onPointD
         hitStrokeWidth={10}
         onClick={onSelect}
         onTap={onSelect}
+        onDblClick={onDblClick}
+        onDblTap={onDblClick}
       />
       {isSelected && wire.points.map((p, i) => (
         <Circle

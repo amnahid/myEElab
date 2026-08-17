@@ -25,6 +25,7 @@ export interface ComponentInstance {
 export interface Wire {
   id: string;
   points: Point[];    // polyline; orthogonal segments only
+  color?: string;     // custom wire color
 }
 
 export interface AnalysisConfig {

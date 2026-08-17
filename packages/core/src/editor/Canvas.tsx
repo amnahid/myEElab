@@ -400,6 +400,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
               onPointDragMove={(index, x, y) => {
                 updateWirePoint(wire.id, index, { x, y });
               }}
+              onDblClick={() => setEditingComponent(wire.id)}
             />
           )})}
 

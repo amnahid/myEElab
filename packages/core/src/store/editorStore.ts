@@ -42,6 +42,7 @@ interface EditorState {
   setStageView: (pos: Point, scale: number) => void;
   addWire: (points: Point[]) => void;
   updateWirePoint: (wireId: string, pointIndex: number, pos: Point) => void;
+  updateWireColor: (wireId: string, color: string) => void;
   toggleProbe: (nodeId: string, x: number, y: number) => void;
   setActiveAnalysis: (kind: 'op' | 'tran' | 'ac' | 'dc') => void;
   updateAnalysis: (kind: 'op' | 'tran' | 'ac' | 'dc', params: Record<string, string>) => void;
@@ -212,6 +213,13 @@ export const useEditorStore = create<EditorState>()(
             return c;
           });
           return { circuit: { ...state.circuit, components } };
+        }),
+
+        updateWireColor: (wireId, color) => set((state) => {
+          const wires = state.circuit.wires.map(w => 
+            w.id === wireId ? { ...w, color } : w
+          );
+          return { circuit: { ...state.circuit, wires } };
         }),
 
         rotateSelected: () => set((state) => {

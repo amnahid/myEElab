@@ -3,8 +3,9 @@ import { useEditorStore } from '../store/editorStore';
 import { ComponentLibrary } from '../engine/library';
 
 export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
-  const { circuit, editingComponentId, updateComponentParams, setEditingComponent, scale, stagePos } = useEditorStore();
+  const { circuit, editingComponentId, updateComponentParams, updateWireColor, setEditingComponent, scale, stagePos } = useEditorStore();
   const editingComponent = circuit.components.find(c => c.id === editingComponentId);
+  const editingWire = circuit.wires.find(w => w.id === editingComponentId);
 
   // For making the popup draggable
   const [position, setPosition] = useState({ x: 20, y: 20 });
@@ -12,15 +13,21 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
   const dragStart = useRef({ x: 0, y: 0 });
   const popupRef = useRef<HTMLDivElement>(null);
 
-  // Position it initially near the component
+  // Position it initially near the component or wire
   useEffect(() => {
-    if (editingComponentId && editingComponent) {
-      // Calculate screen position of the component
-      const screenX = editingComponent.position.x * scale + stagePos.x;
-      const screenY = editingComponent.position.y * scale + stagePos.y;
+    if (editingComponentId) {
+      let screenX, screenY;
+      if (editingComponent) {
+        screenX = editingComponent.position.x * scale + stagePos.x;
+        screenY = editingComponent.position.y * scale + stagePos.y;
+      } else if (editingWire) {
+        screenX = editingWire.points[0].x * scale + stagePos.x;
+        screenY = editingWire.points[0].y * scale + stagePos.y;
+      }
       
-      // Place it slightly to the right of the component
-      setPosition({ x: screenX + 50, y: screenY - 50 });
+      if (screenX !== undefined && screenY !== undefined) {
+        setPosition({ x: screenX + 50, y: screenY - 50 });
+      }
     }
   }, [editingComponentId]);
 
@@ -46,7 +53,7 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
     };
   }, [isDragging]);
 
-  if (!editingComponent) return null;
+  if (!editingComponent && !editingWire) return null;
 
   const isDark = theme === 'dark';
   const colors = isDark ? {
@@ -63,8 +70,8 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
     headerBg: '#ecf0f1',
   };
 
-  const libComp = ComponentLibrary[editingComponent.type];
-  const compName = libComp?.name || editingComponent.type;
+  const libComp = editingComponent ? ComponentLibrary[editingComponent.type] : null;
+  const compName = editingComponent ? (libComp?.name || editingComponent.type) : 'Wire';
 
   return (
     <div 
@@ -118,51 +125,66 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
       {/* Form Content */}
       <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', maxHeight: '400px' }}>
         
-        {/* Generic Properties */}
-        <div>
-          <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>RefDes (Name)</label>
-          <input 
-            type="text" 
-            value={editingComponent.refDes || ''} 
-            onChange={e => updateComponentParams(editingComponent.id, { refDes: e.target.value })}
-            placeholder={`Auto (${editingComponent.type})`}
-            style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }}
-          />
-        </div>
-        
-        <div>
-          <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Color</label>
-          <input 
-            type="color"
-            value={editingComponent.color || '#000000'}
-            onChange={(e) => updateComponentParams(editingComponent.id, { color: e.target.value })}
-            style={{ width: '100%', height: '30px', padding: '0', border: `1px solid ${colors.border}`, borderRadius: '4px', cursor: 'pointer' }}
-          />
-        </div>
+        {editingComponent && (
+          <>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>RefDes (Name)</label>
+              <input 
+                type="text" 
+                value={editingComponent.refDes || ''} 
+                onChange={e => updateComponentParams(editingComponent.id, { refDes: e.target.value })}
+                placeholder={`Auto (${editingComponent.type})`}
+                style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }}
+              />
+            </div>
+            
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Color</label>
+              <input 
+                type="color"
+                value={editingComponent.color || '#000000'}
+                onChange={(e) => updateComponentParams(editingComponent.id, { color: e.target.value })}
+                style={{ width: '100%', height: '30px', padding: '0', border: `1px solid ${colors.border}`, borderRadius: '4px', cursor: 'pointer' }}
+              />
+            </div>
+          </>
+        )}
+
+        {editingWire && (
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Wire Color</label>
+            <input 
+              type="color"
+              value={editingWire.color || (isDark ? '#89b4fa' : '#34495e')}
+              onChange={(e) => updateWireColor(editingWire.id, e.target.value)}
+              style={{ width: '100%', height: '30px', padding: '0', border: `1px solid ${colors.border}`, borderRadius: '4px', cursor: 'pointer' }}
+            />
+          </div>
+        )}
 
         {/* Component-Specific Properties */}
-        {editingComponent.type === 'resistor' && (
+        {editingComponent && editingComponent.type === 'resistor' && (
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Resistance (Ω)</label>
             <input type="text" value={editingComponent.params.resistance || '1k'} onChange={e => updateComponentParams(editingComponent.id, { resistance: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
           </div>
         )}
         
-        {editingComponent.type === 'capacitor' && (
+        {editingComponent && editingComponent.type === 'capacitor' && (
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Capacitance (F)</label>
             <input type="text" value={editingComponent.params.capacitance || '1u'} onChange={e => updateComponentParams(editingComponent.id, { capacitance: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
           </div>
         )}
         
-        {editingComponent.type === 'inductor' && (
+        {editingComponent && editingComponent.type === 'inductor' && (
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Inductance (H)</label>
             <input type="text" value={editingComponent.params.inductance || '1m'} onChange={e => updateComponentParams(editingComponent.id, { inductance: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
           </div>
         )}
 
-        {(editingComponent.type === 'vsource' || editingComponent.type === 'isource') && (
+        {editingComponent && (editingComponent.type === 'vsource' || editingComponent.type === 'isource') && (
           <>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Source Type</label>
@@ -201,14 +223,14 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
           </>
         )}
 
-        {editingComponent.type === 'powersupply' && (
+        {editingComponent && editingComponent.type === 'powersupply' && (
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>DC Voltage (V)</label>
             <input type="text" value={editingComponent.params.dc || '5'} onChange={e => updateComponentParams(editingComponent.id, { dc: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
           </div>
         )}
 
-        {editingComponent.type === 'functiongenerator' && (
+        {editingComponent && editingComponent.type === 'functiongenerator' && (
           <>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Waveform</label>
@@ -233,7 +255,7 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
           </>
         )}
 
-        {['diode', 'npn', 'pnp', 'nmos', 'pmos', 'opamp'].includes(editingComponent.type) && (
+        {editingComponent && ['diode', 'npn', 'pnp', 'nmos', 'pmos', 'opamp'].includes(editingComponent.type) && (
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Spice Model</label>
             <input 
