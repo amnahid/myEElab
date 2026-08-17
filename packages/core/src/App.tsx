@@ -5,6 +5,7 @@ import { Undo, Redo, RotateCw, Trash2 } from 'lucide-react';
 import { NetlistGenerator } from './engine/netlist';
 import { WaveformViewer } from './editor/WaveformViewer';
 import { BodePlot } from './components/BodePlot';
+import { PropertyPopup } from './components/PropertyPopup';
 import { ProbeMenuIcon } from './editor/ProbeIcon';
 
 import { ComponentLibrary } from './engine/library';
@@ -290,7 +291,7 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
 };
 
 function App() {
-  const { mode, setMode, deleteSelected, circuit, updateComponentParams, rotateSelected, mirrorSelected, editingComponentId, componentToPlace, activeAnalysis, setActiveAnalysis, updateAnalysis, setCustomModels, probes, clearAll, theme, toggleTheme, activeView, setActiveView } = useEditorStore();
+  const { mode, setMode, deleteSelected, circuit, rotateSelected, mirrorSelected, componentToPlace, activeAnalysis, setActiveAnalysis, updateAnalysis, setCustomModels, probes, clearAll, theme, toggleTheme, activeView, setActiveView } = useEditorStore();
   const workerRef = useRef<Worker | null>(null);
   const [nodeVoltages, setNodeVoltages] = useState<Record<string, number>>({});
   const [tranData, setTranData] = useState<{ time: number[], vectors: Record<string, number[]> }>({ time: [], vectors: {} });
@@ -426,7 +427,7 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [deleteSelected, setMode]);
 
-  const editingComponent = circuit.components.find(c => c.id === editingComponentId);
+
 
   const isDark = theme === 'dark';
   
@@ -660,117 +661,8 @@ function App() {
       <main style={{ flex: 1, position: 'relative', display: 'flex', overflow: 'hidden', backgroundColor: colors.bg }}>
         <Canvas nodeVoltages={activeAnalysis === 'op' ? nodeVoltages : undefined} theme={theme} />
         
-        {/* Properties Panel */}
-        {editingComponent && (
-          <div style={{ 
-            position: 'absolute', 
-            top: 0, right: 0, 
-            width: '300px', 
-            height: '100%', 
-            backgroundColor: colors.panelBg,
-            borderLeft: `1px solid ${colors.border}`,
-            padding: '20px',
-            boxSizing: 'border-box',
-            overflowY: 'auto',
-            color: colors.text
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, fontSize: '1.2rem', color: colors.text }}>Properties</h2>
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '5px' }}>RefDes</label>
-              <input 
-                type="text" 
-                value={editingComponent.refDes || ''} 
-                onChange={e => updateComponentParams(editingComponent.id, { refDes: e.target.value })}
-                placeholder={`Auto (${editingComponent.type})`}
-                style={{ width: '100%', padding: '8px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text }}
-              />
-            </div>
-            
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: isDark ? '#a6adc8' : '#7f8c8d' }}>Color</label>
-              <input 
-                type="color"
-                value={editingComponent.color || '#000000'}
-                onChange={(e) => updateComponentParams(editingComponent.id, { color: e.target.value })}
-                style={{ width: '100%', height: '40px', padding: '2px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg }}
-              />
-            </div>
-
-            {editingComponent.type === 'resistor' && (
-              <div>
-                <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '5px' }}>Resistance (Ω)</label>
-                <input 
-                  type="text" 
-                  value={editingComponent.params.resistance || '1k'} 
-                  onChange={e => updateComponentParams(editingComponent.id, { resistance: e.target.value })}
-                  style={{ width: '100%', padding: '8px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text }}
-                />
-              </div>
-            )}
-            
-            {editingComponent.type === 'capacitor' && (
-              <div>
-                <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '5px' }}>Capacitance (F)</label>
-                <input 
-                  type="text" 
-                  value={editingComponent.params.capacitance || '1u'} 
-                  onChange={e => updateComponentParams(editingComponent.id, { capacitance: e.target.value })}
-                  style={{ width: '100%', padding: '8px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text }}
-                />
-              </div>
-            )}
-            
-            {editingComponent.type === 'inductor' && (
-              <div>
-                <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '5px' }}>Inductance (H)</label>
-                <input 
-                  type="text" 
-                  value={editingComponent.params.inductance || '1m'} 
-                  onChange={e => updateComponentParams(editingComponent.id, { inductance: e.target.value })}
-                  style={{ width: '100%', padding: '8px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text }}
-                />
-              </div>
-            )}
-
-            {(editingComponent.type === 'vsource' || editingComponent.type === 'isource') && (
-              <>
-                <div style={{ marginBottom: '15px' }}>
-                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: isDark ? '#a6adc8' : '#7f8c8d' }}>Source Type</label>
-                  <select 
-                    value={editingComponent.params.type || 'dc'} 
-                    onChange={e => updateComponentParams(editingComponent.id, { type: e.target.value })}
-                    style={{ width: '100%', padding: '8px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text }}
-                  >
-                    <option value="dc">DC</option>
-                    <option value="ac">AC</option>
-                    <option value="sin">Sine (Transient)</option>
-                  </select>
-                </div>
-                {(!editingComponent.params.type || editingComponent.params.type === 'dc') && (
-                  <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: isDark ? '#a6adc8' : '#7f8c8d' }}>DC Value</label>
-                    <input 
-                      type="text" 
-                      value={editingComponent.params.dc || editingComponent.params.value || '0'} 
-                      onChange={e => updateComponentParams(editingComponent.id, { dc: e.target.value })}
-                      style={{ width: '100%', padding: '8px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text }}
-                    />
-                  </div>
-                )}
-                {editingComponent.params.type === 'sin' && (
-                  <>
-                    <div style={{ marginBottom: '15px' }}>
-                      <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '5px' }}>DC Offset</label>
-                      <input type="text" value={editingComponent.params.offset || '0'} onChange={e => updateComponentParams(editingComponent.id, { offset: e.target.value })} style={{ width: '100%', padding: '5px', boxSizing: 'border-box' }} />
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        )}
+        {/* Properties Popup */}
+        <PropertyPopup theme={theme} />
 
         {/* Node Voltages Panel (Only in .op mode) */}
         {activeAnalysis === 'op' && (
