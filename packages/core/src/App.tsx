@@ -275,8 +275,8 @@ function App() {
     setCustomModelsInput(circuit.customModels || '');
   }, [circuit.customModels]);
 
-  // Initialize Worker
-  useEffect(() => {
+  const initWorker = () => {
+    if (workerRef.current) workerRef.current.terminate();
     workerRef.current = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
     workerRef.current.onmessage = (e) => {
       if (e.data.type === 'results') {
@@ -287,8 +287,10 @@ function App() {
           const voltages: Record<string, number> = {};
           if (results && results.data) {
             results.data.forEach((d: any) => {
-              if (d.type === 'voltage' && d.values.length > 0) {
-                voltages[d.name] = d.values[0];
+              const isVoltage = d.type === 'voltage' || (d.name.startsWith('v(') && !d.name.includes('#branch'));
+              if (isVoltage && d.values && d.values.length > 0) {
+                const val = d.values[0];
+                voltages[d.name] = typeof val === 'object' ? val.real : Number(val);
               }
             });
           }
@@ -331,8 +333,16 @@ function App() {
       } else if (e.data.type === 'error') {
         const errorMsg = e.data.error?.message || (typeof e.data.error === 'string' ? e.data.error : 'Simulation Failed');
         setSimError(errorMsg);
+        // Force recreation of the worker on fatal error to reset ngspice WASM state
+        workerRef.current?.terminate();
+        workerRef.current = null;
       }
     };
+  };
+
+  // Initialize Worker
+  useEffect(() => {
+    initWorker();
     return () => {
       workerRef.current?.terminate();
     };
@@ -364,6 +374,14 @@ function App() {
     }
 
     const netlist = generator.generate(circuit, activeAnalysis);
+    if (import.meta.env.DEV) {
+      console.groupCollapsed(`🛠️ Generated Netlist (${activeAnalysis})`);
+      console.log(netlist);
+      console.groupEnd();
+    }
+    if (!workerRef.current) {
+      initWorker();
+    }
     workerRef.current?.postMessage({ type: 'start', netlist });
   };
 

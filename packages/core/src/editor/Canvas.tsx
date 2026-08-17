@@ -645,6 +645,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             }
 
             return Array.from(nodeCoords.entries()).map(([nodeName, coord]) => {
+              if (!coord || isNaN(coord.x) || isNaN(coord.y)) return null;
               const vStr = `v(${nodeName})`;
               const vVal = nodeVoltages[vStr];
               if (vVal !== undefined) {
