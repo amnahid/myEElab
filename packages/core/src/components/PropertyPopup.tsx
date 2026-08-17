@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { ComponentLibrary } from '../engine/library';
+import { ValueUnitInput } from './ValueUnitInput';
 
 export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
   const { circuit, editingComponentId, updateComponentParams, updateWireColor, setEditingComponent, scale, stagePos } = useEditorStore();
@@ -166,21 +167,21 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
         {editingComponent && editingComponent.type === 'resistor' && (
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Resistance (Ω)</label>
-            <input type="text" value={editingComponent.params.resistance || '1k'} onChange={e => updateComponentParams(editingComponent.id, { resistance: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
+            <ValueUnitInput colors={colors} value={editingComponent.params.resistance || '1k'} onChange={val => updateComponentParams(editingComponent.id, { resistance: val })} />
           </div>
         )}
         
         {editingComponent && editingComponent.type === 'capacitor' && (
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Capacitance (F)</label>
-            <input type="text" value={editingComponent.params.capacitance || '1u'} onChange={e => updateComponentParams(editingComponent.id, { capacitance: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
+            <ValueUnitInput colors={colors} value={editingComponent.params.capacitance || '1u'} onChange={val => updateComponentParams(editingComponent.id, { capacitance: val })} />
           </div>
         )}
         
         {editingComponent && editingComponent.type === 'inductor' && (
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Inductance (H)</label>
-            <input type="text" value={editingComponent.params.inductance || '1m'} onChange={e => updateComponentParams(editingComponent.id, { inductance: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
+            <ValueUnitInput colors={colors} value={editingComponent.params.inductance || '1m'} onChange={val => updateComponentParams(editingComponent.id, { inductance: val })} />
           </div>
         )}
 
@@ -201,18 +202,18 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
             {(!editingComponent.params.type || editingComponent.params.type === 'dc') && (
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>DC Value ({editingComponent.type === 'vsource' ? 'V' : 'A'})</label>
-                <input type="text" value={editingComponent.params.dc || editingComponent.params.value || '0'} onChange={e => updateComponentParams(editingComponent.id, { dc: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
+                <ValueUnitInput colors={colors} value={editingComponent.params.dc || editingComponent.params.value || '0'} onChange={val => updateComponentParams(editingComponent.id, { dc: val })} />
               </div>
             )}
             {editingComponent.params.type === 'ac' && (
               <>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>DC Bias ({editingComponent.type === 'vsource' ? 'V' : 'A'})</label>
-                  <input type="text" value={editingComponent.params.dc || '0'} onChange={e => updateComponentParams(editingComponent.id, { dc: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
+                  <ValueUnitInput colors={colors} value={editingComponent.params.dc || '0'} onChange={val => updateComponentParams(editingComponent.id, { dc: val })} />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>AC Magnitude ({editingComponent.type === 'vsource' ? 'V' : 'A'})</label>
-                  <input type="text" value={editingComponent.params.acMag || '1'} onChange={e => updateComponentParams(editingComponent.id, { acMag: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
+                  <ValueUnitInput colors={colors} value={editingComponent.params.acMag || '1'} onChange={val => updateComponentParams(editingComponent.id, { acMag: val })} />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>AC Phase (°)</label>
@@ -224,15 +225,15 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
               <>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>DC Offset ({editingComponent.type === 'vsource' ? 'V' : 'A'})</label>
-                  <input type="text" value={editingComponent.params.offset || '0'} onChange={e => updateComponentParams(editingComponent.id, { offset: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
+                  <ValueUnitInput colors={colors} value={editingComponent.params.offset || '0'} onChange={val => updateComponentParams(editingComponent.id, { offset: val })} />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Amplitude ({editingComponent.type === 'vsource' ? 'V' : 'A'})</label>
-                  <input type="text" value={editingComponent.params.amplitude || '5'} onChange={e => updateComponentParams(editingComponent.id, { amplitude: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
+                  <ValueUnitInput colors={colors} value={editingComponent.params.amplitude || '5'} onChange={val => updateComponentParams(editingComponent.id, { amplitude: val })} />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Frequency (Hz)</label>
-                  <input type="text" value={editingComponent.params.frequency || '1k'} onChange={e => updateComponentParams(editingComponent.id, { frequency: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
+                  <ValueUnitInput colors={colors} value={editingComponent.params.frequency || '1k'} onChange={val => updateComponentParams(editingComponent.id, { frequency: val })} />
                 </div>
               </>
             )}
