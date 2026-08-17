@@ -505,7 +505,7 @@ function App() {
             </button>
           </div>
           
-          <div style={{ display: 'flex', gap: '5px', background: colors.toolbarBg, padding: '5px', borderRadius: '5px', flexWrap: 'wrap', maxWidth: '350px' }}>
+          <div style={{ display: 'flex', gap: '8px', background: colors.toolbarBg, padding: '8px', borderRadius: '5px', overflowX: 'auto' }}>
             {Object.entries(ComponentLibrary).map(([type, comp]) => (
               <button 
                 key={type}
@@ -522,16 +522,17 @@ function App() {
                   background: mode === 'place' && componentToPlace === type ? (theme === 'dark' ? '#4c566a' : '#ddd') : 'transparent',
                   border: 'none',
                   color: 'white',
-                  padding: '6px',
+                  padding: '8px',
                   borderRadius: '4px',
                   cursor: 'grab',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  flex: 1
                 }}
               >
-                {activeView === 'breadboard' ? PhysicalComponentIcons[type] : ComponentIcons[type]}
+                <div style={{ transform: 'scale(1.4)', transformOrigin: 'center', display: 'flex' }}>
+                  {activeView === 'breadboard' ? PhysicalComponentIcons[type] : ComponentIcons[type]}
+                </div>
               </button>
             ))}
           </div>
