@@ -387,12 +387,24 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
       case 'oscilloscope': {
         return (
           <Group>
+            {/* Body */}
             <Rect x={-40} y={-30} width={80} height={60} fill={'#2c3e50'} cornerRadius={5} stroke={isSelected ? '#3498db' : '#1a252f'} strokeWidth={2} />
-            <Rect x={-35} y={-25} width={50} height={40} fill="#111" cornerRadius={3} />
-            <Path data="M -30 0 Q -25 -15 -20 0 T -10 0 T 0 0 T 10 0" stroke="#2ecc71" strokeWidth={1} fill="transparent" />
-            <Circle x={-25} y={-20} radius={4} fill="#95a5a6" />
-            <Circle x={-25} y={20} radius={4} fill="#95a5a6" />
-            <Line points={[-25, -20, -40, -20]} stroke="#95a5a6" strokeWidth={2} />
+            
+            {/* Screen on the right */}
+            <Rect x={-15} y={-25} width={50} height={40} fill="#111" cornerRadius={3} />
+            
+            {/* Sine wave on screen */}
+            <Path data="M -10 0 Q -5 -15 0 0 T 10 0 T 20 0 T 30 0" stroke="#2ecc71" strokeWidth={1} fill="transparent" />
+            
+            {/* CH1+ BNC Port at pin coordinate {-40, -20} */}
+            <Circle x={-40} y={-20} radius={5} fill="#bdc3c7" />
+            <Circle x={-40} y={-20} radius={2} fill="#2c3e50" />
+            <Text text="CH1+" x={-32} y={-24} fontSize={8} fill="#ecf0f1" />
+
+            {/* CH1- BNC Port at pin coordinate {-40, 20} */}
+            <Circle x={-40} y={20} radius={5} fill="#bdc3c7" />
+            <Circle x={-40} y={20} radius={2} fill="#2c3e50" />
+            <Text text="CH1-" x={-32} y={16} fontSize={8} fill="#ecf0f1" />
           </Group>
         );
       }
