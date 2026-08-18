@@ -1,6 +1,7 @@
 import { Circuit, Wire, Point, ComponentInstance } from "../models/circuit";
 import { ComponentLibrary } from "./library";
 import { v4 as uuidv4 } from "uuid";
+import { HOLES, getHolePosition, BOARD_WIDTH, BOARD_HEIGHT } from "../editor/breadboardLayout";
 
 // Determine which group a hole belongs to. Holes in the same group are electrically connected.
 export function getBreadboardGroup(holeId: string): string {
@@ -49,25 +50,74 @@ function getPinAbsolutePosition(comp: ComponentInstance, pinId: string): Point |
 
 // Derives implicit schematic wires (Ratlines) from breadboard placements
 export function deriveBreadboardWires(circuit: Circuit): Wire[] {
-  if (!circuit.breadboard) return [];
-
   // Map Group ID -> List of Absolute Points in the Schematic
   const groupToPoints = new Map<string, Point[]>();
 
-  for (const placement of circuit.breadboard.placements) {
-    const comp = circuit.components.find(c => c.id === placement.componentId);
-    if (!comp) continue;
+  const breadboards = circuit.components.filter(c => c.type === 'breadboard');
 
-    for (const [pinId, holeId] of Object.entries(placement.legHoles)) {
-      const group = getBreadboardGroup(holeId);
-      const absPos = getPinAbsolutePosition(comp, pinId);
-      if (absPos) {
-        if (!groupToPoints.has(group)) {
-          groupToPoints.set(group, []);
+  const getHoleAtPosition = (p: Point): string | null => {
+    for (const bb of breadboards) {
+      const rotRad = (bb.rotation || 0) * Math.PI / 180;
+      const cos = Math.round(Math.cos(rotRad));
+      const sin = Math.round(Math.sin(rotRad));
+      const bbX = bb.position.x;
+      const bbY = bb.position.y;
+      const dx = p.x - bbX;
+      const dy = p.y - bbY;
+      const unrotX = dx * cos + dy * sin;
+      const unrotY = -dx * sin + dy * cos;
+      const boardX = unrotX + BOARD_WIDTH / 2;
+      const boardY = unrotY + BOARD_HEIGHT / 2;
+
+      for (const hole of HOLES) {
+        const pos = getHolePosition(hole.id);
+        if (!pos) continue;
+        const hdx = boardX - pos.x;
+        const hdy = boardY - pos.y;
+        if (Math.sqrt(hdx * hdx + hdy * hdy) < 5) {
+          return hole.id;
         }
-        groupToPoints.get(group)!.push(absPos);
       }
     }
+    return null;
+  };
+
+  for (const comp of circuit.components) {
+    if (comp.type === 'breadboard') continue;
+    const libComp = ComponentLibrary[comp.type];
+    if (!libComp) continue;
+
+    for (const pin of libComp.pins) {
+      const absPos = getPinAbsolutePosition(comp, pin.id);
+      if (absPos) {
+        const holeId = getHoleAtPosition(absPos);
+        if (holeId) {
+          const group = getBreadboardGroup(holeId);
+          if (!groupToPoints.has(group)) {
+            groupToPoints.set(group, []);
+          }
+          if (!groupToPoints.get(group)!.some(pt => pt.x === absPos.x && pt.y === absPos.y)) {
+             groupToPoints.get(group)!.push(absPos);
+          }
+        }
+      }
+    }
+  }
+
+  // Wires directly snapping to holes
+  for (const wire of circuit.wires) {
+     for (const p of wire.points) {
+        const holeId = getHoleAtPosition(p);
+        if (holeId) {
+          const group = getBreadboardGroup(holeId);
+          if (!groupToPoints.has(group)) {
+            groupToPoints.set(group, []);
+          }
+          if (!groupToPoints.get(group)!.some(pt => pt.x === p.x && pt.y === p.y)) {
+             groupToPoints.get(group)!.push(p);
+          }
+        }
+     }
   }
 
   // 2. Resolve Jumper Wires using Union-Find
@@ -91,10 +141,12 @@ export function deriveBreadboardWires(circuit: Circuit): Wire[] {
   }
 
   // Union groups connected by jumpers
-  for (const jumper of circuit.breadboard.jumperWires) {
-    const startGroup = getBreadboardGroup(jumper.startHole);
-    const endGroup = getBreadboardGroup(jumper.endHole);
-    union(startGroup, endGroup);
+  if (circuit.breadboard?.jumperWires) {
+    for (const jumper of circuit.breadboard.jumperWires) {
+      const startGroup = getBreadboardGroup(jumper.startHole);
+      const endGroup = getBreadboardGroup(jumper.endHole);
+      union(startGroup, endGroup);
+    }
   }
 
   // 3. Aggregate points by their resolved root

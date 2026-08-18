@@ -55,21 +55,20 @@ export class NetlistGenerator {
       if (comp.type === "resistor") value = comp.params.resistance?.toString() || "1k";
       else if (comp.type === "capacitor") value = comp.params.capacitance?.toString() || "1u";
       else if (comp.type === "inductor") value = comp.params.inductance?.toString() || "1m";
-      else if (comp.type === "multimeter") {
-        if (comp.params.mode === "current") value = "DC 0";
-        else if (comp.params.mode === "resistance") value = "DC 1m"; // 1mA test current
-        else value = "1G"; // 1 Gigaohm for voltage mode
-      }
       else if (comp.type === "vsource" || comp.type === "isource") {
         if (comp.params.type === "dc" || !comp.params.type) {
            value = `DC ${comp.params.dc || comp.params.value || 0}`;
         } else if (comp.params.type === "ac") {
-           value = `AC ${comp.params.acMag || comp.params.ac_mag || 1} ${comp.params.acPhase || comp.params.ac_phase || 0}`;
+           value = `AC ${comp.params.ac_mag || 1} ${comp.params.ac_phase || 0}`;
         } else if (comp.params.type === "sin") {
            value = `SINE(${comp.params.offset || 0} ${comp.params.amplitude || 1} ${comp.params.frequency || "1k"})`;
         } else {
            value = comp.params.value?.toString() || "DC 0";
         }
+      } else if (comp.type === "multimeter") {
+        if (comp.params.mode === "resistance") value = "DC 1";
+        else if (comp.params.mode === "current") value = "DC 0";
+        else value = "1G"; // Voltmeter is high impedance resistor
       }
 
       if (comp.type === "diode") {

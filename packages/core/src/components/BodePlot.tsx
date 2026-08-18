@@ -56,17 +56,17 @@ export const BodePlot: React.FC<BodePlotProps> = ({ data }) => {
       axes: [
         {
           scale: 'x',
-          values: (_u, vals) => vals.map(v => v >= 1000 ? `${v/1000}k` : v.toString())
+          values: (_u, vals) => vals.map(v => v != null ? (v >= 1000 ? `${v/1000}k` : v.toString()) : '')
         },
         {
           scale: 'dB',
-          values: (_u, vals) => vals.map(v => `${v.toFixed(1)} dB`)
+          values: (_u, vals) => vals.map(v => v != null ? `${v.toFixed(1)} dB` : '')
         },
         {
           scale: 'deg',
           side: 1, // Right side
           grid: { show: false },
-          values: (_u, vals) => vals.map(v => `${v.toFixed(0)}°`)
+          values: (_u, vals) => vals.map(v => v != null ? `${v.toFixed(0)}°` : '')
         }
       ],
       series

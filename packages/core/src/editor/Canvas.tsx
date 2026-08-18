@@ -230,43 +230,49 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
 
     if (mode === 'place' && componentToPlace) {
       addComponent(componentToPlace, snappedPos);
-    } else if (mode === 'wire' || (mode === 'select' && getMagneticSnap(pos, 12))) {
-      const pinSnap = getMagneticSnap(pos, mode === 'select' ? 12 : 30);
-      
-      if (mode === 'select' && pinSnap) {
-        setMode('wire');
-        setDrawingWirePoints([pinSnap]);
-        return;
-      }
+    } else {
+      const isWireStart = mode === 'select' && (getMagneticSnap(pos, 12) || (activeView === 'breadboard' && getBreadboardSnap(pos)));
+      if (mode === 'wire' || isWireStart) {
+        let pinSnap = getMagneticSnap(pos, mode === 'select' ? 12 : 30);
+        if (!pinSnap && activeView === 'breadboard') {
+           pinSnap = getBreadboardSnap(pos);
+        }
+        
+        if (mode === 'select' && pinSnap) {
+          setMode('wire');
+          setDrawingWirePoints([pinSnap]);
+          return;
+        }
 
-      if (drawingWirePoints.length === 0) {
-        const startPos = pinSnap || snappedPos;
-        setDrawingWirePoints([startPos]);
-      } else {
-        const last = drawingWirePoints[drawingWirePoints.length - 1];
-        const nextPos = pinSnap || snappedPos;
-        if (last.x !== nextPos.x || last.y !== nextPos.y) {
-          if (pinSnap) {
-            addWire([...drawingWirePoints, pinSnap]);
-            setDrawingWirePoints([]);
-            setMode('select');
-          } else {
-            setDrawingWirePoints([...drawingWirePoints, nextPos]);
+        if (drawingWirePoints.length === 0) {
+          const startPos = pinSnap || snappedPos;
+          setDrawingWirePoints([startPos]);
+        } else {
+          const last = drawingWirePoints[drawingWirePoints.length - 1];
+          const nextPos = pinSnap || snappedPos;
+          if (last.x !== nextPos.x || last.y !== nextPos.y) {
+            if (pinSnap) {
+              addWire([...drawingWirePoints, pinSnap]);
+              setDrawingWirePoints([]);
+              setMode('select');
+            } else {
+              setDrawingWirePoints([...drawingWirePoints, nextPos]);
+            }
           }
         }
-      }
-    } else if (mode === 'probe') {
-      // In probe mode, try to resolve the node clicked. 
-      // Wires and components have their own onClick handlers, but if we click a pin directly...
-      const pinSnap = getMagneticSnap(pos, 12);
-      if (pinSnap) {
-        // We don't easily know WHICH component this pin belongs to from getMagneticSnap.
-        // Let's just let the WireNode or ComponentNode click handlers do the probing.
-      }
-    } else {
-      // If clicking on empty stage in select mode, deselect
-      if (e.target === stage) {
-        setSelection([]);
+      } else if (mode === 'probe') {
+        // In probe mode, try to resolve the node clicked. 
+        // Wires and components have their own onClick handlers, but if we click a pin directly...
+        const pinSnap = getMagneticSnap(pos, 12);
+        if (pinSnap) {
+          // We don't easily know WHICH component this pin belongs to from getMagneticSnap.
+          // Let's just let the WireNode or ComponentNode click handlers do the probing.
+        }
+      } else {
+        // If clicking on empty stage in select mode, deselect
+        if (e.target === stage) {
+          setSelection([]);
+        }
       }
     }
   };
