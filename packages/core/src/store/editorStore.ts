@@ -159,19 +159,22 @@ export const useEditorStore = create<EditorState>()(
           movingCompIds.add(id);
 
           const oldPinAbsPos: {x: number, y: number}[] = [];
+          const allPins: {x: number, y: number}[] = [];
           for (const c of state.circuit.components) {
-            if (movingCompIds.has(c.id)) {
-              const libComp = ComponentLibrary[c.type];
-              if (libComp) {
-                const rotRad = (c.rotation || 0) * Math.PI / 180;
-                const cos = Math.round(Math.cos(rotRad));
-                const sin = Math.round(Math.sin(rotRad));
-                for (const pin of libComp.pins) {
-                  const mirroredOffsetX = c.mirrored ? -pin.offset.x : pin.offset.x;
-                  const mirroredOffsetY = pin.offset.y;
-                  const rx = mirroredOffsetX * cos - mirroredOffsetY * sin;
-                  const ry = mirroredOffsetX * sin + mirroredOffsetY * cos;
-                  oldPinAbsPos.push({ x: c.position.x + rx, y: c.position.y + ry });
+            const libComp = ComponentLibrary[c.type];
+            if (libComp) {
+              const rotRad = (c.rotation || 0) * Math.PI / 180;
+              const cos = Math.cos(rotRad);
+              const sin = Math.sin(rotRad);
+              for (const pin of libComp.pins) {
+                const mirroredOffsetX = c.mirrored ? -pin.offset.x : pin.offset.x;
+                const mirroredOffsetY = pin.offset.y;
+                const rx = mirroredOffsetX * cos - mirroredOffsetY * sin;
+                const ry = mirroredOffsetX * sin + mirroredOffsetY * cos;
+                const pinAbs = { x: c.position.x + rx, y: c.position.y + ry };
+                allPins.push(pinAbs);
+                if (movingCompIds.has(c.id)) {
+                  oldPinAbsPos.push(pinAbs);
                 }
               }
             }
@@ -187,6 +190,17 @@ export const useEditorStore = create<EditorState>()(
           for (let cw = 0; cw < newWires.length; cw++) {
              for (let cp = 0; cp < newWires[cw].points.length; cp++) {
                 const J = newWires[cw].points[cp];
+                
+                // If J is connected to ANY component pin, it is a primary node, not a dependent T-junction.
+                let isPin = false;
+                for (const pin of allPins) {
+                   if (Math.abs(J.x - pin.x) < 1 && Math.abs(J.y - pin.y) < 1) {
+                      isPin = true;
+                      break;
+                   }
+                }
+                if (isPin) continue;
+
                 let found = false;
                 for (let pw = 0; pw < newWires.length; pw++) {
                    for (let ps = 0; ps < newWires[pw].points.length - 1; ps++) {
