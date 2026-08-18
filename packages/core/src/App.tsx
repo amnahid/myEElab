@@ -281,7 +281,10 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
 };
 
 function App() {
-  const { mode, setMode, deleteSelected, circuit, rotateSelected, mirrorSelected, componentToPlace, activeAnalysis, setActiveAnalysis, updateAnalysis, setCustomModels, probes, clearAll, editingComponentId, activeView, setActiveView } = useEditorStore();
+  const { mode, setMode, deleteSelected, circuit, rotateSelected, mirrorSelected, componentToPlace, activeAnalysis, setActiveAnalysis, updateAnalysis,
+    setCustomModels,
+    autoSimulate,
+    setAutoSimulate, probes, clearAll, editingComponentId, activeView, setActiveView } = useEditorStore();
   const theme = useEditorStore(state => state.theme);
   const toggleTheme = useEditorStore(state => state.toggleTheme);
   
@@ -302,7 +305,6 @@ function App() {
   const [tranData, setTranData] = useState<{ time: number[], vectors: Record<string, number[]> }>({ time: [], vectors: {} });
   const [acData, setAcData] = useState<{ freq: number[], magnitudes: Record<string, number[]>, phases: Record<string, number[]> }>({ freq: [], magnitudes: {}, phases: {} });
   const [simError, setSimError] = useState<string | null>(null);
-  const [autoSimulate, setAutoSimulate] = useState(true);
   const [simFlash, setSimFlash] = useState(false);
   const [customModelsInput, setCustomModelsInput] = useState(circuit.customModels || '');
 

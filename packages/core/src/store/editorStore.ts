@@ -17,12 +17,14 @@ interface EditorState {
   activeAnalysis: 'op' | 'tran' | 'ac' | 'dc';
   theme: 'light' | 'dark';
   activeView: 'schematic' | 'breadboard';
+  autoSimulate: boolean;
   
   // Breadboard Option A Placement State
   placingBreadboardComponentId: string | null;
   placedLegs: Record<string, string>; // pinId -> holeId
   
   // Actions
+  setAutoSimulate: (auto: boolean) => void;
   setActiveView: (view: 'schematic' | 'breadboard') => void;
   startBreadboardPlacement: (componentId: string) => void;
   addPlacedLeg: (pinId: string, holeId: string) => void;
@@ -74,9 +76,11 @@ export const useEditorStore = create<EditorState>()(
         activeAnalysis: 'op',
         theme: 'light',
         activeView: 'schematic',
+        autoSimulate: true,
         placingBreadboardComponentId: null,
         placedLegs: {},
 
+        setAutoSimulate: (auto) => set({ autoSimulate: auto }),
         setActiveView: (view) => set({ activeView: view }),
 
         startBreadboardPlacement: (componentId) => set({
@@ -454,7 +458,9 @@ export const useEditorStore = create<EditorState>()(
           circuit: state.circuit,
           stagePos: state.stagePos,
           scale: state.scale,
-          theme: state.theme
+          theme: state.theme,
+          activeView: state.activeView,
+          autoSimulate: state.autoSimulate
         }),
       }
     ),
