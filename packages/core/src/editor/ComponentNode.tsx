@@ -241,7 +241,6 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
       );
     }
 
-    const bodyColor = isSelected ? '#3498db' : undefined;
     switch (type) {
       case 'resistor': {
         const bands = ['#8B4513', '#000000', '#FF0000', '#DAA520'];
@@ -249,7 +248,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
           <Group>
             <Line points={[0, -20, 0, -12]} stroke="#bdc3c7" strokeWidth={2} />
             <Line points={[0, 12, 0, 20]} stroke="#bdc3c7" strokeWidth={2} />
-            <Rect x={-8} y={-12} width={16} height={24} fill={bodyColor || '#f0c75e'} cornerRadius={3} stroke="#c9a832" strokeWidth={1} />
+            <Rect x={-8} y={-12} width={16} height={24} fill="#f0c75e" cornerRadius={3} stroke={isSelected ? '#3498db' : '#c9a832'} strokeWidth={isSelected ? 2 : 1} />
             {bands.map((c, i) => (
               <Rect key={i} x={-8} y={-9 + i * 5} width={16} height={3} fill={c} />
             ))}
@@ -261,7 +260,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
           <Group>
             <Line points={[0, -20, 0, -8]} stroke="#bdc3c7" strokeWidth={2} />
             <Line points={[0, 8, 0, 20]} stroke="#bdc3c7" strokeWidth={2} />
-            <Circle x={0} y={0} radius={10} fill={bodyColor || '#e67e22'} stroke="#d35400" strokeWidth={1} />
+            <Circle x={0} y={0} radius={10} fill="#e67e22" stroke={isSelected ? '#3498db' : '#d35400'} strokeWidth={isSelected ? 2 : 1} />
             <Text text="104" x={-8} y={-4} fontSize={7} fill="#2c3e50" />
           </Group>
         );
@@ -271,7 +270,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
           <Group>
             <Line points={[0, -20, 0, -10]} stroke="#bdc3c7" strokeWidth={2} />
             <Line points={[0, 10, 0, 20]} stroke="#bdc3c7" strokeWidth={2} />
-            <Circle x={0} y={0} radius={10} fill={bodyColor || '#27ae60'} stroke="#1e8449" strokeWidth={1} />
+            <Circle x={0} y={0} radius={10} fill="#27ae60" stroke={isSelected ? '#3498db' : '#1e8449'} strokeWidth={isSelected ? 2 : 1} />
             <Path data="M -3 -6 C 0 -9 3 -6 3 -3 C 3 0 0 3 -3 0 C -3 -3 0 -6 3 -9" stroke="#c0392b" strokeWidth={1.5} fill="transparent" />
           </Group>
         );
@@ -283,7 +282,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Group>
               <Line points={[0, -20, 0, -14]} stroke="#e74c3c" strokeWidth={2} />
               <Line points={[0, 14, 0, 20]} stroke="#2c3e50" strokeWidth={2} />
-              <Rect x={-20} y={-14} width={40} height={28} fill={bodyColor || '#34495e'} cornerRadius={4} stroke="#2c3e50" strokeWidth={1} />
+              <Rect x={-20} y={-14} width={40} height={28} fill="#34495e" cornerRadius={4} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={isSelected ? 2 : 1} />
               <Rect x={-16} y={-10} width={32} height={12} fill="#000" cornerRadius={2} />
               <Path data="M -10 -4 Q -5 -8 0 -4 T 10 -4" stroke="#0f0" strokeWidth={1.5} fill="transparent" />
               <Text text="FUNC" x={-20} y={4} width={40} align="center" fontSize={8} fill="#bdc3c7" />
@@ -294,7 +293,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Group>
               <Line points={[0, -20, 0, -14]} stroke="#e74c3c" strokeWidth={2} />
               <Line points={[0, 14, 0, 20]} stroke="#2c3e50" strokeWidth={2} />
-              <Rect x={-20} y={-14} width={40} height={28} fill={bodyColor || '#ecf0f1'} cornerRadius={4} stroke="#bdc3c7" strokeWidth={1} />
+              <Rect x={-20} y={-14} width={40} height={28} fill="#ecf0f1" cornerRadius={4} stroke={isSelected ? '#3498db' : '#bdc3c7'} strokeWidth={isSelected ? 2 : 1} />
               <Rect x={-16} y={-10} width={32} height={12} fill="#000" cornerRadius={2} />
               <Text text={component.params?.dc ? `${component.params.dc}V` : '5V'} x={-16} y={-8} width={32} align="center" fontSize={8} fill="#e74c3c" />
               <Text text="DC PWR" x={-20} y={4} width={40} align="center" fontSize={7} fill="#7f8c8d" />
@@ -309,7 +308,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Group>
               <Line points={[0, -20, 0, -14]} stroke="#e74c3c" strokeWidth={2} />
               <Line points={[0, 14, 0, 20]} stroke="#2c3e50" strokeWidth={2} />
-              <Rect x={-20} y={-14} width={40} height={28} fill={bodyColor || '#34495e'} cornerRadius={4} stroke="#2c3e50" strokeWidth={1} />
+              <Rect x={-20} y={-14} width={40} height={28} fill="#34495e" cornerRadius={4} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={isSelected ? 2 : 1} />
               <Rect x={-16} y={-10} width={32} height={12} fill="#000" cornerRadius={2} />
               <Path data="M -10 -4 Q -5 -8 0 -4 T 10 -4" stroke="#3498db" strokeWidth={1.5} fill="transparent" />
               <Text text="I~" x={-20} y={4} width={40} align="center" fontSize={8} fill="#bdc3c7" />
@@ -320,7 +319,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Group>
               <Line points={[0, -20, 0, -14]} stroke="#e74c3c" strokeWidth={2} />
               <Line points={[0, 14, 0, 20]} stroke="#2c3e50" strokeWidth={2} />
-              <Rect x={-20} y={-14} width={40} height={28} fill={bodyColor || '#ecf0f1'} cornerRadius={4} stroke="#bdc3c7" strokeWidth={1} />
+              <Rect x={-20} y={-14} width={40} height={28} fill="#ecf0f1" cornerRadius={4} stroke={isSelected ? '#3498db' : '#bdc3c7'} strokeWidth={isSelected ? 2 : 1} />
               <Rect x={-16} y={-10} width={32} height={12} fill="#000" cornerRadius={2} />
               <Text text={component.params?.dc ? `${component.params.dc}A` : '1mA'} x={-16} y={-8} width={32} align="center" fontSize={8} fill="#3498db" />
               <Text text="I DC" x={-20} y={4} width={40} align="center" fontSize={7} fill="#7f8c8d" />
@@ -341,7 +340,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
         return (
           <Group>
             <Line points={[0, -20, 0, 20]} stroke="#bdc3c7" strokeWidth={2} />
-            <Rect x={-6} y={-10} width={12} height={20} fill={bodyColor || '#2c3e50'} cornerRadius={2} />
+            <Rect x={-6} y={-10} width={12} height={20} fill="#2c3e50" cornerRadius={2} stroke={isSelected ? '#3498db' : undefined} strokeWidth={isSelected ? 2 : 0} />
             <Rect x={-6} y={6} width={12} height={3} fill="#ecf0f1" />
           </Group>
         );
@@ -353,7 +352,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[20, -20, 20, -12]} stroke="#bdc3c7" strokeWidth={2} />
             <Line points={[-20, 0, -12, 0]} stroke="#bdc3c7" strokeWidth={2} />
             <Line points={[20, 20, 20, 12]} stroke="#bdc3c7" strokeWidth={2} />
-            <Rect x={-12} y={-12} width={34} height={24} fill={bodyColor || '#2c3e50'} cornerRadius={[12, 4, 4, 12]} />
+            <Rect x={-12} y={-12} width={34} height={24} fill="#2c3e50" cornerRadius={[12, 4, 4, 12]} stroke={isSelected ? '#3498db' : undefined} strokeWidth={isSelected ? 2 : 0} />
             <Text text={type.toUpperCase()} x={-5} y={-5} fontSize={7} fill="white" />
           </Group>
         );
@@ -365,7 +364,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[20, -20, 20, -14]} stroke="#bdc3c7" strokeWidth={2} />
             <Line points={[-20, 0, -14, 0]} stroke="#bdc3c7" strokeWidth={2} />
             <Line points={[20, 20, 20, 14]} stroke="#bdc3c7" strokeWidth={2} />
-            <Rect x={-14} y={-14} width={36} height={28} fill={bodyColor || '#34495e'} cornerRadius={3} />
+            <Rect x={-14} y={-14} width={36} height={28} fill="#34495e" cornerRadius={3} stroke={isSelected ? '#3498db' : undefined} strokeWidth={isSelected ? 2 : 0} />
             <Rect x={14} y={-14} width={8} height={28} fill="#95a5a6" />
             <Text text={type.toUpperCase()} x={-8} y={-5} fontSize={7} fill="white" />
           </Group>
