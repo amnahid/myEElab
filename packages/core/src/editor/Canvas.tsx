@@ -376,17 +376,17 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             if (activeView === 'breadboard') {
                for (const comp of circuit.components) {
                  if (comp.type === 'multimeter') {
-                    const rotRad = (comp.rotation || 0) * Math.PI / 180;
-                    const cos = Math.round(Math.cos(rotRad));
-                    const sin = Math.round(Math.sin(rotRad));
-                    // Pin 1: {x:0, y:-40} (Red / Positive)
-                    const p1x = comp.position.x + (0 * cos - (-40) * sin);
-                    const p1y = comp.position.y + (0 * sin + (-40) * cos);
-                    mmProbeColors.set(`${Math.round(p1x)},${Math.round(p1y)}`, '#e74c3c');
-                    // Pin 2: {x:0, y:40} (Black / COM)
-                    const p2x = comp.position.x + (0 * cos - 40 * sin);
-                    const p2y = comp.position.y + (0 * sin + 40 * cos);
-                    mmProbeColors.set(`${Math.round(p2x)},${Math.round(p2y)}`, '#2c3e50');
+                     const rotRad = (comp.rotation || 0) * Math.PI / 180;
+                     const cos = Math.cos(rotRad);
+                     const sin = Math.sin(rotRad);
+                     // Pin 1: {x: -22, y: 48} (Red / Positive V-Ω-A)
+                     const p1x = comp.position.x + (-22 * cos - 48 * sin);
+                     const p1y = comp.position.y + (-22 * sin + 48 * cos);
+                     mmProbeColors.set(`${Math.round(p1x)},${Math.round(p1y)}`, '#e74c3c');
+                     // Pin 2: {x: 22, y: 48} (Black / COM)
+                     const p2x = comp.position.x + (22 * cos - 48 * sin);
+                     const p2y = comp.position.y + (22 * sin + 48 * cos);
+                     mmProbeColors.set(`${Math.round(p2x)},${Math.round(p2y)}`, '#2c3e50');
                  }
                }
             }

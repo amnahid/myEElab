@@ -172,15 +172,24 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[-40, 20, -25, 20]} stroke={strokeColor} strokeWidth={2} />
           </Group>
         );
-      case 'multimeter':
+      case 'multimeter': {
+        const mode = component.params?.mode || 'voltage';
+        let symbol = 'V';
+        if (mode === 'current') symbol = 'A';
+        if (mode === 'resistance') symbol = 'Ω';
         return (
           <Group>
-            <Rect x={-15} y={-20} width={30} height={40} stroke={strokeColor} strokeWidth={2} fill="transparent" />
-            <Text text={multimeterReading || "V/A"} x={-12} y={-5} fontSize={8} fill={strokeColor} />
-            <Line points={[0, -40, 0, -20]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[0, 40, 0, 20]} stroke={strokeColor} strokeWidth={2} />
+            <Circle x={0} y={0} radius={18} stroke={strokeColor} strokeWidth={2} fill={theme === 'dark' ? '#1e1e2e' : 'white'} />
+            <Text text={symbol} x={-6} y={-7} fontSize={14} fill={strokeColor} fontStyle="bold" align="center" width={12} />
+            {/* Left lead to pin 1 (-22, 48) */}
+            <Line points={[-18, 0, -22, 0, -22, 48]} stroke={strokeColor} strokeWidth={2} />
+            <Text text="+" x={-32} y={20} fontSize={10} fill={strokeColor} fontStyle="bold" />
+            {/* Right lead to pin 2 (22, 48) */}
+            <Line points={[18, 0, 22, 0, 22, 48]} stroke={strokeColor} strokeWidth={2} />
+            <Text text="-" x={26} y={20} fontSize={10} fill={strokeColor} fontStyle="bold" />
           </Group>
         );
+      }
       default:
         return <Circle radius={10} fill="red" />;
     }
@@ -365,27 +374,28 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
       case 'opamp': {
         return (
           <Group>
-            <Line points={[-20, 10, -14, 10]} stroke="#bdc3c7" strokeWidth={2} />
-            <Line points={[-20, -10, -14, -10]} stroke="#bdc3c7" strokeWidth={2} />
-            <Line points={[0, -20, 0, -14]} stroke="#bdc3c7" strokeWidth={2} />
-            <Line points={[0, 20, 0, 14]} stroke="#bdc3c7" strokeWidth={2} />
-            <Line points={[20, 0, 14, 0]} stroke="#bdc3c7" strokeWidth={2} />
-            <Rect x={-14} y={-14} width={28} height={28} fill={bodyColor || '#1a1a2e'} cornerRadius={2} />
-            <Circle x={-8} y={-8} radius={3} fill="#333" stroke="#555" strokeWidth={0.5} />
-            <Text text="OP" x={-6} y={-4} fontSize={8} fill="#ccc" />
+            {isSelected && <Rect x={-25} y={-20} width={50} height={40} stroke="#3498db" strokeWidth={2} dash={[4, 4]} cornerRadius={4} />}
+            <Rect x={-20} y={-15} width={40} height={30} fill={'#2c3e50'} cornerRadius={2} />
+            <Line points={[-20, -10, -25, -10]} stroke="#bdc3c7" strokeWidth={2} />
+            <Line points={[-20, 10, -25, 10]} stroke="#bdc3c7" strokeWidth={2} />
+            <Line points={[20, -10, 25, -10]} stroke="#bdc3c7" strokeWidth={2} />
+            <Line points={[20, 10, 25, 10]} stroke="#bdc3c7" strokeWidth={2} />
+            <Line points={[0, -15, 0, -20]} stroke="#bdc3c7" strokeWidth={2} />
+            <Line points={[0, 15, 0, 20]} stroke="#bdc3c7" strokeWidth={2} />
+            <Circle x={-15} y={-10} radius={2} fill="#95a5a6" />
           </Group>
         );
       }
       case 'oscilloscope': {
         return (
           <Group>
-            <Rect x={-40} y={-30} width={80} height={60} fill={bodyColor || '#2c3e50'} cornerRadius={5} stroke="#1a252f" strokeWidth={2} />
+            {isSelected && <Rect x={-45} y={-35} width={90} height={70} stroke="#3498db" strokeWidth={2} dash={[4, 4]} cornerRadius={4} />}
+            <Rect x={-40} y={-30} width={80} height={60} fill={'#2c3e50'} cornerRadius={5} stroke="#1a252f" strokeWidth={2} />
             <Rect x={-35} y={-25} width={50} height={40} fill="#111" cornerRadius={3} />
             <Path data="M -30 0 Q -25 -15 -20 0 T -10 0 T 0 0 T 10 0" stroke="#2ecc71" strokeWidth={1} fill="transparent" />
             <Circle x={-25} y={-20} radius={4} fill="#95a5a6" />
             <Circle x={-25} y={20} radius={4} fill="#95a5a6" />
             <Line points={[-25, -20, -40, -20]} stroke="#95a5a6" strokeWidth={2} />
-            <Line points={[-25, 20, -40, 20]} stroke="#95a5a6" strokeWidth={2} />
           </Group>
         );
       }
@@ -398,48 +408,80 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
 
         return (
           <Group>
+            {/* Hollow selection outline */}
+            {isSelected && (
+              <Rect
+                x={-49}
+                y={-79}
+                width={98}
+                height={158}
+                stroke="#3498db"
+                strokeWidth={2}
+                dash={[5, 5]}
+                cornerRadius={10}
+              />
+            )}
             {/* Main Body (Fluke yellow) */}
-            <Rect x={-40} y={-80} width={80} height={160} fill={bodyColor || '#f1c40f'} cornerRadius={8} stroke="#d4ac0d" strokeWidth={2} shadowColor="rgba(0,0,0,0.3)" shadowBlur={10} shadowOffsetY={5} />
-            
-            {/* Screen bezel */}
-            <Rect x={-30} y={-70} width={60} height={25} fill="#2c3e50" cornerRadius={4} />
-            
-            {/* Screen */}
-            <Rect x={-25} y={-66} width={50} height={17} fill="#95a5a6" cornerRadius={2} />
-            
+            <Rect
+              x={-45}
+              y={-75}
+              width={90}
+              height={150}
+              fill="#f1c40f"
+              cornerRadius={8}
+              stroke="#d4ac0d"
+              strokeWidth={2}
+              shadowColor="rgba(0,0,0,0.25)"
+              shadowBlur={8}
+              shadowOffsetY={4}
+            />
+
+            {/* LCD Screen bezel */}
+            <Rect x={-35} y={-65} width={70} height={28} fill="#2c3e50" cornerRadius={4} />
+
+            {/* LCD Screen glass */}
+            <Rect x={-30} y={-61} width={60} height={20} fill="#95a5a6" cornerRadius={2} />
+
             {/* Reading text */}
-            <Text text={multimeterReading || "0.00"} x={-23} y={-62} fontSize={10} fill="#2c3e50" fontStyle="bold" align="right" width={46} />
-            
+            <Text
+              text={multimeterReading || "0.00"}
+              x={-28}
+              y={-57}
+              fontSize={12}
+              fill="#2c3e50"
+              fontStyle="bold"
+              align="right"
+              width={56}
+            />
+
             {/* Rotary dial area */}
-            <Circle x={0} y={0} radius={22} fill="#34495e" />
-            <Circle x={0} y={0} radius={18} fill="#2c3e50" />
-            
+            <Circle x={0} y={-10} radius={22} fill="#34495e" />
+            <Circle x={0} y={-10} radius={18} fill="#2c3e50" />
+
             {/* Mode indicators around dial */}
-            <Text text="V" x={-20} y={-20} fontSize={9} fill="white" fontStyle="bold" />
-            <Text text="A" x={-3} y={-28} fontSize={9} fill="white" fontStyle="bold" />
-            <Text text="Ω" x={14} y={-20} fontSize={9} fill="white" fontStyle="bold" />
-            
+            <Text text="V" x={-18} y={-30} fontSize={9} fill="white" fontStyle="bold" />
+            <Text text="A" x={-3} y={-38} fontSize={9} fill="white" fontStyle="bold" />
+            <Text text="Ω" x={12} y={-30} fontSize={9} fill="white" fontStyle="bold" />
+
             {/* Dial knob */}
-            <Group rotation={modeRot}>
+            <Group x={0} y={-10} rotation={modeRot}>
               <Rect x={-3} y={-16} width={6} height={32} fill="#7f8c8d" cornerRadius={3} />
               <Circle x={0} y={-12} radius={2} fill="#e74c3c" />
             </Group>
 
-            {/* Ports at EXACTLY the schematic pin coordinates to preserve connection points */}
-            
-            {/* Pin 1: V/Ω (Red) at {x:0, y:-40} - Since this is physically above the dial, let's adjust visually */}
-            {/* Wait, the dial is at y=0. Pin 1 is at y=-40. The screen is at y=-70. 
-                This puts the ports right between the screen and the dial. That's a bit weird for a multimeter.
-                Usually ports are at the bottom. But we MUST preserve schematic coordinates! 
-                If we must, we just draw the ports exactly at the pins. */}
-            <Circle x={0} y={-40} radius={7} fill="#c0392b" />
-            <Circle x={0} y={-40} radius={3} fill="#000" />
-            <Text text="V/Ω/A" x={10} y={-44} fontSize={8} fill="#2c3e50" fontStyle="bold" />
+            {/* Labels placed cleanly ABOVE the sockets inside the body */}
+            <Text text="V/Ω/A" x={-38} y={30} fontSize={8} fill="#2c3e50" fontStyle="bold" align="center" width={32} />
+            <Text text="COM" x={6} y={30} fontSize={8} fill="#2c3e50" fontStyle="bold" align="center" width={32} />
 
-            {/* Pin 2: COM (Black) at {x:0, y:40} */}
-            <Circle x={0} y={40} radius={7} fill="#2c3e50" />
-            <Circle x={0} y={40} radius={3} fill="#000" />
-            <Text text="COM" x={10} y={36} fontSize={8} fill="#2c3e50" fontStyle="bold" />
+            {/* Pin 1: Red Jack Socket at EXACTLY {-22, 48} */}
+            <Circle x={-22} y={48} radius={8} fill="#c0392b" />
+            <Circle x={-22} y={48} radius={5} fill="#bdc3c7" />
+            <Circle x={-22} y={48} radius={3.5} fill="#111111" />
+
+            {/* Pin 2: Black Jack Socket at EXACTLY {22, 48} */}
+            <Circle x={22} y={48} radius={8} fill="#2c3e50" />
+            <Circle x={22} y={48} radius={5} fill="#bdc3c7" />
+            <Circle x={22} y={48} radius={3.5} fill="#111111" />
           </Group>
         );
       }
@@ -450,7 +492,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
 
   const renderLabels = () => {
     const isHorizontal = (component.rotation === 90 || component.rotation === 270);
-    const isNativeHorizontal = (type === 'opamp');
+    const isNativeHorizontal = (type === 'opamp' || type === 'multimeter');
     const isEffectivelyHorizontal = isNativeHorizontal ? !isHorizontal : isHorizontal;
 
     let dx = 0;
