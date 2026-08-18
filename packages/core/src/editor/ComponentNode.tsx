@@ -373,8 +373,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
       case 'opamp': {
         return (
           <Group>
-            {isSelected && <Rect x={-25} y={-20} width={50} height={40} stroke="#3498db" strokeWidth={2} dash={[4, 4]} cornerRadius={4} />}
-            <Rect x={-20} y={-15} width={40} height={30} fill={'#2c3e50'} cornerRadius={2} />
+            <Rect x={-20} y={-15} width={40} height={30} fill={'#2c3e50'} cornerRadius={2} stroke={isSelected ? '#3498db' : undefined} strokeWidth={isSelected ? 2 : 0} />
             <Line points={[-20, -10, -25, -10]} stroke="#bdc3c7" strokeWidth={2} />
             <Line points={[-20, 10, -25, 10]} stroke="#bdc3c7" strokeWidth={2} />
             <Line points={[20, -10, 25, -10]} stroke="#bdc3c7" strokeWidth={2} />
@@ -388,8 +387,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
       case 'oscilloscope': {
         return (
           <Group>
-            {isSelected && <Rect x={-45} y={-35} width={90} height={70} stroke="#3498db" strokeWidth={2} dash={[4, 4]} cornerRadius={4} />}
-            <Rect x={-40} y={-30} width={80} height={60} fill={'#2c3e50'} cornerRadius={5} stroke="#1a252f" strokeWidth={2} />
+            <Rect x={-40} y={-30} width={80} height={60} fill={'#2c3e50'} cornerRadius={5} stroke={isSelected ? '#3498db' : '#1a252f'} strokeWidth={2} />
             <Rect x={-35} y={-25} width={50} height={40} fill="#111" cornerRadius={3} />
             <Path data="M -30 0 Q -25 -15 -20 0 T -10 0 T 0 0 T 10 0" stroke="#2ecc71" strokeWidth={1} fill="transparent" />
             <Circle x={-25} y={-20} radius={4} fill="#95a5a6" />
@@ -407,19 +405,6 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
 
         return (
           <Group>
-            {/* Hollow selection outline */}
-            {isSelected && (
-              <Rect
-                x={-49}
-                y={-79}
-                width={98}
-                height={158}
-                stroke="#3498db"
-                strokeWidth={2}
-                dash={[5, 5]}
-                cornerRadius={10}
-              />
-            )}
             {/* Main Body (Fluke yellow) */}
             <Rect
               x={-45}
@@ -428,7 +413,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
               height={150}
               fill="#f1c40f"
               cornerRadius={8}
-              stroke="#d4ac0d"
+              stroke={isSelected ? '#3498db' : '#d4ac0d'}
               strokeWidth={2}
               shadowColor="rgba(0,0,0,0.25)"
               shadowBlur={8}
