@@ -280,23 +280,45 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
         if (sourceType === 'sin' || sourceType === 'ac') {
           return (
             <Group>
-              <Line points={[0, -20, 0, -14]} stroke="#e74c3c" strokeWidth={2} />
-              <Line points={[0, 14, 0, 20]} stroke="#2c3e50" strokeWidth={2} />
-              <Rect x={-20} y={-14} width={40} height={28} fill="#34495e" cornerRadius={4} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={isSelected ? 2 : 1} />
-              <Rect x={-16} y={-10} width={32} height={12} fill="#000" cornerRadius={2} />
-              <Path data="M -10 -4 Q -5 -8 0 -4 T 10 -4" stroke="#0f0" strokeWidth={1.5} fill="transparent" />
-              <Text text="FUNC" x={-20} y={4} width={40} align="center" fontSize={8} fill="#bdc3c7" />
+              <Rect x={-200} y={-60} width={220} height={120} fill="#34495e" cornerRadius={6} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={isSelected ? 3 : 2} />
+              
+              <Rect x={-180} y={-45} width={130} height={50} fill="#111" cornerRadius={4} />
+              <Path data="M -160 -20 Q -140 -40 -120 -20 T -80 -20 T -40 -20" stroke="#0f0" strokeWidth={2.5} fill="transparent" />
+              <Text text="1.0 kHz" x={-170} y={-5} width={110} align="center" fontSize={12} fill="#2ecc71" />
+
+              <Text text="FUNCTION GENERATOR" x={-190} y={15} width={180} align="center" fontSize={10} fill="#bdc3c7" />
+
+              {/* + BNC Port */}
+              <Circle x={0} y={-20} radius={6} fill="#e74c3c" />
+              <Circle x={0} y={-20} radius={3} fill="#111" />
+              <Text text="+" x={-18} y={-25} fontSize={10} fill="#e74c3c" fontStyle="bold" />
+
+              {/* - BNC Port */}
+              <Circle x={0} y={20} radius={6} fill="#bdc3c7" />
+              <Circle x={0} y={20} radius={3} fill="#111" />
+              <Text text="-" x={-15} y={15} fontSize={12} fill="#ecf0f1" fontStyle="bold" />
             </Group>
           );
         } else {
           return (
             <Group>
-              <Line points={[0, -20, 0, -14]} stroke="#e74c3c" strokeWidth={2} />
-              <Line points={[0, 14, 0, 20]} stroke="#2c3e50" strokeWidth={2} />
-              <Rect x={-20} y={-14} width={40} height={28} fill="#ecf0f1" cornerRadius={4} stroke={isSelected ? '#3498db' : '#bdc3c7'} strokeWidth={isSelected ? 2 : 1} />
-              <Rect x={-16} y={-10} width={32} height={12} fill="#000" cornerRadius={2} />
-              <Text text={component.params?.dc ? `${component.params.dc}V` : '5V'} x={-16} y={-8} width={32} align="center" fontSize={8} fill="#e74c3c" />
-              <Text text="DC PWR" x={-20} y={4} width={40} align="center" fontSize={7} fill="#7f8c8d" />
+              <Rect x={-200} y={-60} width={220} height={120} fill="#ecf0f1" cornerRadius={6} stroke={isSelected ? '#3498db' : '#bdc3c7'} strokeWidth={isSelected ? 3 : 2} />
+              
+              <Rect x={-180} y={-45} width={130} height={45} fill="#000" cornerRadius={4} />
+              <Text text={component.params?.dc ? `${component.params.dc}V` : '5.00V'} x={-175} y={-40} width={120} align="center" fontSize={22} fill="#e74c3c" fontStyle="bold" />
+              <Text text="0.00A" x={-175} y={-15} width={120} align="center" fontSize={14} fill="#3498db" />
+
+              <Text text="DC POWER SUPPLY" x={-190} y={15} width={180} align="center" fontSize={10} fill="#7f8c8d" />
+
+              {/* + Port */}
+              <Circle x={0} y={-20} radius={6} fill="#c0392b" />
+              <Circle x={0} y={-20} radius={3} fill="#111" />
+              <Text text="+" x={-15} y={-25} fontSize={10} fill="#c0392b" fontStyle="bold" />
+
+              {/* - Port */}
+              <Circle x={0} y={20} radius={6} fill="#2c3e50" />
+              <Circle x={0} y={20} radius={3} fill="#111" />
+              <Text text="-" x={-15} y={15} fontSize={12} fill="#2c3e50" fontStyle="bold" />
             </Group>
           );
         }
@@ -306,23 +328,45 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
         if (iSourceType === 'sin' || iSourceType === 'ac') {
           return (
             <Group>
-              <Line points={[0, -20, 0, -14]} stroke="#e74c3c" strokeWidth={2} />
-              <Line points={[0, 14, 0, 20]} stroke="#2c3e50" strokeWidth={2} />
-              <Rect x={-20} y={-14} width={40} height={28} fill="#34495e" cornerRadius={4} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={isSelected ? 2 : 1} />
-              <Rect x={-16} y={-10} width={32} height={12} fill="#000" cornerRadius={2} />
-              <Path data="M -10 -4 Q -5 -8 0 -4 T 10 -4" stroke="#3498db" strokeWidth={1.5} fill="transparent" />
-              <Text text="I~" x={-20} y={4} width={40} align="center" fontSize={8} fill="#bdc3c7" />
+              <Rect x={-200} y={-60} width={220} height={120} fill="#34495e" cornerRadius={6} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={isSelected ? 3 : 2} />
+              
+              <Rect x={-180} y={-45} width={130} height={50} fill="#111" cornerRadius={4} />
+              <Path data="M -160 -20 Q -140 -40 -120 -20 T -80 -20 T -40 -20" stroke="#3498db" strokeWidth={2.5} fill="transparent" />
+              <Text text="I~" x={-170} y={-5} width={110} align="center" fontSize={12} fill="#3498db" />
+
+              <Text text="AC CURRENT SOURCE" x={-190} y={15} width={180} align="center" fontSize={10} fill="#bdc3c7" />
+
+              {/* + BNC Port */}
+              <Circle x={0} y={-20} radius={6} fill="#3498db" />
+              <Circle x={0} y={-20} radius={3} fill="#111" />
+              <Text text="+" x={-18} y={-25} fontSize={10} fill="#3498db" fontStyle="bold" />
+
+              {/* - BNC Port */}
+              <Circle x={0} y={20} radius={6} fill="#bdc3c7" />
+              <Circle x={0} y={20} radius={3} fill="#111" />
+              <Text text="-" x={-15} y={15} fontSize={12} fill="#ecf0f1" fontStyle="bold" />
             </Group>
           );
         } else {
           return (
             <Group>
-              <Line points={[0, -20, 0, -14]} stroke="#e74c3c" strokeWidth={2} />
-              <Line points={[0, 14, 0, 20]} stroke="#2c3e50" strokeWidth={2} />
-              <Rect x={-20} y={-14} width={40} height={28} fill="#ecf0f1" cornerRadius={4} stroke={isSelected ? '#3498db' : '#bdc3c7'} strokeWidth={isSelected ? 2 : 1} />
-              <Rect x={-16} y={-10} width={32} height={12} fill="#000" cornerRadius={2} />
-              <Text text={component.params?.dc ? `${component.params.dc}A` : '1mA'} x={-16} y={-8} width={32} align="center" fontSize={8} fill="#3498db" />
-              <Text text="I DC" x={-20} y={4} width={40} align="center" fontSize={7} fill="#7f8c8d" />
+              <Rect x={-200} y={-60} width={220} height={120} fill="#ecf0f1" cornerRadius={6} stroke={isSelected ? '#3498db' : '#bdc3c7'} strokeWidth={isSelected ? 3 : 2} />
+              
+              <Rect x={-180} y={-45} width={130} height={45} fill="#000" cornerRadius={4} />
+              <Text text={component.params?.dc ? `${component.params.dc}A` : '1.00A'} x={-175} y={-40} width={120} align="center" fontSize={22} fill="#3498db" fontStyle="bold" />
+              <Text text="5.00V" x={-175} y={-15} width={120} align="center" fontSize={14} fill="#e74c3c" />
+
+              <Text text="DC CURRENT SOURCE" x={-190} y={15} width={180} align="center" fontSize={10} fill="#7f8c8d" />
+
+              {/* + Port */}
+              <Circle x={0} y={-20} radius={6} fill="#3498db" />
+              <Circle x={0} y={-20} radius={3} fill="#111" />
+              <Text text="+" x={-15} y={-25} fontSize={10} fill="#3498db" fontStyle="bold" />
+
+              {/* - Port */}
+              <Circle x={0} y={20} radius={6} fill="#2c3e50" />
+              <Circle x={0} y={20} radius={3} fill="#111" />
+              <Text text="-" x={-15} y={15} fontSize={12} fill="#2c3e50" fontStyle="bold" />
             </Group>
           );
         }
@@ -387,24 +431,34 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
       case 'oscilloscope': {
         return (
           <Group>
-            {/* Body */}
-            <Rect x={-40} y={-30} width={80} height={60} fill={'#2c3e50'} cornerRadius={5} stroke={isSelected ? '#3498db' : '#1a252f'} strokeWidth={2} />
+            {/* Main Body (Engulfs pins to avoid protruding look) */}
+            <Rect x={-60} y={-80} width={260} height={160} fill={'#2c3e50'} cornerRadius={8} stroke={isSelected ? '#3498db' : '#1a252f'} strokeWidth={isSelected ? 3 : 2} />
             
             {/* Screen on the right */}
-            <Rect x={-15} y={-25} width={50} height={40} fill="#111" cornerRadius={3} />
+            <Rect x={40} y={-60} width={140} height={100} fill="#111" cornerRadius={6} />
+            
+            {/* Screen Grid (Subtle) */}
+            <Line points={[40, -35, 180, -35]} stroke="#1a252f" strokeWidth={1} />
+            <Line points={[40, -10, 180, -10]} stroke="#1a252f" strokeWidth={1} />
+            <Line points={[40, 15, 180, 15]} stroke="#1a252f" strokeWidth={1} />
+            <Line points={[75, -60, 75, 40]} stroke="#1a252f" strokeWidth={1} />
+            <Line points={[110, -60, 110, 40]} stroke="#1a252f" strokeWidth={1} />
+            <Line points={[145, -60, 145, 40]} stroke="#1a252f" strokeWidth={1} />
             
             {/* Sine wave on screen */}
-            <Path data="M -10 0 Q -5 -15 0 0 T 10 0 T 20 0 T 30 0" stroke="#2ecc71" strokeWidth={1} fill="transparent" />
+            <Path data="M 40 -10 Q 75 -50 110 -10 T 180 -10" stroke="#2ecc71" strokeWidth={2.5} fill="transparent" />
             
-            {/* CH1+ BNC Port at pin coordinate {-40, -20} */}
-            <Circle x={-40} y={-20} radius={5} fill="#bdc3c7" />
-            <Circle x={-40} y={-20} radius={2} fill="#2c3e50" />
-            <Text text="CH1+" x={-32} y={-24} fontSize={8} fill="#ecf0f1" />
+            <Text text="OSCILLOSCOPE" x={40} y={55} width={140} align="center" fontSize={12} fill="#bdc3c7" fontStyle="bold" />
 
-            {/* CH1- BNC Port at pin coordinate {-40, 20} */}
-            <Circle x={-40} y={20} radius={5} fill="#bdc3c7" />
-            <Circle x={-40} y={20} radius={2} fill="#2c3e50" />
-            <Text text="CH1-" x={-32} y={16} fontSize={8} fill="#ecf0f1" />
+            {/* CH1+ BNC Port */}
+            <Circle x={-40} y={-20} radius={6} fill="#e74c3c" />
+            <Circle x={-40} y={-20} radius={3} fill="#111" />
+            <Text text="CH1+" x={-20} y={-25} fontSize={10} fill="#e74c3c" fontStyle="bold" />
+
+            {/* CH1- BNC Port */}
+            <Circle x={-40} y={20} radius={6} fill="#bdc3c7" />
+            <Circle x={-40} y={20} radius={3} fill="#111" />
+            <Text text="CH1-" x={-20} y={15} fontSize={10} fill="#ecf0f1" fontStyle="bold" />
           </Group>
         );
       }
