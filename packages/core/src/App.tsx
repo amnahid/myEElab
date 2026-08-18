@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Canvas } from './editor/Canvas';
 import { useEditorStore } from './store/editorStore';
-import { Undo, Redo, RotateCw, Trash2 } from 'lucide-react';
+import { Undo, Redo, RotateCw, Trash2, Settings } from 'lucide-react';
 import { NetlistGenerator } from './engine/netlist';
 import { WaveformViewer } from './editor/WaveformViewer';
 import { BodePlot } from './components/BodePlot';
@@ -305,6 +305,7 @@ function App() {
   const toggleTheme = useEditorStore(state => state.toggleTheme);
   
   const [activeScopeId, setActiveScopeId] = useState<string | null>(null);
+  const [showAnalysisSettings, setShowAnalysisSettings] = useState(false);
 
   useEffect(() => {
     if (editingComponentId) {
@@ -611,70 +612,119 @@ function App() {
             </button>
           </div>
           
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginLeft: 'auto', background: colors.toolbarBg, padding: '5px 10px', borderRadius: '5px' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginLeft: 'auto', background: colors.toolbarBg, padding: '5px 10px', borderRadius: '5px', position: 'relative' }}>
             <select 
               value={activeAnalysis} 
-              onChange={(e) => setActiveAnalysis(e.target.value as 'op' | 'tran' | 'ac')}
+              onChange={(e) => {
+                setActiveAnalysis(e.target.value as 'op' | 'tran' | 'ac');
+                setShowAnalysisSettings(false);
+              }}
               style={{ padding: '5px', borderRadius: '4px', border: 'none', cursor: 'pointer', backgroundColor: colors.inputBg, color: colors.text }}
             >
               <option value="op">DC (.op)</option>
               <option value="tran">Transient (.tran)</option>
               <option value="ac">AC Sweep (.ac)</option>
             </select>
-            {activeAnalysis === 'tran' && (
-              <>
-                <input 
-                  type="text" 
-                  placeholder="Step (e.g. 100u)" 
-                  value={circuit.analyses.find(a => a.kind === 'tran')?.params.step || '100u'} 
-                  onChange={(e) => updateAnalysis('tran', { step: e.target.value })}
-                  style={{ width: '80px', padding: '5px', borderRadius: '4px', border: 'none', backgroundColor: colors.inputBg, color: colors.text }}
-                />
-                <input 
-                  type="text" 
-                  placeholder="Stop (e.g. 10m)" 
-                  value={circuit.analyses.find(a => a.kind === 'tran')?.params.stop || '10m'} 
-                  onChange={(e) => updateAnalysis('tran', { stop: e.target.value })}
-                  style={{ width: '80px', padding: '5px', borderRadius: '4px', border: 'none', backgroundColor: colors.inputBg, color: colors.text }}
-                />
-              </>
+            
+            {activeAnalysis !== 'op' && (
+              <button
+                onClick={() => setShowAnalysisSettings(!showAnalysisSettings)}
+                style={{ background: 'transparent', color: showAnalysisSettings ? '#3498db' : colors.text, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Analysis Settings"
+              >
+                <Settings size={18} />
+              </button>
             )}
-            {activeAnalysis === 'ac' && (
-              <>
-                <select 
-                  value={circuit.analyses.find(a => a.kind === 'ac')?.params.variation || 'dec'}
-                  onChange={(e) => updateAnalysis('ac', { variation: e.target.value })}
-                  style={{ width: '60px', padding: '5px', borderRadius: '4px', border: 'none', backgroundColor: colors.inputBg, color: colors.text }}
-                >
-                  <option value="dec">Decade</option>
-                  <option value="oct">Octave</option>
-                  <option value="lin">Linear</option>
-                </select>
-                <input 
-                  type="text" 
-                  placeholder="Pts" 
-                  value={circuit.analyses.find(a => a.kind === 'ac')?.params.points || '10'} 
-                  onChange={(e) => updateAnalysis('ac', { points: e.target.value })}
-                  style={{ width: '40px', padding: '5px', borderRadius: '4px', border: 'none', backgroundColor: colors.inputBg, color: colors.text }}
-                  title="Points"
-                />
-                <input 
-                  type="text" 
-                  placeholder="FStart" 
-                  value={circuit.analyses.find(a => a.kind === 'ac')?.params.fstart || '1'} 
-                  onChange={(e) => updateAnalysis('ac', { fstart: e.target.value })}
-                  style={{ width: '60px', padding: '5px', borderRadius: '4px', border: 'none', backgroundColor: colors.inputBg, color: colors.text }}
-                  title="Start Frequency"
-                />
-                <input 
-                  type="text" 
-                  placeholder="FStop" 
-                  value={circuit.analyses.find(a => a.kind === 'ac')?.params.fstop || '1Meg'} 
-                  onChange={(e) => updateAnalysis('ac', { fstop: e.target.value })}
-                  style={{ width: '60px', padding: '5px', borderRadius: '4px', border: 'none', backgroundColor: colors.inputBg, color: colors.text }}
-                  title="Stop Frequency"
-                />
-              </>
+
+            {showAnalysisSettings && activeAnalysis !== 'op' && (
+              <div style={{ 
+                position: 'absolute', 
+                top: '120%', 
+                right: 0, 
+                background: colors.panelBg, 
+                padding: '15px', 
+                borderRadius: '6px', 
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)', 
+                zIndex: 1000,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                width: '220px',
+                border: `1px solid ${colors.border}`
+              }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', color: colors.text, borderBottom: `1px solid ${colors.border}`, paddingBottom: '5px' }}>
+                  {activeAnalysis === 'tran' ? 'Transient Settings' : 'AC Sweep Settings'}
+                </h4>
+                
+                {activeAnalysis === 'tran' && (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: colors.text }}>Step Time (e.g. 100u)</label>
+                      <input 
+                        type="text" 
+                        value={circuit.analyses.find(a => a.kind === 'tran')?.params.step || '100u'} 
+                        onChange={(e) => updateAnalysis('tran', { step: e.target.value })}
+                        style={{ padding: '5px', borderRadius: '4px', border: `1px solid ${colors.border}`, backgroundColor: colors.inputBg, color: colors.text }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: colors.text }}>Stop Time (e.g. 10m)</label>
+                      <input 
+                        type="text" 
+                        value={circuit.analyses.find(a => a.kind === 'tran')?.params.stop || '10m'} 
+                        onChange={(e) => updateAnalysis('tran', { stop: e.target.value })}
+                        style={{ padding: '5px', borderRadius: '4px', border: `1px solid ${colors.border}`, backgroundColor: colors.inputBg, color: colors.text }}
+                      />
+                    </div>
+                  </>
+                )}
+                
+                {activeAnalysis === 'ac' && (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: colors.text }}>Sweep Type</label>
+                      <select 
+                        value={circuit.analyses.find(a => a.kind === 'ac')?.params.variation || 'dec'}
+                        onChange={(e) => updateAnalysis('ac', { variation: e.target.value })}
+                        style={{ padding: '5px', borderRadius: '4px', border: `1px solid ${colors.border}`, backgroundColor: colors.inputBg, color: colors.text }}
+                      >
+                        <option value="dec">Decade</option>
+                        <option value="oct">Octave</option>
+                        <option value="lin">Linear</option>
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: colors.text }}>Points / Sweep</label>
+                      <input 
+                        type="text" 
+                        value={circuit.analyses.find(a => a.kind === 'ac')?.params.points || '10'} 
+                        onChange={(e) => updateAnalysis('ac', { points: e.target.value })}
+                        style={{ padding: '5px', borderRadius: '4px', border: `1px solid ${colors.border}`, backgroundColor: colors.inputBg, color: colors.text }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                        <label style={{ fontSize: '0.8rem', color: colors.text }}>Start Freq</label>
+                        <input 
+                          type="text" 
+                          value={circuit.analyses.find(a => a.kind === 'ac')?.params.fstart || '1'} 
+                          onChange={(e) => updateAnalysis('ac', { fstart: e.target.value })}
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '5px', borderRadius: '4px', border: `1px solid ${colors.border}`, backgroundColor: colors.inputBg, color: colors.text }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                        <label style={{ fontSize: '0.8rem', color: colors.text }}>Stop Freq</label>
+                        <input 
+                          type="text" 
+                          value={circuit.analyses.find(a => a.kind === 'ac')?.params.fstop || '1Meg'} 
+                          onChange={(e) => updateAnalysis('ac', { fstop: e.target.value })}
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '5px', borderRadius: '4px', border: `1px solid ${colors.border}`, backgroundColor: colors.inputBg, color: colors.text }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
 
