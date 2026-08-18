@@ -375,18 +375,31 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             const mmProbeColors = new Map<string, string>(); // 'x,y' -> color
             if (activeView === 'breadboard') {
                for (const comp of circuit.components) {
+                 const rotRad = (comp.rotation || 0) * Math.PI / 180;
+                 const cos = Math.cos(rotRad);
+                 const sin = Math.sin(rotRad);
+
+                 const setProbeColor = (dx: number, dy: number, color: string) => {
+                   const px = comp.position.x + (dx * cos - dy * sin);
+                   const py = comp.position.y + (dx * sin + dy * cos);
+                   mmProbeColors.set(`${Math.round(px)},${Math.round(py)}`, color);
+                 };
+
                  if (comp.type === 'multimeter') {
-                     const rotRad = (comp.rotation || 0) * Math.PI / 180;
-                     const cos = Math.cos(rotRad);
-                     const sin = Math.sin(rotRad);
                      // Pin 1: {x: -22, y: 48} (Red / Positive V-Ω-A)
-                     const p1x = comp.position.x + (-22 * cos - 48 * sin);
-                     const p1y = comp.position.y + (-22 * sin + 48 * cos);
-                     mmProbeColors.set(`${Math.round(p1x)},${Math.round(p1y)}`, '#e74c3c');
+                     setProbeColor(-22, 48, '#e74c3c');
                      // Pin 2: {x: 22, y: 48} (Black / COM)
-                     const p2x = comp.position.x + (22 * cos - 48 * sin);
-                     const p2y = comp.position.y + (22 * sin + 48 * cos);
-                     mmProbeColors.set(`${Math.round(p2x)},${Math.round(p2y)}`, '#2c3e50');
+                     setProbeColor(22, 48, '#2c3e50');
+                 } else if (comp.type === 'vsource' || comp.type === 'isource') {
+                     // Pin 1: {x: 0, y: -20} (Red / +)
+                     setProbeColor(0, -20, '#e74c3c');
+                     // Pin 2: {x: 0, y: 20} (Black / -)
+                     setProbeColor(0, 20, '#2c3e50');
+                 } else if (comp.type === 'oscilloscope') {
+                     // CH1+: {x: -40, y: -20} (Red / +)
+                     setProbeColor(-40, -20, '#e74c3c');
+                     // CH1-: {x: -40, y: 20} (Black / -)
+                     setProbeColor(-40, 20, '#2c3e50');
                  }
                }
             }
