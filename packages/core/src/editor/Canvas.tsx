@@ -663,18 +663,23 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
               );
             };
 
-            const unselectedWires = circuit.wires.filter(w => !selectedIds.includes(w.id));
-            const selectedWires = circuit.wires.filter(w => selectedIds.includes(w.id));
-            const unselectedComps = circuit.components.filter(c => !selectedIds.includes(c.id));
-            const selectedComps = circuit.components.filter(c => selectedIds.includes(c.id));
+            const sortedWires = [...circuit.wires].sort((a, b) => {
+              const aSel = selectedIds.includes(a.id) ? 1 : 0;
+              const bSel = selectedIds.includes(b.id) ? 1 : 0;
+              return aSel - bSel;
+            });
+
+            const sortedComps = [...circuit.components].sort((a, b) => {
+              const aSel = selectedIds.includes(a.id) ? 1 : 0;
+              const bSel = selectedIds.includes(b.id) ? 1 : 0;
+              return aSel - bSel;
+            });
 
             return (
               <>
-                {unselectedWires.map(renderWire)}
-                {unselectedComps.map(renderComponent)}
+                {sortedWires.map(renderWire)}
                 {junctionDots}
-                {selectedWires.map(renderWire)}
-                {selectedComps.map(renderComponent)}
+                {sortedComps.map(renderComponent)}
               </>
             );
           })()}
