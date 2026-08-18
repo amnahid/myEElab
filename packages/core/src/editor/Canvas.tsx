@@ -716,7 +716,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
           })}
 
         {/* Render node voltages if available */}
-        {nodeVoltages && Object.keys(nodeVoltages).length > 0 && selectedIds.length === 0 && (
+        {activeView === 'schematic' && nodeVoltages && Object.keys(nodeVoltages).length > 0 && selectedIds.length === 0 && (
           (() => {
             const resolver = new NodeResolver();
             const { components, wires } = resolver.resolve(circuit);
