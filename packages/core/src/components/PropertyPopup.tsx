@@ -187,18 +187,20 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
 
         {editingComponent && (editingComponent.type === 'vsource' || editingComponent.type === 'function_generator' || editingComponent.type === 'isource') && (
           <>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Source Type</label>
-              <select 
-                value={editingComponent.params.type || 'dc'} 
-                onChange={e => updateComponentParams(editingComponent.id, { type: e.target.value })}
-                style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }}
-              >
-                <option value="dc">DC</option>
-                <option value="ac">AC</option>
-                <option value="sin">Sine (Transient)</option>
-              </select>
-            </div>
+            {editingComponent.type !== 'vsource' && (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Source Type</label>
+                <select 
+                  value={editingComponent.params.type || (editingComponent.type === 'function_generator' ? 'sin' : 'dc')} 
+                  onChange={e => updateComponentParams(editingComponent.id, { type: e.target.value })}
+                  style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }}
+                >
+                  <option value="dc">DC</option>
+                  <option value="ac">AC</option>
+                  <option value="sin">Sine (Transient)</option>
+                </select>
+              </div>
+            )}
             {(!editingComponent.params.type || editingComponent.params.type === 'dc') && (
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>DC Value ({(editingComponent.type === 'vsource' || editingComponent.type === 'function_generator') ? 'V' : 'A'})</label>

@@ -285,15 +285,40 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
         );
       }
       case 'function_generator': {
+          const typeStr = component.params?.type || 'sin';
+          const isAC = typeStr === 'ac';
+          const isDC = typeStr === 'dc';
+          const isSin = typeStr === 'sin';
+
+          const freqVal = component.params?.frequency || '1k';
+          const ampVal = component.params?.amplitude || '5';
+          const dcVal = component.params?.dc || component.params?.value || '0';
+          const acMag = component.params?.acMag || '1';
+
+          let topText = '';
+          if (isSin) topText = `${freqVal}Hz`;
+          else if (isAC) topText = `${acMag}V AC`;
+          else if (isDC) topText = `${dcVal}V DC`;
+
+          let bottomText = 'FUNCTION GENERATOR';
+          if (isSin) bottomText += ` (${ampVal}V)`;
+
+          let wavePath = '';
+          if (isSin || isAC) {
+            wavePath = "M -160 -20 Q -140 -40 -120 -20 T -80 -20 T -40 -20";
+          } else if (isDC) {
+            wavePath = "M -160 -20 L -40 -20"; // straight flat line
+          }
+
           return (
             <Group>
               <Rect x={-200} y={-60} width={220} height={120} fill="#34495e" cornerRadius={6} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={isSelected ? 3 : 2} />
               
               <Rect x={-180} y={-45} width={130} height={50} fill="#111" cornerRadius={4} />
-              <Path data="M -160 -20 Q -140 -40 -120 -20 T -80 -20 T -40 -20" stroke="#0f0" strokeWidth={2.5} fill="transparent" />
-              <Text text="1.0 kHz" x={-170} y={-5} width={110} align="center" fontSize={12} fill="#2ecc71" />
+              <Path data={wavePath} stroke="#0f0" strokeWidth={2.5} fill="transparent" />
+              <Text text={topText} x={-170} y={-5} width={110} align="center" fontSize={12} fill="#2ecc71" />
 
-              <Text text="FUNCTION GENERATOR" x={-190} y={15} width={180} align="center" fontSize={10} fill="#bdc3c7" />
+              <Text text={bottomText} x={-190} y={15} width={180} align="center" fontSize={10} fill="#bdc3c7" />
 
               {/* + BNC Port */}
               <Circle x={0} y={-20} radius={6} fill="#e74c3c" />
