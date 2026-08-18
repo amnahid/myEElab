@@ -250,6 +250,7 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
             >
               <option value="voltage">DC Voltage (V)</option>
               <option value="current">DC Current (A)</option>
+              <option value="resistance">Resistance (Ω)</option>
             </select>
           </div>
         )}

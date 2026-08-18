@@ -390,18 +390,56 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
         );
       }
       case 'multimeter': {
+        const mode = component.params?.mode || 'voltage';
+        let modeRot = 0;
+        if (mode === 'voltage') modeRot = -45;
+        if (mode === 'current') modeRot = 0;
+        if (mode === 'resistance') modeRot = 45;
+
         return (
           <Group>
-            <Rect x={-25} y={-30} width={50} height={60} fill={bodyColor || '#f1c40f'} cornerRadius={3} stroke="#d4ac0d" strokeWidth={2} />
-            <Rect x={-20} y={-25} width={40} height={15} fill="#95a5a6" cornerRadius={2} />
-            <Text text={multimeterReading || "0.00"} x={-18} y={-22} fontSize={9} fill="#2c3e50" fontStyle="bold" />
-            <Circle x={0} y={5} radius={10} fill="#34495e" />
-            <Circle x={0} y={5} radius={8} fill="#2c3e50" />
-            <Line points={[0, 5, 0, -3]} stroke="#ecf0f1" strokeWidth={2} />
-            <Circle x={-10} y={22} radius={3} fill="#c0392b" />
-            <Circle x={10} y={22} radius={3} fill="#2c3e50" />
-            <Line points={[0, -40, 0, -30]} stroke="#c0392b" strokeWidth={2} />
-            <Line points={[0, 40, 0, 30]} stroke="#2c3e50" strokeWidth={2} />
+            {/* Main Body (Fluke yellow) */}
+            <Rect x={-40} y={-80} width={80} height={160} fill={bodyColor || '#f1c40f'} cornerRadius={8} stroke="#d4ac0d" strokeWidth={2} shadowColor="rgba(0,0,0,0.3)" shadowBlur={10} shadowOffsetY={5} />
+            
+            {/* Screen bezel */}
+            <Rect x={-30} y={-70} width={60} height={25} fill="#2c3e50" cornerRadius={4} />
+            
+            {/* Screen */}
+            <Rect x={-25} y={-66} width={50} height={17} fill="#95a5a6" cornerRadius={2} />
+            
+            {/* Reading text */}
+            <Text text={multimeterReading || "0.00"} x={-23} y={-62} fontSize={10} fill="#2c3e50" fontStyle="bold" align="right" width={46} />
+            
+            {/* Rotary dial area */}
+            <Circle x={0} y={0} radius={22} fill="#34495e" />
+            <Circle x={0} y={0} radius={18} fill="#2c3e50" />
+            
+            {/* Mode indicators around dial */}
+            <Text text="V" x={-20} y={-20} fontSize={9} fill="white" fontStyle="bold" />
+            <Text text="A" x={-3} y={-28} fontSize={9} fill="white" fontStyle="bold" />
+            <Text text="Ω" x={14} y={-20} fontSize={9} fill="white" fontStyle="bold" />
+            
+            {/* Dial knob */}
+            <Group rotation={modeRot}>
+              <Rect x={-3} y={-16} width={6} height={32} fill="#7f8c8d" cornerRadius={3} />
+              <Circle x={0} y={-12} radius={2} fill="#e74c3c" />
+            </Group>
+
+            {/* Ports at EXACTLY the schematic pin coordinates to preserve connection points */}
+            
+            {/* Pin 1: V/Ω (Red) at {x:0, y:-40} - Since this is physically above the dial, let's adjust visually */}
+            {/* Wait, the dial is at y=0. Pin 1 is at y=-40. The screen is at y=-70. 
+                This puts the ports right between the screen and the dial. That's a bit weird for a multimeter.
+                Usually ports are at the bottom. But we MUST preserve schematic coordinates! 
+                If we must, we just draw the ports exactly at the pins. */}
+            <Circle x={0} y={-40} radius={7} fill="#c0392b" />
+            <Circle x={0} y={-40} radius={3} fill="#000" />
+            <Text text="V/Ω/A" x={10} y={-44} fontSize={8} fill="#2c3e50" fontStyle="bold" />
+
+            {/* Pin 2: COM (Black) at {x:0, y:40} */}
+            <Circle x={0} y={40} radius={7} fill="#2c3e50" />
+            <Circle x={0} y={40} radius={3} fill="#000" />
+            <Text text="COM" x={10} y={36} fontSize={8} fill="#2c3e50" fontStyle="bold" />
           </Group>
         );
       }

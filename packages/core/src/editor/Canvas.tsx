@@ -370,12 +370,43 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
 
           {/* Render in z-index order: Unselected Wires -> Unselected Components -> Junction Dots -> Selected Wires -> Selected Components */}
           {(() => {
+            
+            // Collect multimeter pin coordinates to color connected wires as red/black probes
+            const mmProbeColors = new Map<string, string>(); // 'x,y' -> color
+            if (activeView === 'breadboard') {
+               for (const comp of circuit.components) {
+                 if (comp.type === 'multimeter') {
+                    const rotRad = (comp.rotation || 0) * Math.PI / 180;
+                    const cos = Math.round(Math.cos(rotRad));
+                    const sin = Math.round(Math.sin(rotRad));
+                    // Pin 1: {x:0, y:-40} (Red / Positive)
+                    const p1x = comp.position.x + (0 * cos - (-40) * sin);
+                    const p1y = comp.position.y + (0 * sin + (-40) * cos);
+                    mmProbeColors.set(`${Math.round(p1x)},${Math.round(p1y)}`, '#e74c3c');
+                    // Pin 2: {x:0, y:40} (Black / COM)
+                    const p2x = comp.position.x + (0 * cos - 40 * sin);
+                    const p2y = comp.position.y + (0 * sin + 40 * cos);
+                    mmProbeColors.set(`${Math.round(p2x)},${Math.round(p2y)}`, '#2c3e50');
+                 }
+               }
+            }
+
             const renderWire = (wire: any) => {
               const isSelected = selectedIds.includes(wire.id);
+              let overrideColor = undefined;
+              if (activeView === 'breadboard' && wire.points.length > 0) {
+                 const startStr = `${Math.round(wire.points[0].x)},${Math.round(wire.points[0].y)}`;
+                 const endStr = `${Math.round(wire.points[wire.points.length-1].x)},${Math.round(wire.points[wire.points.length-1].y)}`;
+                 if (mmProbeColors.has(startStr)) overrideColor = mmProbeColors.get(startStr);
+                 else if (mmProbeColors.has(endStr)) overrideColor = mmProbeColors.get(endStr);
+              }
+
+              const displayWire = overrideColor ? { ...wire, color: overrideColor } : wire;
+
               return (
                 <WireNode 
                   key={wire.id} 
-                  wire={wire} 
+                  wire={displayWire} 
                   isSelected={isSelected}
                   theme={theme}
                   onSelect={(e) => {
@@ -537,6 +568,13 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                        else if (abs >= 1e-3) formatted = `${parseFloat((reading * 1e3).toFixed(3))} mA`;
                        else if (abs >= 1e-6) formatted = `${parseFloat((reading * 1e6).toFixed(3))} µA`;
                        else formatted = `${reading.toExponential(2)} A`;
+                    } else if (comp.params.mode === 'resistance') {
+                       // R = V / I, where I = 1mA (0.001A)
+                       const resistance = abs / 0.001; 
+                       if (resistance >= 1e9) formatted = 'O.L (Open)'; // Effectively open circuit
+                       else if (resistance >= 1e6) formatted = `${parseFloat((resistance / 1e6).toFixed(3))} MΩ`;
+                       else if (resistance >= 1e3) formatted = `${parseFloat((resistance / 1e3).toFixed(3))} kΩ`;
+                       else formatted = `${parseFloat(resistance.toFixed(2))} Ω`;
                     } else {
                        if (abs === 0) formatted = '0.00 V';
                        else if (abs >= 1e3) formatted = `${parseFloat((reading / 1e3).toFixed(3))} kV`;

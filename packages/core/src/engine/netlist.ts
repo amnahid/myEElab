@@ -32,7 +32,7 @@ export class NetlistGenerator {
       let refDes = comp.refDes;
       if (!refDes) {
         if (comp.type === "multimeter") {
-          refDes = `${comp.params.mode === "current" ? "VMM_" : "RMM_"}${comp.id.replace(/-/g, '')}`;
+          refDes = `${comp.params.mode === "current" ? "VMM_" : comp.params.mode === "resistance" ? "IMM_" : "RMM_"}${comp.id.replace(/-/g, '')}`;
         } else {
           let prefix = "X";
           if (comp.type === "resistor") prefix = "R";
@@ -57,7 +57,8 @@ export class NetlistGenerator {
       else if (comp.type === "inductor") value = comp.params.inductance?.toString() || "1m";
       else if (comp.type === "multimeter") {
         if (comp.params.mode === "current") value = "DC 0";
-        else value = "1G"; // 1 Gigaohm for voltage/resistance mode
+        else if (comp.params.mode === "resistance") value = "DC 1m"; // 1mA test current
+        else value = "1G"; // 1 Gigaohm for voltage mode
       }
       else if (comp.type === "vsource" || comp.type === "isource") {
         if (comp.params.type === "dc" || !comp.params.type) {
