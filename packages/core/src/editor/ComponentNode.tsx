@@ -511,6 +511,11 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
        dx = 15; dy = -10;
     }
 
+    if (type === 'multimeter') {
+       dx = -8;
+       dy = activeView === 'breadboard' ? 82 : 55;
+    }
+
 
 
     const bgFill = theme === 'dark' ? '#1e1e2e' : '#f0f0f0';
