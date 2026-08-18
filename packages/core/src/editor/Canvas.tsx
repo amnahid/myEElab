@@ -141,6 +141,68 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
     return bestPos;
   };
 
+  const getComponentBreadboardSnap = (compType: string, rawPos: {x: number, y: number}, rotation: number = 0, mirrored: boolean = false) => {
+    if (compType === 'breadboard') return null;
+    const libComp = ComponentLibrary[compType];
+    if (!libComp || libComp.pins.length === 0) return null;
+
+    const breadboards = circuit.components.filter(c => c.type === 'breadboard');
+    if (breadboards.length === 0) return null;
+
+    let bestDist = Infinity;
+    let bestSnapPos: {x: number, y: number} | null = null;
+
+    const rotRad = rotation * Math.PI / 180;
+    const cos = Math.round(Math.cos(rotRad));
+    const sin = Math.round(Math.sin(rotRad));
+
+    const pin = libComp.pins[0];
+    const mirroredOffsetX = mirrored ? -pin.offset.x : pin.offset.x;
+    const mirroredOffsetY = pin.offset.y;
+    const rotatedOffsetX = mirroredOffsetX * cos - mirroredOffsetY * sin;
+    const rotatedOffsetY = mirroredOffsetX * sin + mirroredOffsetY * cos;
+
+    const pinRawAbsX = rawPos.x + rotatedOffsetX;
+    const pinRawAbsY = rawPos.y + rotatedOffsetY;
+
+    for (const bb of breadboards) {
+      const bbRotRad = (bb.rotation || 0) * Math.PI / 180;
+      const bbCos = Math.round(Math.cos(bbRotRad));
+      const bbSin = Math.round(Math.sin(bbRotRad));
+      const bbX = bb.position.x;
+      const bbY = bb.position.y;
+
+      const dx = pinRawAbsX - bbX;
+      const dy = pinRawAbsY - bbY;
+      const unrotX = dx * bbCos + dy * bbSin;
+      const unrotY = -dx * bbSin + dy * bbCos;
+      const boardX = unrotX + BOARD_WIDTH / 2;
+      const boardY = unrotY + BOARD_HEIGHT / 2;
+
+      for (const hole of HOLES) {
+        const hPos = getHolePosition(hole.id);
+        if (!hPos) continue;
+        const hdx = boardX - hPos.x;
+        const hdy = boardY - hPos.y;
+        const dist = Math.sqrt(hdx * hdx + hdy * hdy);
+        
+        if (dist < 20 && dist < bestDist) {
+          bestDist = dist;
+          const rx = (hPos.x - BOARD_WIDTH / 2) * bbCos - (hPos.y - BOARD_HEIGHT / 2) * bbSin;
+          const ry = (hPos.x - BOARD_WIDTH / 2) * bbSin + (hPos.y - BOARD_HEIGHT / 2) * bbCos;
+          const targetPinAbsX = bbX + rx;
+          const targetPinAbsY = bbY + ry;
+
+          bestSnapPos = {
+            x: targetPinAbsX - rotatedOffsetX,
+            y: targetPinAbsY - rotatedOffsetY
+          };
+        }
+      }
+    }
+    return bestSnapPos;
+  };
+
   const getMagneticSnap = (rawPos: {x: number, y: number}, maxDist = 30, ignorePoint?: { wireId: string, index: number }) => {
     let closestDist = maxDist; // Use provided maxDist for snap radius
     let snapPos = null;
@@ -331,7 +393,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
           let snapY = Math.round(y / 10) * 10;
           
           if (activeView === 'breadboard') {
-             const snap = getBreadboardSnap({x, y});
+             const snap = getComponentBreadboardSnap(type, {x, y});
              if (snap) {
                snapX = snap.x;
                snapY = snap.y;
@@ -666,13 +728,22 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                     useEditorStore.temporal.getState().pause();
                   }}
                   onDragMove={(e) => {
-                    updateComponentPosition(comp.id, { x: e.target.x(), y: e.target.y() });
+                    let newPos = { x: e.target.x(), y: e.target.y() };
+                    if (activeView === 'breadboard') {
+                       const snap = getComponentBreadboardSnap(comp.type, newPos, comp.rotation, comp.mirrored);
+                       if (snap) newPos = snap;
+                    }
+                    updateComponentPosition(comp.id, newPos);
                   }}
                   onDragEnd={(e) => {
-                    const newPos = {
+                    let newPos = {
                       x: Math.round(e.target.x() / 10) * 10,
                       y: Math.round(e.target.y() / 10) * 10
                     };
+                    if (activeView === 'breadboard') {
+                       const snap = getComponentBreadboardSnap(comp.type, { x: e.target.x(), y: e.target.y() }, comp.rotation, comp.mirrored);
+                       if (snap) newPos = snap;
+                    }
                     useEditorStore.temporal.getState().resume();
                     updateComponentPosition(comp.id, newPos);
                   }}

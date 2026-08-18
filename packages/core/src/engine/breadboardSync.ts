@@ -74,7 +74,7 @@ export function deriveBreadboardWires(circuit: Circuit): Wire[] {
         if (!pos) continue;
         const hdx = boardX - pos.x;
         const hdy = boardY - pos.y;
-        if (Math.sqrt(hdx * hdx + hdy * hdy) < 5) {
+        if (Math.sqrt(hdx * hdx + hdy * hdy) < 10) {
           return hole.id;
         }
       }
