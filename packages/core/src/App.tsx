@@ -43,6 +43,14 @@ const ComponentIcons: Record<string, React.ReactNode> = {
       <path d="M 10.5 15.5 h 3" />
     </svg>
   ),
+  function_generator: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="7" />
+      <path d="M 12 2 v 3" />
+      <path d="M 12 19 v 3" />
+      <path d="M 8 12 Q 10 8 12 12 T 16 12" />
+    </svg>
+  ),
   isource: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="7" />
@@ -178,6 +186,14 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
       <rect x="6" y="6" width="12" height="6" fill="#000" rx="1" />
       <circle cx="8" cy="16" r="2" fill="#e74c3c" />
       <circle cx="16" cy="16" r="2" fill="#34495e" />
+    </svg>
+  ),
+  function_generator: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="4" width="16" height="16" fill="#34495e" rx="2" />
+      <rect x="6" y="6" width="12" height="6" fill="#111" rx="1" />
+      <path d="M 8 9 Q 10 7 12 9 T 16 9" stroke="#2ecc71" strokeWidth="1.5" />
+      <circle cx="12" cy="16" r="2" fill="#e74c3c" />
     </svg>
   ),
   isource: (
@@ -736,10 +752,10 @@ function App() {
         </button>
       </div>
       
-      {activeAnalysis === 'tran' && (
+      {activeAnalysis === 'tran' && activeView !== 'breadboard' && (
         <WaveformViewer data={tranData} probes={probes} />
       )}
-      {activeAnalysis === 'ac' && (
+      {activeAnalysis === 'ac' && activeView !== 'breadboard' && (
         <BodePlot data={acData} />
       )}
 

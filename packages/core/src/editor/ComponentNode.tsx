@@ -75,6 +75,15 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[0, 10, 0, 20]} stroke={strokeColor} strokeWidth={2} />
           </Group>
         );
+      case 'function_generator':
+        return (
+          <Group>
+            <Line points={[0, -20, 0, -10]} stroke={strokeColor} strokeWidth={2} />
+            <Circle x={0} y={0} radius={10} stroke={strokeColor} strokeWidth={2} />
+            <Path data="M -5 0 Q -2.5 -5 0 0 T 5 0" stroke={strokeColor} strokeWidth={2} fill="transparent" />
+            <Line points={[0, 10, 0, 20]} stroke={strokeColor} strokeWidth={2} />
+          </Group>
+        );
       case 'isource':
         return (
           <Group>
@@ -275,9 +284,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
           </Group>
         );
       }
-      case 'vsource': {
-        const sourceType = component.params?.type || 'dc';
-        if (sourceType === 'sin' || sourceType === 'ac') {
+      case 'function_generator': {
           return (
             <Group>
               <Rect x={-200} y={-60} width={220} height={120} fill="#34495e" cornerRadius={6} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={isSelected ? 3 : 2} />
@@ -299,7 +306,8 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
               <Text text="-" x={-15} y={15} fontSize={12} fill="#ecf0f1" fontStyle="bold" />
             </Group>
           );
-        } else {
+      }
+      case 'vsource': {
           return (
             <Group>
               <Rect x={-200} y={-60} width={220} height={120} fill="#ecf0f1" cornerRadius={6} stroke={isSelected ? '#3498db' : '#bdc3c7'} strokeWidth={isSelected ? 3 : 2} />
@@ -321,7 +329,6 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
               <Text text="-" x={-15} y={15} fontSize={12} fill="#2c3e50" fontStyle="bold" />
             </Group>
           );
-        }
       }
       case 'isource': {
         const iSourceType = component.params?.type || 'dc';
@@ -570,11 +577,16 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
 
     const bgFill = theme === 'dark' ? '#1e1e2e' : '#f0f0f0';
 
-    const valStr = component.params?.value ? String(component.params.value) :
+    let valStr: string | null = null;
+    if (type === 'function_generator' || (type === 'vsource' && component.params?.type === 'sin')) {
+       valStr = `${component.params?.amplitude || 5}V ${component.params?.frequency || '1k'}Hz`;
+    } else {
+       valStr = component.params?.value ? String(component.params.value) :
                    component.params?.resistance ? `${component.params.resistance}Ω` :
                    component.params?.capacitance ? `${component.params.capacitance}F` :
                    component.params?.inductance ? `${component.params.inductance}H` :
                    component.params?.dc ? `${component.params.dc}V` : null;
+    }
 
     return (
       <Group x={dx} y={dy}>

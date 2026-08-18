@@ -148,7 +148,26 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
         borderBottom: '1px solid #444'
       }}>
         <div style={{ color: '#ccc', fontWeight: 'bold', fontSize: '14px' }}>Oscilloscope ({oscilloscope.refDes || 'Scope'})</div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button 
+            onClick={() => {
+              if (plotRef.current && data.time.length > 0) {
+                plotRef.current.setScale('x', { min: data.time[0], max: data.time[data.time.length - 1] });
+                plotRef.current.setScale('Voltage (V)', { min: null as any, max: null as any });
+                // Note: The y-axis might have a different scale key, uPlot usually defaults to the first series scale or 'y'
+                // Let's reset the default scales
+                const scales = plotRef.current.scales;
+                for (const key in scales) {
+                  if (key !== 'x') {
+                    plotRef.current.setScale(key, { min: null as any, max: null as any });
+                  }
+                }
+              }
+            }}
+            style={{ background: '#333', border: '1px solid #555', color: '#ddd', cursor: 'pointer', borderRadius: '4px', fontSize: '11px', padding: '2px 6px', marginRight: '8px' }}
+          >
+            Reset Zoom
+          </button>
           <button onClick={() => setIsExpanded(!isExpanded)} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer' }}>
             {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>

@@ -38,7 +38,7 @@ export class NetlistGenerator {
           if (comp.type === "resistor") prefix = "R";
           else if (comp.type === "capacitor") prefix = "C";
           else if (comp.type === "inductor") prefix = "L";
-          else if (comp.type === "vsource") prefix = "V";
+          else if (comp.type === "vsource" || comp.type === "function_generator") prefix = "V";
           else if (comp.type === "isource") prefix = "I";
           else if (comp.type === "diode") prefix = "D";
           else if (comp.type === "npn" || comp.type === "pnp") prefix = "Q";
@@ -55,13 +55,13 @@ export class NetlistGenerator {
       if (comp.type === "resistor") value = comp.params.resistance?.toString() || "1k";
       else if (comp.type === "capacitor") value = comp.params.capacitance?.toString() || "1u";
       else if (comp.type === "inductor") value = comp.params.inductance?.toString() || "1m";
-      else if (comp.type === "vsource" || comp.type === "isource") {
-        if (comp.params.type === "dc" || !comp.params.type) {
+      else if (comp.type === "vsource" || comp.type === "function_generator" || comp.type === "isource") {
+        if (comp.params.type === "dc" || (!comp.params.type && comp.type !== "function_generator")) {
            value = `DC ${comp.params.dc || comp.params.value || 0}`;
         } else if (comp.params.type === "ac") {
            value = `AC ${comp.params.ac_mag || 1} ${comp.params.ac_phase || 0}`;
-        } else if (comp.params.type === "sin") {
-           value = `SINE(${comp.params.offset || 0} ${comp.params.amplitude || 1} ${comp.params.frequency || "1k"})`;
+        } else if (comp.params.type === "sin" || (!comp.params.type && comp.type === "function_generator")) {
+           value = `SINE(${comp.params.offset || 0} ${comp.params.amplitude || 5} ${comp.params.frequency || "1k"})`;
         } else {
            value = comp.params.value?.toString() || "DC 0";
         }

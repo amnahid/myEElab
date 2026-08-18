@@ -23,12 +23,20 @@ export const ComponentLibrary: Record<string, { name?: string, type?: string, pi
     defaultParams: { inductance: "1m" }
   },
   vsource: {
-    name: "Voltage Source",
+    name: "DC Power Supply",
     pins: [
       { id: "1", label: "+", offset: { x: 0, y: -20 } },
       { id: "2", label: "-", offset: { x: 0, y: 20 } },
     ],
     defaultParams: { dc: "5", type: "dc" }
+  },
+  function_generator: {
+    name: "Function Generator",
+    pins: [
+      { id: "1", label: "+", offset: { x: 0, y: -20 } },
+      { id: "2", label: "-", offset: { x: 0, y: 20 } },
+    ],
+    defaultParams: { type: "sin", offset: "0", amplitude: "5", frequency: "1k" }
   },
   isource: {
     name: "Current Source",
