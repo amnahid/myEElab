@@ -3,6 +3,26 @@ import { NodeResolver } from "./nodeResolver";
 import { deriveBreadboardWires } from "./breadboardSync";
 import { useEditorStore } from "../store/editorStore";
 
+function parseSpiceValue(val: string | number): number {
+  if (typeof val === 'number') return val;
+  const match = val.toString().match(/^([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)(.*)$/);
+  if (!match) return 0;
+  const num = parseFloat(match[1]);
+  const suffix = match[2].trim().toLowerCase();
+  switch (suffix) {
+    case 't': return num * 1e12;
+    case 'g': return num * 1e9;
+    case 'meg': return num * 1e6;
+    case 'k': return num * 1e3;
+    case 'm': return num * 1e-3;
+    case 'u': return num * 1e-6;
+    case 'n': return num * 1e-9;
+    case 'p': return num * 1e-12;
+    case 'f': return num * 1e-15;
+    default: return num;
+  }
+}
+
 export class NetlistGenerator {
   public generate(circuit: Circuit, activeAnalysis: string = 'op'): string {
     const lines: string[] = [];
@@ -68,9 +88,17 @@ export class NetlistGenerator {
            value = `AC ${comp.params.ac_mag || 1} ${comp.params.ac_phase || 0}`;
         } else if (comp.params.type === "sin" || (!comp.params.type && comp.type === "function_generator")) {
            const offset = comp.params.offset || 0;
-           const amplitude = comp.params.amplitude || 5;
+           let amplitude = comp.params.amplitude || 5;
            const freq = comp.params.frequency || "1k";
            const phase = comp.params.phase || 0;
+           const mode = comp.params.amplitudeMode || "peak";
+           
+           if (mode !== "peak") {
+             const val = parseSpiceValue(amplitude);
+             if (mode === "pp") amplitude = val / 2;
+             else if (mode === "rms") amplitude = val * Math.SQRT2;
+           }
+           
            value = `SINE(${offset} ${amplitude} ${freq} 0 0 ${phase})`;
         } else {
            value = comp.params.value?.toString() || "DC 0";

@@ -12,10 +12,11 @@ import { Label, Tag, Text } from 'react-konva';
 
 interface CanvasProps {
   nodeVoltages?: Record<string, number>;
+  tranData?: { time: number[], vectors: Record<string, number[]> };
   theme: 'light' | 'dark';
 }
 
-export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
+export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme }) => {
   const { circuit, mode, componentToPlace, addComponent, updateComponentPosition, selectedIds, setSelection, addWire, stagePos, scale, setStageView, setEditingComponent, updateWirePoint, setMode, probes, toggleProbe, activeView, showInstruments } = useEditorStore();
   
   const [mousePos, setMousePos] = useState<{x: number, y: number} | null>(null);
@@ -699,49 +700,80 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             }
 
             const readings: Record<string, string> = {};
-            if (nodeVoltages && Object.keys(nodeVoltages).length > 0) {
-              const resolver = new NodeResolver();
-              const { components } = resolver.resolve(circuit);
-              for (const comp of visibleComponents) {
-                if (comp.type === 'multimeter') {
-                  const pinMap = components.get(comp.id);
-                  if (pinMap) {
-                    const n1 = pinMap.get('1') || '0';
-                    const n2 = pinMap.get('2') || '0';
-                    let reading = 0;
-                    if (comp.params.mode === 'current') {
-                      const branchName = `v.vmm_${comp.id.replace(/-/g, '').toLowerCase()}#branch`;
-                      reading = nodeVoltages[branchName] || 0;
-                    } else {
-                      const v1 = n1 === '0' ? 0 : (nodeVoltages[`v(${n1})`] || 0);
-                      const v2 = n2 === '0' ? 0 : (nodeVoltages[`v(${n2})`] || 0);
-                      reading = v1 - v2;
+            const resolver = new NodeResolver();
+            const { components } = resolver.resolve(circuit);
+            
+            for (const comp of visibleComponents) {
+              if (comp.type === 'multimeter') {
+                const pinMap = components.get(comp.id);
+                if (pinMap) {
+                  const n1 = pinMap.get('1') || '0';
+                  const n2 = pinMap.get('2') || '0';
+                  let reading = 0;
+                  
+                  if (comp.params.mode === 'ac_voltage' || comp.params.mode === 'ac_current') {
+                     if (tranData && tranData.time && tranData.time.length > 0) {
+                        const vectors = tranData.vectors;
+                        const branchName = `v.vmm_${comp.id.replace(/-/g, '').toLowerCase()}#branch`;
+                        
+                        let sqSum = 0;
+                        let count = 0;
+                        for (let i = 0; i < tranData.time.length; i++) {
+                          let v1 = 0, v2 = 0;
+                          if (comp.params.mode === 'ac_current') {
+                            const iVec = vectors[branchName] || vectors[branchName.toUpperCase()];
+                            v1 = iVec ? iVec[i] : 0;
+                          } else {
+                            const vec1 = n1 === '0' ? null : (vectors[`v(${n1})`] || vectors[`V(${n1})`]);
+                            const vec2 = n2 === '0' ? null : (vectors[`v(${n2})`] || vectors[`V(${n2})`]);
+                            v1 = vec1 ? vec1[i] : 0;
+                            v2 = vec2 ? vec2[i] : 0;
+                          }
+                          const diff = v1 - v2;
+                          sqSum += diff * diff;
+                          count++;
+                        }
+                        reading = count > 0 ? Math.sqrt(sqSum / count) : 0;
+                     }
+                  } else {
+                    if (nodeVoltages && Object.keys(nodeVoltages).length > 0) {
+                      if (comp.params.mode === 'current') {
+                        const branchName = `v.vmm_${comp.id.replace(/-/g, '').toLowerCase()}#branch`;
+                        reading = nodeVoltages[branchName] || 0;
+                      } else {
+                        const v1 = n1 === '0' ? 0 : (nodeVoltages[`v(${n1})`] || 0);
+                        const v2 = n2 === '0' ? 0 : (nodeVoltages[`v(${n2})`] || 0);
+                        reading = v1 - v2;
+                      }
                     }
-                    const abs = Math.abs(reading);
-                    let formatted = '0.00 V';
-                    if (comp.params.mode === 'current') {
-                       if (abs === 0) formatted = '0.00 A';
-                       else if (abs >= 1) formatted = `${parseFloat(reading.toFixed(3))} A`;
-                       else if (abs >= 1e-3) formatted = `${parseFloat((reading * 1e3).toFixed(3))} mA`;
-                       else if (abs >= 1e-6) formatted = `${parseFloat((reading * 1e6).toFixed(3))} µA`;
-                       else formatted = `${reading.toExponential(2)} A`;
-                    } else if (comp.params.mode === 'resistance') {
-                       // R = V / I, where I = 1mA (0.001A)
-                       const resistance = abs / 0.001; 
-                       if (resistance >= 1e9) formatted = 'O.L (Open)'; // Effectively open circuit
-                       else if (resistance >= 1e6) formatted = `${parseFloat((resistance / 1e6).toFixed(3))} MΩ`;
-                       else if (resistance >= 1e3) formatted = `${parseFloat((resistance / 1e3).toFixed(3))} kΩ`;
-                       else formatted = `${parseFloat(resistance.toFixed(2))} Ω`;
-                    } else {
-                       if (abs === 0) formatted = '0.00 V';
-                       else if (abs >= 1e3) formatted = `${parseFloat((reading / 1e3).toFixed(3))} kV`;
-                       else if (abs >= 1) formatted = `${parseFloat(reading.toFixed(3))} V`;
-                       else if (abs >= 1e-3) formatted = `${parseFloat((reading * 1e3).toFixed(3))} mV`;
-                       else if (abs >= 1e-6) formatted = `${parseFloat((reading * 1e6).toFixed(3))} µV`;
-                       else formatted = `${reading.toExponential(2)} V`;
-                    }
-                    readings[comp.id] = formatted;
                   }
+
+                  const abs = Math.abs(reading);
+                  let formatted = '0.00 V';
+                  const isCurrent = comp.params.mode === 'current' || comp.params.mode === 'ac_current';
+                  
+                  if (isCurrent) {
+                     if (abs === 0) formatted = '0.00 A';
+                     else if (abs >= 1) formatted = `${parseFloat(reading.toFixed(3))} A`;
+                     else if (abs >= 1e-3) formatted = `${parseFloat((reading * 1e3).toFixed(3))} mA`;
+                     else if (abs >= 1e-6) formatted = `${parseFloat((reading * 1e6).toFixed(3))} µA`;
+                     else formatted = `${reading.toExponential(2)} A`;
+                  } else if (comp.params.mode === 'resistance') {
+                     // R = V / I, where I = 1mA (0.001A)
+                     const resistance = abs / 0.001; 
+                     if (resistance >= 1e9) formatted = 'O.L (Open)'; // Effectively open circuit
+                     else if (resistance >= 1e6) formatted = `${parseFloat((resistance / 1e6).toFixed(3))} MΩ`;
+                     else if (resistance >= 1e3) formatted = `${parseFloat((resistance / 1e3).toFixed(3))} kΩ`;
+                     else formatted = `${parseFloat(resistance.toFixed(2))} Ω`;
+                  } else {
+                     if (abs === 0) formatted = '0.00 V';
+                     else if (abs >= 1e3) formatted = `${parseFloat((reading / 1e3).toFixed(3))} kV`;
+                     else if (abs >= 1) formatted = `${parseFloat(reading.toFixed(3))} V`;
+                     else if (abs >= 1e-3) formatted = `${parseFloat((reading * 1e3).toFixed(3))} mV`;
+                     else if (abs >= 1e-6) formatted = `${parseFloat((reading * 1e6).toFixed(3))} µV`;
+                     else formatted = `${reading.toExponential(2)} V`;
+                  }
+                  readings[comp.id] = formatted;
                 }
               }
             }

@@ -20,6 +20,7 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
   const [isExpanded, setIsExpanded] = useState(false);
   const [position, setPosition] = useState({ x: 50, y: 50 });
   const [isDragging, setIsDragging] = useState(false);
+  const [measurements, setMeasurements] = useState<{ ch: number; color: string; vpp: number; vpeak: number; vrms: number; vavg: number }[]>([]);
   const dragStartPos = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -69,6 +70,32 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
     ];
     
     const plotData: uPlot.AlignedData = [data.time];
+    const newMeasurements: { ch: number; color: string; vpp: number; vpeak: number; vrms: number; vavg: number }[] = [];
+
+    const computeMeasurements = (diffVec: number[], ch: number, color: string) => {
+      let maxV = -Infinity;
+      let minV = Infinity;
+      let sum = 0;
+      let sqSum = 0;
+      let count = 0;
+      for (let i = 0; i < diffVec.length; i++) {
+        const v = diffVec[i];
+        if (v > maxV) maxV = v;
+        if (v < minV) minV = v;
+        sum += v;
+        sqSum += v * v;
+        count++;
+      }
+      if (count > 0) {
+        newMeasurements.push({
+          ch, color,
+          vpp: maxV - minV,
+          vpeak: Math.max(Math.abs(maxV), Math.abs(minV)),
+          vrms: Math.sqrt(sqSum / count),
+          vavg: sum / count
+        });
+      }
+    };
 
     const ch1PlusNode = nodeMap.get('1');
     const ch1MinusNode = nodeMap.get('2');
@@ -107,6 +134,7 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
         value: (_u, v) => v == null ? "-" : v.toFixed(3) + " V"
       });
       plotData.push(diffVec1);
+      computeMeasurements(diffVec1, 1, '#00ff00');
     }
 
     if (vecPlus2 || vecMinus2) {
@@ -125,6 +153,7 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
         value: (_u, v) => v == null ? "-" : v.toFixed(3) + " V"
       });
       plotData.push(diffVec2);
+      computeMeasurements(diffVec2, 2, '#f1c40f');
     }
 
     if (vecPlus3 || vecMinus3) {
@@ -143,6 +172,7 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
         value: (_u, v) => v == null ? "-" : v.toFixed(3) + " V"
       });
       plotData.push(diffVec3);
+      computeMeasurements(diffVec3, 3, '#00ffff');
     }
 
     if (vecPlus4 || vecMinus4) {
@@ -161,7 +191,10 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
         value: (_u, v) => v == null ? "-" : v.toFixed(3) + " V"
       });
       plotData.push(diffVec4);
+      computeMeasurements(diffVec4, 4, '#ff00ff');
     }
+
+    setMeasurements(newMeasurements);
 
     const opts: uPlot.Options = {
       title: "Oscilloscope",
@@ -292,6 +325,19 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
       </div>
       <div style={{ padding: '16px' }}>
         <div ref={containerRef} style={{ width: '100%', minHeight: isExpanded ? '60vh' : '300px' }} />
+        {measurements.length > 0 && (
+          <div style={{ marginTop: '16px', display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
+            {measurements.map(m => (
+              <div key={m.ch} style={{ background: '#222', border: `1px solid ${m.color}`, borderRadius: '4px', padding: '8px 12px', fontSize: '12px', color: '#ccc', display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '100px' }}>
+                <div style={{ color: m.color, fontWeight: 'bold', marginBottom: '4px', borderBottom: '1px solid #444', paddingBottom: '4px' }}>CH{m.ch}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Vpp:</span> <span>{m.vpp.toFixed(3)} V</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Peak:</span> <span>{m.vpeak.toFixed(3)} V</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>RMS:</span> <span>{m.vrms.toFixed(3)} V</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Avg:</span> <span>{m.vavg.toFixed(3)} V</span></div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

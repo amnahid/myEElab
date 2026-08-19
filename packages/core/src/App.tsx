@@ -482,7 +482,8 @@ function App() {
     }
 
     const netlist = generator.generate(circuit, activeAnalysis);
-    if (import.meta.env.DEV) {
+    // @ts-ignore
+    if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
       console.groupCollapsed(`🛠️ Generated Netlist (${activeAnalysis})`);
       console.log(netlist);
       console.groupEnd();
@@ -898,7 +899,7 @@ function App() {
           </aside>
 
         <main style={{ flex: 1, position: 'relative', display: 'flex', overflow: 'hidden', backgroundColor: colors.bg }}>
-        <Canvas nodeVoltages={activeAnalysis === 'op' ? nodeVoltages : undefined} theme={theme} />
+        <Canvas nodeVoltages={activeAnalysis === 'op' ? nodeVoltages : undefined} tranData={activeAnalysis === 'tran' ? tranData : undefined} theme={theme} />
         
         {/* Properties Popup */}
         <PropertyPopup theme={theme} />
