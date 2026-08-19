@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Canvas } from './editor/Canvas';
 import { useEditorStore } from './store/editorStore';
-import { Undo, Redo, RotateCw, Trash2, Settings } from 'lucide-react';
+import { Undo, Redo, RotateCw, Trash2, Settings, Eye, EyeOff } from 'lucide-react';
 import { NetlistGenerator } from './engine/netlist';
 import { WaveformViewer } from './editor/WaveformViewer';
 import { BodePlot } from './components/BodePlot';
@@ -137,6 +137,14 @@ const ComponentIcons: Record<string, React.ReactNode> = {
       <circle cx="12" cy="14" r="3" />
       <circle cx="8" cy="19" r="1" />
       <circle cx="16" cy="19" r="1" />
+    </svg>
+  ),
+  current_probe: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 2v4" />
+      <path d="M12 18v4" />
+      <path d="M4.93 4.93l2.83 2.83" />
     </svg>
   ),
   breadboard: (
@@ -281,6 +289,13 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
       <circle cx="16" cy="19" r="1" fill="#2c3e50" />
     </svg>
   ),
+  current_probe: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="8" stroke="#34495e" />
+      <path d="M12 2v4" stroke="#e74c3c" />
+      <path d="M12 18v4" stroke="#2c3e50" />
+    </svg>
+  ),
   breadboard: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="6" width="20" height="12" fill="#ecf0f1" stroke="#bdc3c7" strokeWidth="1" rx="2" />
@@ -300,7 +315,9 @@ function App() {
   const { mode, setMode, deleteSelected, circuit, rotateSelected, mirrorSelected, componentToPlace, activeAnalysis, setActiveAnalysis, updateAnalysis,
     setCustomModels,
     autoSimulate,
-    setAutoSimulate, probes, clearAll, editingComponentId, activeView, setActiveView } = useEditorStore();
+    setAutoSimulate, probes, clearAll, editingComponentId, activeView, setActiveView,
+    showInstruments, setShowInstruments
+  } = useEditorStore();
   const theme = useEditorStore(state => state.theme);
   const toggleTheme = useEditorStore(state => state.toggleTheme);
   
@@ -727,6 +744,17 @@ function App() {
               </div>
             )}
           </div>
+
+          <button 
+            title={showInstruments ? 'Hide Instruments' : 'Show Instruments'}
+            onClick={() => setShowInstruments(!showInstruments)}
+            style={{ padding: '8px 12px', background: colors.toolbarBg, color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', height: '34px' }}
+          >
+            {showInstruments ? <EyeOff size={18} /> : <Eye size={18} />}
+            <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>
+              {showInstruments ? 'Hide Instruments' : 'Show Instruments'}
+            </span>
+          </button>
 
           <button 
             onClick={() => setActiveView(activeView === 'schematic' ? 'breadboard' : 'schematic')}

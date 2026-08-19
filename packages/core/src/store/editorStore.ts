@@ -18,6 +18,7 @@ interface EditorState {
   theme: 'light' | 'dark';
   activeView: 'schematic' | 'breadboard';
   autoSimulate: boolean;
+  showInstruments: boolean;
   
   // Breadboard Option A Placement State
   placingBreadboardComponentId: string | null;
@@ -25,6 +26,7 @@ interface EditorState {
   
   // Actions
   setAutoSimulate: (auto: boolean) => void;
+  setShowInstruments: (show: boolean) => void;
   setActiveView: (view: 'schematic' | 'breadboard') => void;
   startBreadboardPlacement: (componentId: string) => void;
   addPlacedLeg: (pinId: string, holeId: string) => void;
@@ -77,10 +79,12 @@ export const useEditorStore = create<EditorState>()(
         theme: 'light',
         activeView: 'schematic',
         autoSimulate: true,
+        showInstruments: true,
         placingBreadboardComponentId: null,
         placedLegs: {},
 
         setAutoSimulate: (auto) => set({ autoSimulate: auto }),
+        setShowInstruments: (show) => set({ showInstruments: show }),
         setActiveView: (view) => set({ activeView: view }),
 
         startBreadboardPlacement: (componentId) => set({
@@ -360,8 +364,41 @@ export const useEditorStore = create<EditorState>()(
         }),
 
         deleteSelected: () => set((state) => {
+          const componentsToDelete = state.circuit.components.filter(c => state.selectedIds.includes(c.id));
+          
+          const deletedPinCoords = new Set<string>();
+          componentsToDelete.forEach(comp => {
+            const libComp = ComponentLibrary[comp.type];
+            if (!libComp) return;
+            const rotRad = (comp.rotation || 0) * Math.PI / 180;
+            const cos = Math.round(Math.cos(rotRad));
+            const sin = Math.round(Math.sin(rotRad));
+            
+            libComp.pins.forEach(pin => {
+              const baseOffset = pin.offset;
+              const mirroredOffsetX = comp.mirrored ? -baseOffset.x : baseOffset.x;
+              const mirroredOffsetY = baseOffset.y;
+              const rx = mirroredOffsetX * cos - mirroredOffsetY * sin;
+              const ry = mirroredOffsetX * sin + mirroredOffsetY * cos;
+              const px = Math.round(comp.position.x + rx);
+              const py = Math.round(comp.position.y + ry);
+              deletedPinCoords.add(`${px},${py}`);
+            });
+          });
+
           const components = state.circuit.components.filter(c => !state.selectedIds.includes(c.id));
-          const wires = state.circuit.wires.filter(w => !state.selectedIds.includes(w.id));
+          
+          const wires = state.circuit.wires.filter(w => {
+            if (state.selectedIds.includes(w.id)) return false;
+            if (w.points.length > 0) {
+               const p1 = w.points[0];
+               const p2 = w.points[w.points.length - 1];
+               if (deletedPinCoords.has(`${Math.round(p1.x)},${Math.round(p1.y)}`)) return false;
+               if (deletedPinCoords.has(`${Math.round(p2.x)},${Math.round(p2.y)}`)) return false;
+            }
+            return true;
+          });
+
           const breadboard = state.circuit.breadboard;
           let newBreadboard = breadboard;
           if (breadboard) {

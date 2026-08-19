@@ -1,6 +1,7 @@
 import { Circuit } from "../models/circuit";
 import { NodeResolver } from "./nodeResolver";
 import { deriveBreadboardWires } from "./breadboardSync";
+import { useEditorStore } from "../store/editorStore";
 
 export class NetlistGenerator {
   public generate(circuit: Circuit, activeAnalysis: string = 'op'): string {
@@ -19,8 +20,13 @@ export class NetlistGenerator {
     // Track refDes counters to assign them if absent
     const counters: Record<string, number> = {};
 
+    const showInstruments = useEditorStore.getState().showInstruments;
+
     for (const comp of circuit.components) {
       if (comp.type === "ground" || comp.type === "oscilloscope" || comp.type === "breadboard") continue;
+      
+      // Exclude passive instruments from simulation if hidden
+      if (!showInstruments && ['multimeter'].includes(comp.type)) continue;
 
       const pins = nodeMap.get(comp.id);
       if (!pins) {

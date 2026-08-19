@@ -16,7 +16,7 @@ interface CanvasProps {
 }
 
 export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
-  const { circuit, mode, componentToPlace, addComponent, updateComponentPosition, selectedIds, setSelection, addWire, stagePos, scale, setStageView, setEditingComponent, updateWirePoint, setMode, probes, toggleProbe, activeView } = useEditorStore();
+  const { circuit, mode, componentToPlace, addComponent, updateComponentPosition, selectedIds, setSelection, addWire, stagePos, scale, setStageView, setEditingComponent, updateWirePoint, setMode, probes, toggleProbe, activeView, showInstruments } = useEditorStore();
   
   const [mousePos, setMousePos] = useState<{x: number, y: number} | null>(null);
   const [previewSnapPos, setPreviewSnapPos] = useState<{x: number, y: number} | null>(null);
@@ -25,6 +25,74 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
 
   // Compute ratlines (breadboard to schematic sync)
   const ratlines = useMemo(() => deriveBreadboardWires(circuit), [circuit]);
+
+  // Determine visibility of instruments and their attached wires
+  const isHiddenInstrument = (comp: any) => {
+    if (showInstruments) return false;
+    // Only hide passive observation instruments (Oscilloscope, Multimeter)
+    return ['oscilloscope', 'multimeter'].includes(comp.type);
+  };
+
+  const hiddenInstrumentPinCoords = new Set<string>();
+  if (!showInstruments) {
+    circuit.components.forEach(comp => {
+      if (isHiddenInstrument(comp)) {
+        const libComp = ComponentLibrary[comp.type];
+        if (!libComp) return;
+        const rotRad = (comp.rotation || 0) * Math.PI / 180;
+        const cos = Math.round(Math.cos(rotRad));
+        const sin = Math.round(Math.sin(rotRad));
+        libComp.pins.forEach(pin => {
+          const baseOffset = pin.offset;
+          const mirroredOffsetX = comp.mirrored ? -baseOffset.x : baseOffset.x;
+          const mirroredOffsetY = baseOffset.y;
+          const rx = mirroredOffsetX * cos - mirroredOffsetY * sin;
+          const ry = mirroredOffsetX * sin + mirroredOffsetY * cos;
+          const px = Math.round(comp.position.x + rx);
+          const py = Math.round(comp.position.y + ry);
+          hiddenInstrumentPinCoords.add(`${px},${py}`);
+        });
+      }
+    });
+  }
+
+  const visibleWires = circuit.wires.filter(w => {
+    if (hiddenInstrumentPinCoords.size > 0 && w.points.length > 0) {
+      const p1 = w.points[0];
+      const p2 = w.points[w.points.length - 1];
+      if (hiddenInstrumentPinCoords.has(`${Math.round(p1.x)},${Math.round(p1.y)}`)) return false;
+      if (hiddenInstrumentPinCoords.has(`${Math.round(p2.x)},${Math.round(p2.y)}`)) return false;
+    }
+    return true;
+  });
+
+  const visibleComponents = circuit.components.filter(c => !isHiddenInstrument(c));
+
+  // Determine visible probes
+  const visibleProbes = probes.filter(probe => {
+    if (showInstruments) return true;
+    // Check if probe is at a hidden pin
+    if (hiddenInstrumentPinCoords.has(`${Math.round(probe.x)},${Math.round(probe.y)}`)) return false;
+    // Check if probe is on a hidden wire
+    // A simple check: if the probe is on a wire that was hidden, hide the probe too.
+    for (const wire of circuit.wires) {
+      if (visibleWires.includes(wire)) continue; // Not a hidden wire
+      // Check if probe is on this hidden wire (approximate by checking segments)
+      for (let i = 0; i < wire.points.length - 1; i++) {
+        const p1 = wire.points[i];
+        const p2 = wire.points[i + 1];
+        const l2 = Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2);
+        if (l2 === 0) continue;
+        let t = ((probe.x - p1.x) * (p2.x - p1.x) + (probe.y - p1.y) * (p2.y - p1.y)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        const projX = p1.x + t * (p2.x - p1.x);
+        const projY = p1.y + t * (p2.y - p1.y);
+        const dist = Math.hypot(probe.x - projX, probe.y - projY);
+        if (dist <= 5) return false;
+      }
+    }
+    return true;
+  });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
@@ -442,7 +510,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             // Collect multimeter pin coordinates to color connected wires as red/black probes
             const mmProbeColors = new Map<string, string>(); // 'x,y' -> color
             if (activeView === 'breadboard') {
-               for (const comp of circuit.components) {
+               for (const comp of visibleComponents) {
                  const rotRad = (comp.rotation || 0) * Math.PI / 180;
                  const cos = Math.cos(rotRad);
                  const sin = Math.sin(rotRad);
@@ -570,19 +638,19 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             const getPointKey = (x: number, y: number) => `${Math.round(x * 100) / 100},${Math.round(y * 100) / 100}`;
             
             const segments = [];
-            for (const wire of circuit.wires) {
+            for (const wire of visibleWires) {
                for (let i = 0; i < wire.points.length - 1; i++) {
                  segments.push({ p1: wire.points[i], p2: wire.points[i+1] });
                }
             }
 
             const allPoints = new Set<string>();
-            for (const wire of circuit.wires) {
+            for (const wire of visibleWires) {
                for (const p of wire.points) {
                  allPoints.add(getPointKey(p.x, p.y));
                }
             }
-            for (const comp of circuit.components) {
+            for (const comp of visibleComponents) {
                const libComp = ComponentLibrary[comp.type];
                if (libComp) {
                  const rotRad = (comp.rotation || 0) * Math.PI / 180;
@@ -634,7 +702,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             if (nodeVoltages && Object.keys(nodeVoltages).length > 0) {
               const resolver = new NodeResolver();
               const { components } = resolver.resolve(circuit);
-              for (const comp of circuit.components) {
+              for (const comp of visibleComponents) {
                 if (comp.type === 'multimeter') {
                   const pinMap = components.get(comp.id);
                   if (pinMap) {
@@ -761,13 +829,13 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
               );
             };
 
-            const sortedWires = [...circuit.wires].sort((a, b) => {
+            const sortedWires = [...visibleWires].sort((a, b) => {
               const aSel = selectedIds.includes(a.id) ? 1 : 0;
               const bSel = selectedIds.includes(b.id) ? 1 : 0;
               return aSel - bSel;
             });
 
-            const sortedComps = [...circuit.components].sort((a, b) => {
+            const sortedComps = [...visibleComponents].sort((a, b) => {
               const aSel = selectedIds.includes(a.id) ? 1 : 0;
               const bSel = selectedIds.includes(b.id) ? 1 : 0;
               return aSel - bSel;
@@ -820,7 +888,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
           )}
           
           {/* Pin Indicators */}
-          {(mode === 'wire' || hoveredComponentId !== null) && circuit.components.flatMap(comp => {
+          {(mode === 'wire' || hoveredComponentId !== null) && visibleComponents.flatMap(comp => {
             if (mode !== 'wire' && comp.id !== hoveredComponentId) return [];
             
             const libComp = ComponentLibrary[comp.type];
@@ -869,7 +937,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             const nodeSegments = new Map<string, {p1: {x:number, y:number}, p2: {x:number, y:number}}[]>();
             
             // Map from wire points
-            for (const wire of circuit.wires) {
+            for (const wire of visibleWires) {
               const nodeName = wires.get(wire.id);
               if (nodeName && wire.points.length > 1) {
                 if (!nodeSegments.has(nodeName)) nodeSegments.set(nodeName, []);
@@ -913,7 +981,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             }
             
             // Map from component pins (as a fallback if no wire segments exist)
-            for (const comp of circuit.components) {
+            for (const comp of visibleComponents) {
               const compPinMap = components.get(comp.id);
               if (compPinMap) {
                 const libComp = ComponentLibrary[comp.type];
@@ -991,7 +1059,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
         )}
 
           {/* Render visual probes */}
-          {probes.map(probe => (
+          {visibleProbes.map(probe => (
             <ProbeKonvaNode key={`probe-${probe.nodeId}`} probe={probe} />
           ))}
         
