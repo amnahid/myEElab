@@ -58,17 +58,17 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
 
   const isDark = theme === 'dark';
   const colors = isDark ? {
-    bg: '#1e1e2e',
-    text: '#cdd6f4',
-    border: '#313244',
-    inputBg: '#181825',
-    headerBg: '#313244',
+    bg: '#323A3F',
+    text: '#EEEAE4',
+    border: '#EEEAE4',
+    inputBg: '#20252A',
+    headerBg: '#262D32',
   } : {
-    bg: '#ffffff',
-    text: '#2c3e50',
-    border: '#bdc3c7',
-    inputBg: '#ecf0f1',
-    headerBg: '#ecf0f1',
+    bg: '#E2DCD3',
+    text: '#30383E',
+    border: '#30383E',
+    inputBg: '#EEEAE4',
+    headerBg: '#D0C8B8',
   };
 
   const libComp = editingComponent ? ComponentLibrary[editingComponent.type] : null;
@@ -81,7 +81,7 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
         position: 'absolute',
         top: position.y,
         left: position.x,
-        width: '260px',
+        width: '300px',
         backgroundColor: colors.bg,
         border: `1px solid ${colors.border}`,
         borderRadius: '8px',
