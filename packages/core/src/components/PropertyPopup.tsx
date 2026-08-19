@@ -237,6 +237,10 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
                   <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Frequency (Hz)</label>
                   <ValueUnitInput colors={colors} value={editingComponent.params.frequency || '1k'} onChange={val => updateComponentParams(editingComponent.id, { frequency: val })} />
                 </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Phase (°)</label>
+                  <input type="number" value={editingComponent.params.phase || '0'} onChange={e => updateComponentParams(editingComponent.id, { phase: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
+                </div>
               </>
             )}
           </>

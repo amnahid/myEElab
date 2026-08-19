@@ -67,7 +67,11 @@ export class NetlistGenerator {
         } else if (comp.params.type === "ac") {
            value = `AC ${comp.params.ac_mag || 1} ${comp.params.ac_phase || 0}`;
         } else if (comp.params.type === "sin" || (!comp.params.type && comp.type === "function_generator")) {
-           value = `SINE(${comp.params.offset || 0} ${comp.params.amplitude || 5} ${comp.params.frequency || "1k"})`;
+           const offset = comp.params.offset || 0;
+           const amplitude = comp.params.amplitude || 5;
+           const freq = comp.params.frequency || "1k";
+           const phase = comp.params.phase || 0;
+           value = `SINE(${offset} ${amplitude} ${freq} 0 0 ${phase})`;
         } else {
            value = comp.params.value?.toString() || "DC 0";
         }
