@@ -51,8 +51,8 @@ export const WaveformViewer: React.FC<WaveformViewerProps> = ({ data, probes }) 
       }
     });
 
-    const textColor = theme === 'dark' ? '#cdd6f4' : '#2c3e50';
-    const gridColor = theme === 'dark' ? '#313244' : '#eeeeee';
+    const textColor = theme === 'dark' ? '#EEEAE4' : '#30383E';
+    const gridColor = theme === 'dark' ? '#323A3F' : '#D0C8B8';
 
     const opts: uPlot.Options = {
       title: "",
@@ -115,9 +115,9 @@ export const WaveformViewer: React.FC<WaveformViewerProps> = ({ data, probes }) 
     };
   }, [data, probes, theme, height, viewMode]);
 
-  const bgColor = theme === 'dark' ? '#181825' : 'white';
-  const textColor = theme === 'dark' ? '#cdd6f4' : '#2c3e50';
-  const borderColor = theme === 'dark' ? '#313244' : '#ccc';
+  const bgColor = theme === 'dark' ? '#20252A' : '#EEEAE4';
+  const textColor = theme === 'dark' ? '#EEEAE4' : '#30383E';
+  const borderColor = theme === 'dark' ? '#323A3F' : '#D0C8B8';
 
   const isDraggingRef = useRef(false);
   const startYRef = useRef(0);

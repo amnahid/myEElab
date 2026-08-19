@@ -40,7 +40,7 @@ export const BreadboardCanvas: React.FC = () => {
   if (activeView !== 'breadboard') return null;
 
   const isDark = theme === 'dark';
-  const bgFill = isDark ? '#1e1e2e' : '#f0f0f0';
+  const bgFill = isDark ? '#20252A' : '#EEEAE4';
   const boardFill = isDark ? '#e8e8e8' : '#ffffff';
   const holeFill = '#444';
   const holeOccupiedFill = '#2ecc71';

@@ -6,11 +6,11 @@ export const UnplacedComponentsPanel: React.FC = () => {
   const { circuit, theme, startBreadboardPlacement, placingBreadboardComponentId, cancelBreadboardPlacement } = useEditorStore();
 
   const isDark = theme === 'dark';
-  const panelBg = isDark ? '#181825' : 'white';
-  const textCol = isDark ? '#cdd6f4' : '#2c3e50';
-  const borderCol = isDark ? '#45475a' : '#bdc3c7';
-  const hoverBg = isDark ? '#313244' : '#f0f0f0';
-  const activeBg = '#3498db';
+  const panelBg = isDark ? '#20252A' : '#EEEAE4';
+  const textCol = isDark ? '#EEEAE4' : '#30383E';
+  const borderCol = isDark ? '#323A3F' : '#D0C8B8';
+  const hoverBg = isDark ? '#262D32' : '#D0C8B8';
+  const activeBg = 'var(--signal)';
   const mutedCol = isDark ? '#a6adc8' : '#7f8c8d';
 
   const placedIds = new Set(circuit.breadboard?.placements.map(p => p.componentId) || []);

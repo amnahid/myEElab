@@ -3,6 +3,7 @@ import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import { X, Maximize2, Minimize2 } from 'lucide-react';
 import { ComponentInstance } from '../models/circuit';
+import { useEditorStore } from '../store/editorStore';
 
 interface ScopeWindowProps {
   oscilloscope: ComponentInstance;
@@ -17,11 +18,17 @@ interface ScopeWindowProps {
 export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, onClose, nodeMap }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
+  const { theme } = useEditorStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [position, setPosition] = useState({ x: 50, y: 50 });
   const [isDragging, setIsDragging] = useState(false);
   const [measurements, setMeasurements] = useState<{ ch: number; color: string; vpp: number; vpeak: number; vrms: number; vavg: number }[]>([]);
   const dragStartPos = useRef({ x: 0, y: 0 });
+
+  const bgColor = theme === 'dark' ? '#20252A' : '#EEEAE4';
+  const headerBg = theme === 'dark' ? '#262D32' : '#D0C8B8';
+  const textColor = theme === 'dark' ? '#EEEAE4' : '#30383E';
+  const borderColor = theme === 'dark' ? '#323A3F' : '#BDB7AC';
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -274,8 +281,8 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
       top: isExpanded ? '10%' : `${position.y}px`,
       left: isExpanded ? '10%' : `${position.x}px`,
       width: isExpanded ? '80%' : '500px',
-      background: '#111',
-      border: '2px solid #333',
+      background: bgColor,
+      border: `2px solid ${borderColor}`,
       borderRadius: '8px',
       boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
       zIndex: 1000,
@@ -286,15 +293,15 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
       <div 
         onMouseDown={handleMouseDown}
         style={{
-        background: '#222',
+        background: headerBg,
         padding: '8px 12px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottom: '1px solid #444',
+        borderBottom: `1px solid ${borderColor}`,
         cursor: isExpanded ? 'default' : 'move'
       }}>
-        <div style={{ color: '#ccc', fontWeight: 'bold', fontSize: '14px' }}>Oscilloscope ({oscilloscope.refDes || 'Scope'})</div>
+        <div style={{ color: textColor, fontWeight: 'bold', fontSize: '14px' }}>Oscilloscope ({oscilloscope.refDes || 'Scope'})</div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button 
             onClick={() => {
@@ -311,14 +318,14 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
                 }
               }
             }}
-            style={{ background: '#333', border: '1px solid #555', color: '#ddd', cursor: 'pointer', borderRadius: '4px', fontSize: '11px', padding: '2px 6px', marginRight: '8px' }}
+            style={{ background: bgColor, border: `1px solid ${borderColor}`, color: textColor, cursor: 'pointer', borderRadius: '4px', fontSize: '11px', padding: '2px 6px', marginRight: '8px' }}
           >
             Reset Zoom
           </button>
-          <button onClick={() => setIsExpanded(!isExpanded)} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer' }}>
+          <button onClick={() => setIsExpanded(!isExpanded)} style={{ background: 'none', border: 'none', color: textColor, cursor: 'pointer' }}>
             {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#A9553D', cursor: 'pointer' }}>
             <X size={16} />
           </button>
         </div>
@@ -328,8 +335,8 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
         {measurements.length > 0 && (
           <div style={{ marginTop: '16px', display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
             {measurements.map(m => (
-              <div key={m.ch} style={{ background: '#222', border: `1px solid ${m.color}`, borderRadius: '4px', padding: '8px 12px', fontSize: '12px', color: '#ccc', display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '100px' }}>
-                <div style={{ color: m.color, fontWeight: 'bold', marginBottom: '4px', borderBottom: '1px solid #444', paddingBottom: '4px' }}>CH{m.ch}</div>
+              <div key={m.ch} style={{ background: headerBg, border: `1px solid ${m.color}`, borderRadius: '4px', padding: '8px 12px', fontSize: '12px', color: textColor, display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '100px' }}>
+                <div style={{ color: m.color, fontWeight: 'bold', marginBottom: '4px', borderBottom: `1px solid ${borderColor}`, paddingBottom: '4px' }}>CH{m.ch}</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Vpp:</span> <span>{m.vpp.toFixed(3)} V</span></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Peak:</span> <span>{m.vpeak.toFixed(3)} V</span></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>RMS:</span> <span>{m.vrms.toFixed(3)} V</span></div>

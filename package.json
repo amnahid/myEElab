@@ -5,5 +5,11 @@
   "workspaces": [
     "packages/*",
     "apps/*"
-  ]
+  ],
+  "devDependencies": {
+    "puppeteer": "^25.8.0"
+  },
+  "dependencies": {
+    "uuid": "^14.0.2"
+  }
 }
