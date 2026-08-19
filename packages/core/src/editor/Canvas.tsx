@@ -464,10 +464,18 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                      // Pin 2: {x: 0, y: 20} (Black / -)
                      setProbeColor(0, 20, '#2c3e50');
                  } else if (comp.type === 'oscilloscope') {
-                     // CH1+: {x: -40, y: -20} (Red / +)
-                     setProbeColor(-40, -20, '#e74c3c');
-                     // CH1-: {x: -40, y: 20} (Black / -)
-                     setProbeColor(-40, 20, '#2c3e50');
+                     // CH1
+                     setProbeColor(-80, -70, '#2ecc71');
+                     setProbeColor(-80, -50, '#7f8c8d');
+                     // CH2
+                     setProbeColor(-80, -20, '#f1c40f');
+                     setProbeColor(-80, 0, '#7f8c8d');
+                     // CH3
+                     setProbeColor(-80, 30, '#00ffff');
+                     setProbeColor(-80, 50, '#7f8c8d');
+                     // CH4
+                     setProbeColor(-80, 80, '#ff00ff');
+                     setProbeColor(-80, 100, '#7f8c8d');
                  }
                }
             }
@@ -475,7 +483,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             const renderWire = (wire: any) => {
               const isSelected = selectedIds.includes(wire.id);
               let overrideColor = undefined;
-              if (activeView === 'breadboard' && wire.points.length > 0) {
+              if (wire.points.length > 0) {
                  const startStr = `${Math.round(wire.points[0].x)},${Math.round(wire.points[0].y)}`;
                  const endStr = `${Math.round(wire.points[wire.points.length-1].x)},${Math.round(wire.points[wire.points.length-1].y)}`;
                  if (mmProbeColors.has(startStr)) overrideColor = mmProbeColors.get(startStr);

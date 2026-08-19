@@ -36,17 +36,32 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
 
     const ch1PlusNode = nodeMap.get('1');
     const ch1MinusNode = nodeMap.get('2');
+    const ch2PlusNode = nodeMap.get('3');
+    const ch2MinusNode = nodeMap.get('4');
+    const ch3PlusNode = nodeMap.get('5');
+    const ch3MinusNode = nodeMap.get('6');
+    const ch4PlusNode = nodeMap.get('7');
+    const ch4MinusNode = nodeMap.get('8');
     
-    const vecPlus = ch1PlusNode ? (data.vectors[ch1PlusNode] || data.vectors[`v(${ch1PlusNode})`] || data.vectors[`V(${ch1PlusNode})`]) : null;
-    const vecMinus = ch1MinusNode ? (data.vectors[ch1MinusNode] || data.vectors[`v(${ch1MinusNode})`] || data.vectors[`V(${ch1MinusNode})`]) : null;
+    const vecPlus1 = ch1PlusNode ? (data.vectors[ch1PlusNode] || data.vectors[`v(${ch1PlusNode})`] || data.vectors[`V(${ch1PlusNode})`]) : null;
+    const vecMinus1 = ch1MinusNode ? (data.vectors[ch1MinusNode] || data.vectors[`v(${ch1MinusNode})`] || data.vectors[`V(${ch1MinusNode})`]) : null;
+
+    const vecPlus2 = ch2PlusNode ? (data.vectors[ch2PlusNode] || data.vectors[`v(${ch2PlusNode})`] || data.vectors[`V(${ch2PlusNode})`]) : null;
+    const vecMinus2 = ch2MinusNode ? (data.vectors[ch2MinusNode] || data.vectors[`v(${ch2MinusNode})`] || data.vectors[`V(${ch2MinusNode})`]) : null;
+
+    const vecPlus3 = ch3PlusNode ? (data.vectors[ch3PlusNode] || data.vectors[`v(${ch3PlusNode})`] || data.vectors[`V(${ch3PlusNode})`]) : null;
+    const vecMinus3 = ch3MinusNode ? (data.vectors[ch3MinusNode] || data.vectors[`v(${ch3MinusNode})`] || data.vectors[`V(${ch3MinusNode})`]) : null;
+
+    const vecPlus4 = ch4PlusNode ? (data.vectors[ch4PlusNode] || data.vectors[`v(${ch4PlusNode})`] || data.vectors[`V(${ch4PlusNode})`]) : null;
+    const vecMinus4 = ch4MinusNode ? (data.vectors[ch4MinusNode] || data.vectors[`v(${ch4MinusNode})`] || data.vectors[`V(${ch4MinusNode})`]) : null;
     
-    if (vecPlus || vecMinus) {
+    if (vecPlus1 || vecMinus1) {
       const length = data.time.length;
-      const diffVec = new Array(length).fill(0);
+      const diffVec1 = new Array(length).fill(0);
       for (let i = 0; i < length; i++) {
-        const vP = vecPlus ? (vecPlus[i] || 0) : 0;
-        const vM = vecMinus ? (vecMinus[i] || 0) : 0;
-        diffVec[i] = vP - vM;
+        const vP = vecPlus1 ? (vecPlus1[i] || 0) : 0;
+        const vM = vecMinus1 ? (vecMinus1[i] || 0) : 0;
+        diffVec1[i] = vP - vM;
       }
 
       series.push({
@@ -55,7 +70,61 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
         width: 2,
         value: (_u, v) => v == null ? "-" : v.toFixed(3) + " V"
       });
-      plotData.push(diffVec);
+      plotData.push(diffVec1);
+    }
+
+    if (vecPlus2 || vecMinus2) {
+      const length = data.time.length;
+      const diffVec2 = new Array(length).fill(0);
+      for (let i = 0; i < length; i++) {
+        const vP = vecPlus2 ? (vecPlus2[i] || 0) : 0;
+        const vM = vecMinus2 ? (vecMinus2[i] || 0) : 0;
+        diffVec2[i] = vP - vM;
+      }
+
+      series.push({
+        label: `CH2`,
+        stroke: '#f1c40f', // Yellow for CH2
+        width: 2,
+        value: (_u, v) => v == null ? "-" : v.toFixed(3) + " V"
+      });
+      plotData.push(diffVec2);
+    }
+
+    if (vecPlus3 || vecMinus3) {
+      const length = data.time.length;
+      const diffVec3 = new Array(length).fill(0);
+      for (let i = 0; i < length; i++) {
+        const vP = vecPlus3 ? (vecPlus3[i] || 0) : 0;
+        const vM = vecMinus3 ? (vecMinus3[i] || 0) : 0;
+        diffVec3[i] = vP - vM;
+      }
+
+      series.push({
+        label: `CH3`,
+        stroke: '#00ffff', // Cyan for CH3
+        width: 2,
+        value: (_u, v) => v == null ? "-" : v.toFixed(3) + " V"
+      });
+      plotData.push(diffVec3);
+    }
+
+    if (vecPlus4 || vecMinus4) {
+      const length = data.time.length;
+      const diffVec4 = new Array(length).fill(0);
+      for (let i = 0; i < length; i++) {
+        const vP = vecPlus4 ? (vecPlus4[i] || 0) : 0;
+        const vM = vecMinus4 ? (vecMinus4[i] || 0) : 0;
+        diffVec4[i] = vP - vM;
+      }
+
+      series.push({
+        label: `CH4`,
+        stroke: '#ff00ff', // Magenta for CH4
+        width: 2,
+        value: (_u, v) => v == null ? "-" : v.toFixed(3) + " V"
+      });
+      plotData.push(diffVec4);
     }
 
     const opts: uPlot.Options = {

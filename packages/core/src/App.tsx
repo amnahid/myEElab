@@ -428,7 +428,7 @@ function App() {
     }
 
     const netlist = generator.generate(circuit, activeAnalysis);
-    if (import.meta.env.DEV) {
+    if (process.env.NODE_ENV !== 'production') {
       console.groupCollapsed(`🛠️ Generated Netlist (${activeAnalysis})`);
       console.log(netlist);
       console.groupEnd();

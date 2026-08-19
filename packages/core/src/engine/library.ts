@@ -117,8 +117,14 @@ export const ComponentLibrary: Record<string, { name?: string, type?: string, pi
     type: "oscilloscope",
     name: "Oscilloscope",
     pins: [
-      { id: "1", label: "CH1+", offset: { x: -40, y: -20 } },
-      { id: "2", label: "CH1-", offset: { x: -40, y: 20 } },
+      { id: "1", label: "CH1+", offset: { x: -80, y: -70 } },
+      { id: "2", label: "CH1-", offset: { x: -80, y: -50 } },
+      { id: "3", label: "CH2+", offset: { x: -80, y: -20 } },
+      { id: "4", label: "CH2-", offset: { x: -80, y: 0 } },
+      { id: "5", label: "CH3+", offset: { x: -80, y: 30 } },
+      { id: "6", label: "CH3-", offset: { x: -80, y: 50 } },
+      { id: "7", label: "CH4+", offset: { x: -80, y: 80 } },
+      { id: "8", label: "CH4-", offset: { x: -80, y: 100 } },
     ],
     defaultParams: {}
   },
@@ -130,6 +136,16 @@ export const ComponentLibrary: Record<string, { name?: string, type?: string, pi
       { id: "2", label: "COM", offset: { x: 22, y: 48 } },
     ],
     defaultParams: { mode: "voltage" }
+  },
+  current_probe: {
+    type: "current_probe",
+    name: "Current Probe",
+    pins: [
+      { id: "in", label: "IN", offset: { x: 0, y: -20 } },
+      { id: "out", label: "OUT", offset: { x: 0, y: 20 } },
+      { id: "scope", label: "SCOPE", offset: { x: 20, y: 0 } },
+    ],
+    defaultParams: {}
   },
   breadboard: {
     type: "breadboard",

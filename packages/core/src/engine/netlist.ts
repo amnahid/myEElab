@@ -28,26 +28,26 @@ export class NetlistGenerator {
         continue;
       }
 
-      // Assign refDes if missing
+      // Assign refDes if missing or if it's a virtual instrument that requires a strict prefix
       let refDes = comp.refDes;
-      if (!refDes) {
-        if (comp.type === "multimeter") {
-          refDes = `${comp.params.mode === "current" ? "VMM_" : comp.params.mode === "resistance" ? "IMM_" : "RMM_"}${comp.id.replace(/-/g, '')}`;
-        } else {
-          let prefix = "X";
-          if (comp.type === "resistor") prefix = "R";
-          else if (comp.type === "capacitor") prefix = "C";
-          else if (comp.type === "inductor") prefix = "L";
-          else if (comp.type === "vsource" || comp.type === "function_generator") prefix = "V";
-          else if (comp.type === "isource") prefix = "I";
-          else if (comp.type === "diode") prefix = "D";
-          else if (comp.type === "npn" || comp.type === "pnp") prefix = "Q";
-          else if (comp.type === "nmos" || comp.type === "pmos") prefix = "M";
-          else if (comp.type === "opamp") prefix = "X";
-          
-          counters[prefix] = (counters[prefix] || 0) + 1;
-          refDes = `${prefix}${counters[prefix]}`;
-        }
+      if (comp.type === "multimeter") {
+        refDes = `${comp.params.mode === "current" ? "VMM_" : comp.params.mode === "resistance" ? "IMM_" : "RMM_"}${comp.id.replace(/-/g, '')}`;
+      } else if (comp.type === "current_probe") {
+        refDes = `V_CP_${comp.id.replace(/-/g, '')}`; // Dummy refDes to bypass prefix logic
+      } else if (!refDes) {
+        let prefix = "X";
+        if (comp.type === "resistor") prefix = "R";
+        else if (comp.type === "capacitor") prefix = "C";
+        else if (comp.type === "inductor") prefix = "L";
+        else if (comp.type === "vsource" || comp.type === "function_generator") prefix = "V";
+        else if (comp.type === "isource") prefix = "I";
+        else if (comp.type === "diode") prefix = "D";
+        else if (comp.type === "npn" || comp.type === "pnp") prefix = "Q";
+        else if (comp.type === "nmos" || comp.type === "pmos") prefix = "M";
+        else if (comp.type === "opamp") prefix = "X";
+        
+        counters[prefix] = (counters[prefix] || 0) + 1;
+        refDes = `${prefix}${counters[prefix]}`;
       }
 
       // Build value string
@@ -71,7 +71,14 @@ export class NetlistGenerator {
         else value = "1G"; // Voltmeter is high impedance resistor
       }
 
-      if (comp.type === "diode") {
+      if (comp.type === "current_probe") {
+        const n1 = pins.get("in") || "0";
+        const n2 = pins.get("out") || "0";
+        const nScope = pins.get("scope") || "0";
+        const vcp = `V_CP_${comp.id.replace(/-/g, '')}`;
+        lines.push(`${vcp} ${n1} ${n2} DC 0`);
+        lines.push(`H_CP_${comp.id.replace(/-/g, '')} ${nScope} 0 ${vcp} 1`);
+      } else if (comp.type === "diode") {
         lines.push(`${refDes} ${pins.get("1") || "0"} ${pins.get("2") || "0"} ${comp.params.model || "1N4148"}`);
       } else if (comp.type === "npn" || comp.type === "pnp") {
         lines.push(`${refDes} ${pins.get("c") || "0"} ${pins.get("b") || "0"} ${pins.get("e") || "0"} ${comp.params.model || (comp.type === "npn" ? "2N3904" : "2N3906")}`);

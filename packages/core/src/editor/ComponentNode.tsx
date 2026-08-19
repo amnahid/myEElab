@@ -175,10 +175,25 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
       case 'oscilloscope':
         return (
           <Group>
-            <Rect x={-25} y={-20} width={50} height={40} stroke={strokeColor} strokeWidth={2} fill="transparent" />
-            <Text text="OSC" x={-10} y={-5} fontSize={10} fill={strokeColor} />
-            <Line points={[-40, -20, -25, -20]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[-40, 20, -25, 20]} stroke={strokeColor} strokeWidth={2} />
+            <Rect x={-50} y={-90} width={100} height={210} stroke={strokeColor} strokeWidth={2} fill="transparent" />
+            <Text text="OSC" x={-15} y={5} fontSize={16} fill={strokeColor} fontStyle="bold" />
+            
+            <Line points={[-80, -70, -50, -70]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-80, -50, -50, -50]} stroke={strokeColor} strokeWidth={2} />
+            
+            <Line points={[-80, -20, -50, -20]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-80, 0, -50, 0]} stroke={strokeColor} strokeWidth={2} />
+            
+            <Line points={[-80, 30, -50, 30]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-80, 50, -50, 50]} stroke={strokeColor} strokeWidth={2} />
+            
+            <Line points={[-80, 80, -50, 80]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-80, 100, -50, 100]} stroke={strokeColor} strokeWidth={2} />
+            
+            <Text text="CH1" x={-45} y={-64} fontSize={10} fill={strokeColor} />
+            <Text text="CH2" x={-45} y={-14} fontSize={10} fill={strokeColor} />
+            <Text text="CH3" x={-45} y={36} fontSize={10} fill={strokeColor} />
+            <Text text="CH4" x={-45} y={86} fontSize={10} fill={strokeColor} />
           </Group>
         );
       case 'multimeter': {
@@ -464,33 +479,57 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
         return (
           <Group>
             {/* Main Body (Engulfs pins to avoid protruding look) */}
-            <Rect x={-60} y={-80} width={260} height={160} fill={'#2c3e50'} cornerRadius={8} stroke={isSelected ? '#3498db' : '#1a252f'} strokeWidth={isSelected ? 3 : 2} />
+            <Rect x={-100} y={-100} width={320} height={230} fill={'#2c3e50'} cornerRadius={8} stroke={isSelected ? '#3498db' : '#1a252f'} strokeWidth={isSelected ? 3 : 2} />
             
             {/* Screen on the right */}
-            <Rect x={40} y={-60} width={140} height={100} fill="#111" cornerRadius={6} />
+            <Rect x={20} y={-80} width={180} height={140} fill="#111" cornerRadius={6} />
             
             {/* Screen Grid (Subtle) */}
-            <Line points={[40, -35, 180, -35]} stroke="#1a252f" strokeWidth={1} />
-            <Line points={[40, -10, 180, -10]} stroke="#1a252f" strokeWidth={1} />
-            <Line points={[40, 15, 180, 15]} stroke="#1a252f" strokeWidth={1} />
-            <Line points={[75, -60, 75, 40]} stroke="#1a252f" strokeWidth={1} />
-            <Line points={[110, -60, 110, 40]} stroke="#1a252f" strokeWidth={1} />
-            <Line points={[145, -60, 145, 40]} stroke="#1a252f" strokeWidth={1} />
+            <Line points={[20, -45, 200, -45]} stroke="#1a252f" strokeWidth={1} />
+            <Line points={[20, -10, 200, -10]} stroke="#1a252f" strokeWidth={1} />
+            <Line points={[20, 25, 200, 25]} stroke="#1a252f" strokeWidth={1} />
+            <Line points={[65, -80, 65, 60]} stroke="#1a252f" strokeWidth={1} />
+            <Line points={[110, -80, 110, 60]} stroke="#1a252f" strokeWidth={1} />
+            <Line points={[155, -80, 155, 60]} stroke="#1a252f" strokeWidth={1} />
             
-            {/* Sine wave on screen */}
-            <Path data="M 40 -10 Q 75 -50 110 -10 T 180 -10" stroke="#2ecc71" strokeWidth={2.5} fill="transparent" />
+            {/* Sine wave on screen (CH1 Green) */}
+            <Path data="M 20 -10 Q 65 -60 110 -10 T 200 -10" stroke="#2ecc71" strokeWidth={2.5} fill="transparent" />
+            {/* Sine wave on screen (CH2 Yellow) */}
+            <Path data="M 20 -10 Q 65 40 110 -10 T 200 -10" stroke="#f1c40f" strokeWidth={1.5} fill="transparent" opacity={0.7} />
             
-            <Text text="OSCILLOSCOPE" x={40} y={55} width={140} align="center" fontSize={12} fill="#bdc3c7" fontStyle="bold" />
+            <Text text="OSCILLOSCOPE" x={20} y={75} width={180} align="center" fontSize={14} fill="#bdc3c7" fontStyle="bold" />
 
-            {/* CH1+ BNC Port */}
-            <Circle x={-40} y={-20} radius={6} fill="#e74c3c" />
-            <Circle x={-40} y={-20} radius={3} fill="#111" />
-            <Text text="CH1+" x={-20} y={-25} fontSize={10} fill="#e74c3c" fontStyle="bold" />
+            {/* CH1 */}
+            <Circle x={-80} y={-70} radius={6} fill="#2ecc71" />
+            <Circle x={-80} y={-70} radius={3} fill="#111" />
+            <Text text="CH1+" x={-65} y={-75} fontSize={10} fill="#2ecc71" fontStyle="bold" />
+            <Circle x={-80} y={-50} radius={6} fill="#7f8c8d" />
+            <Circle x={-80} y={-50} radius={3} fill="#111" />
+            <Text text="CH1-" x={-65} y={-55} fontSize={10} fill="#95a5a6" fontStyle="bold" />
 
-            {/* CH1- BNC Port */}
-            <Circle x={-40} y={20} radius={6} fill="#bdc3c7" />
-            <Circle x={-40} y={20} radius={3} fill="#111" />
-            <Text text="CH1-" x={-20} y={15} fontSize={10} fill="#ecf0f1" fontStyle="bold" />
+            {/* CH2 */}
+            <Circle x={-80} y={-20} radius={6} fill="#f1c40f" />
+            <Circle x={-80} y={-20} radius={3} fill="#111" />
+            <Text text="CH2+" x={-65} y={-25} fontSize={10} fill="#f1c40f" fontStyle="bold" />
+            <Circle x={-80} y={0} radius={6} fill="#7f8c8d" />
+            <Circle x={-80} y={0} radius={3} fill="#111" />
+            <Text text="CH2-" x={-65} y={-5} fontSize={10} fill="#95a5a6" fontStyle="bold" />
+
+            {/* CH3 */}
+            <Circle x={-80} y={30} radius={6} fill="#00ffff" />
+            <Circle x={-80} y={30} radius={3} fill="#111" />
+            <Text text="CH3+" x={-65} y={25} fontSize={10} fill="#00ffff" fontStyle="bold" />
+            <Circle x={-80} y={50} radius={6} fill="#7f8c8d" />
+            <Circle x={-80} y={50} radius={3} fill="#111" />
+            <Text text="CH3-" x={-65} y={45} fontSize={10} fill="#95a5a6" fontStyle="bold" />
+
+            {/* CH4 */}
+            <Circle x={-80} y={80} radius={6} fill="#ff00ff" />
+            <Circle x={-80} y={80} radius={3} fill="#111" />
+            <Text text="CH4+" x={-65} y={75} fontSize={10} fill="#ff00ff" fontStyle="bold" />
+            <Circle x={-80} y={100} radius={6} fill="#7f8c8d" />
+            <Circle x={-80} y={100} radius={3} fill="#111" />
+            <Text text="CH4-" x={-65} y={95} fontSize={10} fill="#95a5a6" fontStyle="bold" />
           </Group>
         );
       }
