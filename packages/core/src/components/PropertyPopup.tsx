@@ -124,7 +124,7 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
       </div>
 
       {/* Form Content */}
-      <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', maxHeight: '400px' }}>
+      <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', overflowX: 'hidden', maxHeight: '400px' }}>
         
         {editingComponent && (
           <>
@@ -229,22 +229,21 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
                   <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>DC Offset ({(editingComponent.type === 'vsource' || editingComponent.type === 'function_generator') ? 'V' : 'A'})</label>
                   <ValueUnitInput colors={colors} value={editingComponent.params.offset || '0'} onChange={val => updateComponentParams(editingComponent.id, { offset: val })} />
                 </div>
-                <div style={{ display: 'flex', gap: '5px', alignItems: 'flex-end' }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Amplitude ({(editingComponent.type === 'vsource' || editingComponent.type === 'function_generator') ? 'V' : 'A'})</label>
-                    <ValueUnitInput colors={colors} value={editingComponent.params.amplitude || '5'} onChange={val => updateComponentParams(editingComponent.id, { amplitude: val })} />
-                  </div>
-                  <div style={{ width: '80px' }}>
-                    <select
-                      value={editingComponent.params.amplitudeMode || 'peak'}
-                      onChange={e => updateComponentParams(editingComponent.id, { amplitudeMode: e.target.value })}
-                      style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }}
-                    >
-                      <option value="peak">Peak</option>
-                      <option value="pp">P-P</option>
-                      <option value="rms">RMS</option>
-                    </select>
-                  </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Amplitude ({(editingComponent.type === 'vsource' || editingComponent.type === 'function_generator') ? 'V' : 'A'})</label>
+                  <ValueUnitInput colors={colors} value={editingComponent.params.amplitude || '5'} onChange={val => updateComponentParams(editingComponent.id, { amplitude: val })} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Amplitude Mode</label>
+                  <select
+                    value={editingComponent.params.amplitudeMode || 'peak'}
+                    onChange={e => updateComponentParams(editingComponent.id, { amplitudeMode: e.target.value })}
+                    style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }}
+                  >
+                    <option value="peak">Peak</option>
+                    <option value="pp">P-P</option>
+                    <option value="rms">RMS</option>
+                  </select>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Frequency (Hz)</label>
