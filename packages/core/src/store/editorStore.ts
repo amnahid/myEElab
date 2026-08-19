@@ -53,7 +53,7 @@ interface EditorState {
   setCustomModels: (models: string) => void;
   addProbe: (probe: Probe) => void;
   clearAll: () => void;
-  toggleTheme: () => void;
+  setTheme: (theme: 'light' | 'dark') => void;
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -76,7 +76,7 @@ export const useEditorStore = create<EditorState>()(
         scale: 1,
         probes: [],
         activeAnalysis: 'op',
-        theme: 'light',
+        theme: typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
         activeView: 'schematic',
         autoSimulate: true,
         showInstruments: true,
@@ -499,9 +499,7 @@ export const useEditorStore = create<EditorState>()(
           probes: []
         }),
 
-        toggleTheme: () => set((state) => ({
-          theme: state.theme === 'light' ? 'dark' : 'light'
-        }))
+        setTheme: (theme) => set({ theme })
       }),
       {
         name: 'livespice-circuit-storage',
@@ -509,7 +507,6 @@ export const useEditorStore = create<EditorState>()(
           circuit: state.circuit,
           stagePos: state.stagePos,
           scale: state.scale,
-          theme: state.theme,
           activeView: state.activeView,
           autoSimulate: state.autoSimulate
         }),

@@ -55,7 +55,7 @@ export const ProbeKonvaNode: React.FC<ProbeProps> = ({ probe, theme = 'light' })
         {/* Wire sticking out back */}
         <Path 
           data="M 19 -27 C 25 -32, 28 -20, 25 -10" 
-          stroke={theme === 'dark' ? '#cdd6f4' : '#34495e'} 
+          stroke={theme === 'dark' ? '#EEEAE4' : '#30383E'} 
           strokeWidth={2} 
           strokeLinecap="round" 
           fill="transparent"
@@ -67,7 +67,7 @@ export const ProbeKonvaNode: React.FC<ProbeProps> = ({ probe, theme = 'light' })
       {/* Node Name Label - not scaled down so it remains legible */}
       <Label x={8} y={-35}>
         <Tag
-          fill={theme === 'dark' ? '#181825' : '#ffffff'}
+          fill={theme === 'dark' ? '#323A3F' : '#E2DCD3'}
           stroke={probe.color}
           strokeWidth={1}
           cornerRadius={4}

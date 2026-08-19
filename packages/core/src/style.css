@@ -1,15 +1,61 @@
-:root {
+:root, [data-theme="light"] {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
+
+  /* Graphite Copper Teal - Light Mode */
+  --background: #EEEAE4;
+  --panel: #E2DCD3;
+  --foreground: #30383E;
+  --ink: #30383E;
+  --signal: #367985;
+  --accent: #A9553D;
+  --tech: #5A8796;
+  --highlight: #B9924D;
+}
+
+[data-theme="dark"] {
+  /* Graphite Copper Teal - Dark Mode */
+  --background: #20252A;
+  --panel: #323A3F;
+  --foreground: #EEEAE4;
+  --ink: #EEEAE4;
+  --signal: #367985;
+  --accent: #A9553D;
+  --tech: #5A8796;
+  --highlight: #B9924D;
 }
 
 body {
   margin: 0;
   padding: 0;
   overflow: hidden;
+  background-color: var(--background);
+  color: var(--foreground);
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--tech);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--signal);
+}
+
+/* Firefox sleek scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--tech) transparent;
 }

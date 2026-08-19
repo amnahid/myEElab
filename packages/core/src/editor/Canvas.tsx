@@ -444,7 +444,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
   return (
     <div 
       ref={containerRef} 
-      style={{ flex: 1, backgroundColor: theme === 'dark' ? '#1e1e2e' : '#f0f0f0', width: '100%', height: '100%', overflow: 'hidden', cursor: getCursor() || undefined }}
+      style={{ flex: 1, backgroundColor: theme === 'dark' ? '#20252A' : '#EEEAE4', width: '100%', height: '100%', overflow: 'hidden', cursor: getCursor() || undefined }}
       onDragOver={(e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'copy';
@@ -497,7 +497,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
             <Line
               key={w.id}
               points={w.points.flatMap(p => [p.x, p.y])}
-              stroke={theme === 'dark' ? '#f39c12' : '#e67e22'}
+              stroke={theme === 'dark' ? '#B9924D' : '#B9924D'}
               strokeWidth={2}
               dash={[10, 5]}
               opacity={0.7}
@@ -693,7 +693,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
               }
               if (degree >= 3) {
                  junctionDots.push(
-                    <Circle key={`junc-${ptStr}`} x={px} y={py} radius={3.5} fill={theme === 'dark' ? '#cdd6f4' : '#34495e'} listening={false} />
+                    <Circle key={`junc-${ptStr}`} x={px} y={py} radius={3.5} fill={theme === 'dark' ? '#EEEAE4' : '#30383E'} listening={false} />
                  );
               }
             }
@@ -857,7 +857,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                 ...drawingWirePoints.flatMap(p => [p.x, p.y]),
                 mousePos.x, mousePos.y
               ]}
-              stroke={theme === 'dark' ? '#cdd6f4' : '#95a5a6'}
+              stroke={theme === 'dark' ? '#EEEAE4' : '#30383E'}
               dash={[5, 5]}
               strokeWidth={2}
             />
@@ -1033,8 +1033,8 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                     listening={false}
                   >
                     <Tag 
-                      fill={theme === 'dark' ? '#181825' : '#ffffff'} 
-                      stroke={theme === 'dark' ? '#89b4fa' : '#3498db'} 
+                      fill={theme === 'dark' ? '#323A3F' : '#E2DCD3'} 
+                      stroke={theme === 'dark' ? '#367985' : '#367985'} 
                       strokeWidth={1} 
                       cornerRadius={3}
                       pointerDirection={coord.dir}
@@ -1047,7 +1047,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                       text={formatted}
                       fontSize={9}
                       padding={4}
-                      fill={theme === 'dark' ? '#89b4fa' : '#2980b9'}
+                      fill={theme === 'dark' ? '#367985' : '#367985'}
                       fontStyle="bold"
                     />
                   </Label>
@@ -1108,14 +1108,14 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, theme }) => {
                }
              }
              if (onWire) {
-               return <Circle x={mousePos.x} y={mousePos.y} radius={8} stroke={theme === 'dark' ? '#f1c40f' : '#e67e22'} strokeWidth={3} fill="transparent" listening={false} />;
+               return <Circle x={mousePos.x} y={mousePos.y} radius={8} stroke={theme === 'dark' ? '#B9924D' : '#B9924D'} strokeWidth={3} fill="transparent" listening={false} />;
              }
              return null;
           })()}
 
           {/* Preview dot for DRAGGING existing wire points */}
           {previewSnapPos && (
-             <Circle x={previewSnapPos.x} y={previewSnapPos.y} radius={8} stroke={theme === 'dark' ? '#f1c40f' : '#e67e22'} strokeWidth={3} fill="transparent" listening={false} />
+             <Circle x={previewSnapPos.x} y={previewSnapPos.y} radius={8} stroke={theme === 'dark' ? '#B9924D' : '#B9924D'} strokeWidth={3} fill="transparent" listening={false} />
           )}
 </Layer>
       </Stage>

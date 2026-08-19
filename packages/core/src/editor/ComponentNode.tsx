@@ -22,10 +22,10 @@ interface Props {
 
 export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect, onDblClick, onDragStart, onDragEnd, onDragMove, onMouseEnter, onMouseLeave, opacity = 1, mode, theme = 'light', activeView = 'schematic', multimeterReading }) => {
   const { type, position, color } = component;
-  const defaultStroke = theme === 'dark' ? '#cdd6f4' : 'black';
+  const defaultStroke = theme === 'dark' ? '#EEEAE4' : '#30383E';
   const strokeColor = isSelected ? '#3498db' : (color || defaultStroke);
-  const textColor = theme === 'dark' ? '#a6adc8' : '#333';
-  const subTextColor = theme === 'dark' ? '#7f849c' : '#666';
+  const textColor = theme === 'dark' ? '#EEEAE4' : '#30383E';
+  const subTextColor = theme === 'dark' ? '#E2DCD3' : '#30383E';
 
   const renderSchematicSymbol = () => {
     if (component.type === 'breadboard') {
@@ -166,7 +166,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[-20, -10, -10, -10]} stroke={strokeColor} strokeWidth={2} />
             <Line points={[0, -20, 0, -13]} stroke={strokeColor} strokeWidth={2} />
             <Line points={[0, 20, 0, 13]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[-10, -20, -10, 20, 20, 0]} closed fill={theme === 'dark' ? '#1e1e2e' : "white"} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-10, -20, -10, 20, 20, 0]} closed fill={theme === 'dark' ? '#20252A' : '#EEEAE4'} stroke={strokeColor} strokeWidth={2} />
             <Text text="+" x={-8} y={5} fontSize={10} fill={strokeColor} />
             <Text text="-" x={-7} y={-14} fontSize={10} fill={strokeColor} />
           </Group>
@@ -203,7 +203,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
         if (mode === 'resistance') symbol = 'Ω';
         return (
           <Group>
-            <Circle x={0} y={0} radius={18} stroke={strokeColor} strokeWidth={2} fill={theme === 'dark' ? '#1e1e2e' : 'white'} />
+            <Circle x={0} y={0} radius={18} stroke={strokeColor} strokeWidth={2} fill={theme === 'dark' ? '#20252A' : '#EEEAE4'} />
             <Text text={symbol} x={-6} y={-7} fontSize={14} fill={strokeColor} fontStyle="bold" align="center" width={12} />
             {/* Left lead to pin 1 (-22, 48) */}
             <Line points={[-18, 0, -22, 0, -22, 48]} stroke={strokeColor} strokeWidth={2} />
@@ -228,7 +228,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             y={0}
             width={BOARD_WIDTH}
             height={BOARD_HEIGHT}
-            fill={theme === 'dark' ? '#2a2a35' : '#ffffff'}
+            fill={theme === 'dark' ? '#323A3F' : '#E2DCD3'}
             cornerRadius={10}
             shadowColor="rgba(0,0,0,0.2)"
             shadowBlur={10}
@@ -241,7 +241,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             y={10}
             width={10}
             height={BOARD_HEIGHT - 20}
-            fill={theme === 'dark' ? '#1e1e2e' : '#e0e0e0'}
+            fill={theme === 'dark' ? '#20252A' : '#E2DCD3'}
             cornerRadius={5}
           />
           <Line points={[45, 10, 45, BOARD_HEIGHT - 10]} stroke="#e74c3c" strokeWidth={2} />
@@ -257,7 +257,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
                 x={pos.x}
                 y={pos.y}
                 radius={3}
-                fill={theme === 'dark' ? '#1a1a2e' : '#333'}
+                fill={theme === 'dark' ? '#20252A' : '#30383E'}
               />
             );
           })}
@@ -639,7 +639,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
 
 
 
-    const bgFill = theme === 'dark' ? '#1e1e2e' : '#f0f0f0';
+    const bgFill = theme === 'dark' ? '#20252A' : '#EEEAE4';
 
     let valStr: string | null = null;
     if (type === 'function_generator' || (type === 'vsource' && component.params?.type === 'sin')) {

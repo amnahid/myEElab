@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Canvas } from './editor/Canvas';
 import { useEditorStore } from './store/editorStore';
-import { Undo, Redo, RotateCw, Trash2, Settings, Eye, EyeOff } from 'lucide-react';
+import { Undo, Redo, RotateCw, Trash2, Settings, Eye, EyeOff, MoreHorizontal } from 'lucide-react';
 import { NetlistGenerator } from './engine/netlist';
 import { WaveformViewer } from './editor/WaveformViewer';
 import { BodePlot } from './components/BodePlot';
@@ -165,9 +165,9 @@ const ComponentIcons: Record<string, React.ReactNode> = {
 const PhysicalComponentIcons: Record<string, React.ReactNode> = {
   resistor: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="2" y1="12" x2="6" y2="12" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="18" y1="12" x2="22" y2="12" stroke="#bdc3c7" strokeWidth="2" />
-      <rect x="6" y="8" width="12" height="8" fill="#f0c75e" stroke="#c9a832" strokeWidth="1" rx="2" />
+      <line x1="2" y1="12" x2="6" y2="12" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="18" y1="12" x2="22" y2="12" stroke="var(--foreground)" strokeWidth="2" />
+      <rect x="6" y="8" width="12" height="8" fill="var(--highlight)" stroke="var(--accent)" strokeWidth="1" rx="2" />
       <rect x="8" y="8" width="2" height="8" fill="#8B4513" />
       <rect x="12" y="8" width="2" height="8" fill="#000000" />
       <rect x="16" y="8" width="2" height="8" fill="#FF0000" />
@@ -175,39 +175,39 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
   ),
   capacitor: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="12" y1="2" x2="12" y2="8" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="12" y1="16" x2="12" y2="22" stroke="#bdc3c7" strokeWidth="2" />
-      <circle cx="12" cy="12" r="6" fill="#e67e22" stroke="#d35400" strokeWidth="1" />
+      <line x1="12" y1="2" x2="12" y2="8" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="12" y1="16" x2="12" y2="22" stroke="var(--foreground)" strokeWidth="2" />
+      <circle cx="12" cy="12" r="6" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1" />
     </svg>
   ),
   inductor: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="12" y1="2" x2="12" y2="6" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="12" y1="18" x2="12" y2="22" stroke="#bdc3c7" strokeWidth="2" />
-      <rect x="8" y="6" width="8" height="12" fill="#2c3e50" rx="3" />
-      <path d="M 8 9 h 8 M 8 12 h 8 M 8 15 h 8" stroke="#e67e22" strokeWidth="1.5" />
+      <line x1="12" y1="2" x2="12" y2="6" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="12" y1="18" x2="12" y2="22" stroke="var(--foreground)" strokeWidth="2" />
+      <rect x="8" y="6" width="8" height="12" fill="var(--ink)" rx="3" />
+      <path d="M 8 9 h 8 M 8 12 h 8 M 8 15 h 8" stroke="var(--accent)" strokeWidth="1.5" />
     </svg>
   ),
   vsource: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="4" width="16" height="16" fill="#ecf0f1" rx="2" />
-      <rect x="6" y="6" width="12" height="6" fill="#000" rx="1" />
-      <circle cx="8" cy="16" r="2" fill="#e74c3c" />
-      <circle cx="16" cy="16" r="2" fill="#34495e" />
+      <rect x="4" y="4" width="16" height="16" fill="var(--background)" rx="2" />
+      <rect x="6" y="6" width="12" height="6" fill="var(--ink)" rx="1" />
+      <circle cx="8" cy="16" r="2" fill="var(--accent)" />
+      <circle cx="16" cy="16" r="2" fill="var(--foreground)" />
     </svg>
   ),
   function_generator: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="4" width="16" height="16" fill="#34495e" rx="2" />
-      <rect x="6" y="6" width="12" height="6" fill="#111" rx="1" />
-      <path d="M 8 9 Q 10 7 12 9 T 16 9" stroke="#2ecc71" strokeWidth="1.5" />
-      <circle cx="12" cy="16" r="2" fill="#e74c3c" />
+      <rect x="4" y="4" width="16" height="16" fill="var(--foreground)" rx="2" />
+      <rect x="6" y="6" width="12" height="6" fill="var(--ink)" rx="1" />
+      <path d="M 8 9 Q 10 7 12 9 T 16 9" stroke="var(--signal)" strokeWidth="1.5" />
+      <circle cx="12" cy="16" r="2" fill="var(--accent)" />
     </svg>
   ),
   isource: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="6" y="4" width="12" height="16" fill="#34495e" rx="2" />
-      <path d="M 12 18 V 6 M 9 9 l 3 -3 l 3 3" stroke="#f1c40f" strokeWidth="1.5" />
+      <rect x="6" y="4" width="12" height="16" fill="var(--foreground)" rx="2" />
+      <path d="M 12 18 V 6 M 9 9 l 3 -3 l 3 3" stroke="var(--highlight)" strokeWidth="1.5" />
     </svg>
   ),
   ground: (
@@ -220,93 +220,93 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
   ),
   diode: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="2" y1="12" x2="6" y2="12" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="18" y1="12" x2="22" y2="12" stroke="#bdc3c7" strokeWidth="2" />
-      <rect x="6" y="8" width="12" height="8" fill="#e74c3c" rx="1" />
-      <rect x="16" y="8" width="2" height="8" fill="#2c3e50" />
+      <line x1="2" y1="12" x2="6" y2="12" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="18" y1="12" x2="22" y2="12" stroke="var(--foreground)" strokeWidth="2" />
+      <rect x="6" y="8" width="12" height="8" fill="var(--accent)" rx="1" />
+      <rect x="16" y="8" width="2" height="8" fill="var(--ink)" />
     </svg>
   ),
   npn: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M 4 20 Q 12 4 20 20" fill="#34495e" />
-      <line x1="8" y1="20" x2="8" y2="24" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="12" y1="20" x2="12" y2="24" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="16" y1="20" x2="16" y2="24" stroke="#bdc3c7" strokeWidth="2" />
+      <path d="M 4 20 Q 12 4 20 20" fill="var(--foreground)" />
+      <line x1="8" y1="20" x2="8" y2="24" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="12" y1="20" x2="12" y2="24" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="16" y1="20" x2="16" y2="24" stroke="var(--foreground)" strokeWidth="2" />
     </svg>
   ),
   pnp: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M 4 20 Q 12 4 20 20" fill="#34495e" />
-      <line x1="8" y1="20" x2="8" y2="24" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="12" y1="20" x2="12" y2="24" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="16" y1="20" x2="16" y2="24" stroke="#bdc3c7" strokeWidth="2" />
+      <path d="M 4 20 Q 12 4 20 20" fill="var(--foreground)" />
+      <line x1="8" y1="20" x2="8" y2="24" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="12" y1="20" x2="12" y2="24" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="16" y1="20" x2="16" y2="24" stroke="var(--foreground)" strokeWidth="2" />
     </svg>
   ),
   nmos: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="6" y="4" width="12" height="16" fill="#34495e" rx="1" />
-      <line x1="8" y1="20" x2="8" y2="24" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="12" y1="20" x2="12" y2="24" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="16" y1="20" x2="16" y2="24" stroke="#bdc3c7" strokeWidth="2" />
+      <rect x="6" y="4" width="12" height="16" fill="var(--foreground)" rx="1" />
+      <line x1="8" y1="20" x2="8" y2="24" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="12" y1="20" x2="12" y2="24" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="16" y1="20" x2="16" y2="24" stroke="var(--foreground)" strokeWidth="2" />
     </svg>
   ),
   pmos: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="6" y="4" width="12" height="16" fill="#34495e" rx="1" />
-      <line x1="8" y1="20" x2="8" y2="24" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="12" y1="20" x2="12" y2="24" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="16" y1="20" x2="16" y2="24" stroke="#bdc3c7" strokeWidth="2" />
+      <rect x="6" y="4" width="12" height="16" fill="var(--foreground)" rx="1" />
+      <line x1="8" y1="20" x2="8" y2="24" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="12" y1="20" x2="12" y2="24" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="16" y1="20" x2="16" y2="24" stroke="var(--foreground)" strokeWidth="2" />
     </svg>
   ),
   opamp: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="6" width="16" height="12" fill="#2c3e50" rx="1" />
-      <circle cx="7" cy="9" r="1" fill="#bdc3c7" />
-      <line x1="4" y1="8" x2="2" y2="8" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="4" y1="12" x2="2" y2="12" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="4" y1="16" x2="2" y2="16" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="20" y1="8" x2="22" y2="8" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="20" y1="12" x2="22" y2="12" stroke="#bdc3c7" strokeWidth="2" />
-      <line x1="20" y1="16" x2="22" y2="16" stroke="#bdc3c7" strokeWidth="2" />
+      <rect x="4" y="6" width="16" height="12" fill="var(--ink)" rx="1" />
+      <circle cx="7" cy="9" r="1" fill="var(--panel)" />
+      <line x1="4" y1="8" x2="2" y2="8" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="4" y1="12" x2="2" y2="12" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="4" y1="16" x2="2" y2="16" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="20" y1="8" x2="22" y2="8" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="20" y1="12" x2="22" y2="12" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="20" y1="16" x2="22" y2="16" stroke="var(--foreground)" strokeWidth="2" />
     </svg>
   ),
 
   oscilloscope: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="4" width="20" height="16" fill="#34495e" rx="2" />
-      <rect x="4" y="6" width="12" height="10" fill="#2ecc71" />
-      <circle cx="18" cy="8" r="1" fill="#ecf0f1" />
-      <circle cx="18" cy="12" r="1" fill="#ecf0f1" />
-      <circle cx="18" cy="16" r="1" fill="#ecf0f1" />
+      <rect x="2" y="4" width="20" height="16" fill="var(--foreground)" rx="2" />
+      <rect x="4" y="6" width="12" height="10" fill="var(--signal)" />
+      <circle cx="18" cy="8" r="1" fill="var(--panel)" />
+      <circle cx="18" cy="12" r="1" fill="var(--panel)" />
+      <circle cx="18" cy="16" r="1" fill="var(--panel)" />
     </svg>
   ),
   multimeter: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="2" width="16" height="20" fill="#f1c40f" rx="2" />
-      <rect x="6" y="4" width="12" height="6" fill="#ecf0f1" rx="1" />
-      <circle cx="12" cy="14" r="3" fill="#34495e" />
-      <circle cx="8" cy="19" r="1" fill="#c0392b" />
-      <circle cx="16" cy="19" r="1" fill="#2c3e50" />
+      <rect x="4" y="2" width="16" height="20" fill="var(--highlight)" rx="2" />
+      <rect x="6" y="4" width="12" height="6" fill="var(--panel)" rx="1" />
+      <circle cx="12" cy="14" r="3" fill="var(--foreground)" />
+      <circle cx="8" cy="19" r="1" fill="var(--accent)" />
+      <circle cx="16" cy="19" r="1" fill="var(--ink)" />
     </svg>
   ),
   current_probe: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="8" stroke="#34495e" />
-      <path d="M12 2v4" stroke="#e74c3c" />
-      <path d="M12 18v4" stroke="#2c3e50" />
+      <circle cx="12" cy="12" r="8" stroke="var(--foreground)" />
+      <path d="M12 2v4" stroke="var(--accent)" />
+      <path d="M12 18v4" stroke="var(--ink)" />
     </svg>
   ),
   breadboard: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="6" width="20" height="12" fill="#ecf0f1" stroke="#bdc3c7" strokeWidth="1" rx="2" />
-      <circle cx="6" cy="10" r="1" fill="#7f8c8d" />
-      <circle cx="10" cy="10" r="1" fill="#7f8c8d" />
-      <circle cx="14" cy="10" r="1" fill="#7f8c8d" />
-      <circle cx="18" cy="10" r="1" fill="#7f8c8d" />
-      <circle cx="6" cy="14" r="1" fill="#7f8c8d" />
-      <circle cx="10" cy="14" r="1" fill="#7f8c8d" />
-      <circle cx="14" cy="14" r="1" fill="#7f8c8d" />
-      <circle cx="18" cy="14" r="1" fill="#7f8c8d" />
+      <rect x="2" y="6" width="20" height="12" fill="var(--panel)" stroke="var(--foreground)" strokeWidth="1" rx="2" />
+      <circle cx="6" cy="10" r="1" fill="var(--ink)" />
+      <circle cx="10" cy="10" r="1" fill="var(--ink)" />
+      <circle cx="14" cy="10" r="1" fill="var(--ink)" />
+      <circle cx="18" cy="10" r="1" fill="var(--ink)" />
+      <circle cx="6" cy="14" r="1" fill="var(--ink)" />
+      <circle cx="10" cy="14" r="1" fill="var(--ink)" />
+      <circle cx="14" cy="14" r="1" fill="var(--ink)" />
+      <circle cx="18" cy="14" r="1" fill="var(--ink)" />
     </svg>
   )
 };
@@ -319,10 +319,47 @@ function App() {
     showInstruments, setShowInstruments
   } = useEditorStore();
   const theme = useEditorStore(state => state.theme);
-  const toggleTheme = useEditorStore(state => state.toggleTheme);
+  const setTheme = useEditorStore(state => state.setTheme);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = (e: MediaQueryListEvent) => {
+        setTheme(e.matches ? 'dark' : 'light');
+      };
+      
+      // Set initial
+      setTheme(mediaQuery.matches ? 'dark' : 'light');
+      
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+  }, [setTheme]);
   
   const [activeScopeId, setActiveScopeId] = useState<string | null>(null);
   const [showAnalysisSettings, setShowAnalysisSettings] = useState(false);
+  const [showMoreComponents, setShowMoreComponents] = useState(false);
+
+  const componentsContainerRef = useRef<HTMLDivElement>(null);
+  const [maxVisibleComponents, setMaxVisibleComponents] = useState(6);
+
+  useEffect(() => {
+    if (!componentsContainerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const height = entry.contentRect.height;
+        const itemHeight = 54; // 46px button + 8px gap
+        const totalItems = Object.keys(ComponentLibrary).length;
+        if (totalItems * itemHeight <= height + 8) {
+          setMaxVisibleComponents(totalItems);
+        } else {
+          setMaxVisibleComponents(Math.max(1, Math.floor((height - itemHeight) / itemHeight)));
+        }
+      }
+    });
+    observer.observe(componentsContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (editingComponentId) {
@@ -445,7 +482,7 @@ function App() {
     }
 
     const netlist = generator.generate(circuit, activeAnalysis);
-    if (process.env.NODE_ENV !== 'production') {
+    if (import.meta.env.DEV) {
       console.groupCollapsed(`🛠️ Generated Netlist (${activeAnalysis})`);
       console.log(netlist);
       console.groupEnd();
@@ -492,39 +529,43 @@ function App() {
   
   // Theme palette
   const colors = {
-    bg: isDark ? '#1e1e2e' : '#f5f6fa',
-    headerBg: isDark ? '#181825' : '#2c3e50',
-    toolbarBg: isDark ? '#313244' : '#34495e',
-    panelBg: isDark ? 'rgba(30, 30, 46, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-    text: isDark ? '#cdd6f4' : '#2c3e50',
-    border: isDark ? '#45475a' : '#bdc3c7',
-    inputBg: isDark ? '#1e1e2e' : 'white',
-    buttonHover: isDark ? '#45475a' : '#2c3e50'
+    bg: isDark ? '#20252A' : '#EEEAE4',
+    headerBg: isDark ? '#323A3F' : '#E2DCD3',
+    toolbarBg: isDark ? '#262D32' : '#D0C8B8',
+    panelBg: isDark ? '#323A3F' : '#E2DCD3',
+    text: isDark ? '#EEEAE4' : '#30383E',
+    border: isDark ? '#EEEAE4' : '#30383E',
+    inputBg: isDark ? '#20252A' : '#EEEAE4',
+    buttonHover: isDark ? '#EEEAE4' : '#30383E',
+    signal: '#367985',
+    accent: '#A9553D',
+    tech: '#5A8796',
+    highlight: '#B9924D'
   };
 
   return (
-    <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'sans-serif', overflow: 'hidden', backgroundColor: colors.bg, color: colors.text }}>
+    <div data-theme={theme} style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'sans-serif', overflow: 'hidden', backgroundColor: colors.bg, color: colors.text }}>
       <header style={{ 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'space-between',
         padding: '10px 20px', 
         backgroundColor: colors.headerBg, 
-        color: 'white',
+        color: colors.text,
         boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
         zIndex: 100 
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>LiveSpice</h1>
+          <img src={isDark ? '/logo_dark.svg' : '/logo_light.svg'} alt="myEElab logo" style={{ height: '28px' }} />
           <button 
             onClick={() => runSimulation()}
-            style={{ padding: '6px 12px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+            style={{ padding: '6px 12px', background: 'var(--signal)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
           >
             Run Sim
           </button>
           <button 
             onClick={() => setAutoSimulate(!autoSimulate)}
-            style={{ padding: '6px 12px', background: autoSimulate ? '#3498db' : '#95a5a6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            style={{ padding: '6px 12px', background: autoSimulate ? 'var(--tech)' : 'gray', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
           >
             Auto: {autoSimulate ? 'ON' : 'OFF'}
           </button>
@@ -532,92 +573,28 @@ function App() {
         
         {/* Toolbars Container */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          
           <div style={{ display: 'flex', gap: '5px', background: colors.toolbarBg, padding: '5px', borderRadius: '5px' }}>
             <button 
-              onClick={() => setMode('select')}
-              style={{ padding: '5px', background: mode === 'select' ? '#3498db' : 'transparent', border: 'none', color: 'white', cursor: 'pointer', borderRadius: '3px' }}
-              title="Select / Move"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M 3 3 l 7.07 16.97 2.51-7.39 7.39-2.51 L 3 3 z" />
-                <path d="M 13 13 l 6 6" />
-              </svg>
-            </button>
-            <button 
-              onClick={() => setMode('wire')}
-              style={{ padding: '5px', background: mode === 'wire' ? '#3498db' : 'transparent', border: 'none', color: 'white', cursor: 'pointer', borderRadius: '3px' }}
-              title="Draw Wire"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M 5 9 L 19 9" />
-                <circle cx="5" cy="9" r="2" fill="currentColor" />
-                <circle cx="19" cy="9" r="2" fill="currentColor" />
-              </svg>
-            </button>
-            <button 
-              onClick={() => setMode('probe')}
-              style={{ padding: '5px', background: mode === 'probe' ? '#3498db' : 'transparent', border: 'none', color: 'white', cursor: 'pointer', borderRadius: '3px' }}
-              title="Add Probe"
-            >
-              <ProbeMenuIcon size={20} color="white" />
-            </button>
-          </div>
-          
-          <div style={{ display: 'flex', gap: '8px', background: colors.toolbarBg, padding: '8px', borderRadius: '5px', overflowX: 'auto' }}>
-            {Object.entries(ComponentLibrary).map(([type, comp]) => (
-              <button 
-                key={type}
-                title={`Place ${comp.name || type}`}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('componentType', type);
-                  e.dataTransfer.effectAllowed = 'copy';
-                }}
-                onClick={() => {
-                  setMode('place', type);
-                }}
-                style={{
-                  background: mode === 'place' && componentToPlace === type ? (theme === 'dark' ? '#4c566a' : '#ddd') : 'transparent',
-                  border: 'none',
-                  color: 'white',
-                  padding: '8px',
-                  borderRadius: '4px',
-                  cursor: 'grab',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <div style={{ transform: 'scale(1.4)', transformOrigin: 'center', display: 'flex' }}>
-                  {activeView === 'breadboard' ? PhysicalComponentIcons[type] : ComponentIcons[type]}
-                </div>
-              </button>
-            ))}
-          </div>
-
-          <div style={{ display: 'flex', gap: '5px', background: colors.toolbarBg, padding: '5px', borderRadius: '5px' }}>
-            <button 
-              style={{ background: 'transparent', color: 'white', border: 'none', cursor: 'pointer' }}
+              style={{ padding: '8px', background: 'transparent', color: colors.text, border: 'none', cursor: 'pointer', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               onClick={() => useEditorStore.temporal.getState().undo()} title="Undo (Ctrl+Z)"
             >
               <Undo size={18} />
             </button>
             <button 
-              style={{ background: 'transparent', color: 'white', border: 'none', cursor: 'pointer' }}
+              style={{ padding: '8px', background: 'transparent', color: colors.text, border: 'none', cursor: 'pointer', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               onClick={() => useEditorStore.temporal.getState().redo()} title="Redo (Ctrl+Y)"
             >
               <Redo size={18} />
             </button>
             <button 
-              style={{ background: 'transparent', color: 'white', border: 'none', cursor: 'pointer' }}
+              style={{ padding: '8px', background: 'transparent', color: colors.text, border: 'none', cursor: 'pointer', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               onClick={() => rotateSelected()} title="Rotate (R)"
             >
               <RotateCw size={18} />
             </button>
             <div style={{ width: '1px', background: colors.border, margin: '0 5px' }} />
             <button 
-              style={{ background: 'transparent', color: '#e74c3c', border: 'none', cursor: 'pointer' }}
+              style={{ padding: '8px', background: 'transparent', color: '#e74c3c', border: 'none', cursor: 'pointer', borderRadius: '5px' }}
               onClick={() => {
                 if (window.confirm("Are you sure you want to clear the entire circuit?")) {
                   clearAll();
@@ -646,7 +623,7 @@ function App() {
             {activeAnalysis !== 'op' && (
               <button
                 onClick={() => setShowAnalysisSettings(!showAnalysisSettings)}
-                style={{ background: 'transparent', color: showAnalysisSettings ? '#3498db' : colors.text, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ background: 'transparent', color: showAnalysisSettings ? 'var(--highlight)' : colors.text, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 title="Analysis Settings"
               >
                 <Settings size={18} />
@@ -748,7 +725,7 @@ function App() {
           <button 
             title={showInstruments ? 'Hide Instruments' : 'Show Instruments'}
             onClick={() => setShowInstruments(!showInstruments)}
-            style={{ padding: '8px 12px', background: colors.toolbarBg, color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', height: '34px' }}
+            style={{ padding: '8px 12px', background: colors.toolbarBg, color: colors.text, border: 'none', borderRadius: '5px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', height: '34px' }}
           >
             {showInstruments ? <EyeOff size={18} /> : <Eye size={18} />}
             <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>
@@ -758,14 +735,14 @@ function App() {
 
           <button 
             onClick={() => setActiveView(activeView === 'schematic' ? 'breadboard' : 'schematic')}
-            style={{ padding: '8px', background: colors.toolbarBg, color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
+            style={{ padding: '8px', background: colors.toolbarBg, color: colors.text, border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
           >
             Go to {activeView === 'schematic' ? 'Breadboard' : 'Schematic'}
           </button>
 
           <button 
-            onClick={toggleTheme}
-            style={{ padding: '8px', background: colors.toolbarBg, color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
+            onClick={() => useEditorStore.getState().setTheme(theme === 'dark' ? 'light' : 'dark')}
+            style={{ padding: '8px', background: colors.toolbarBg, color: colors.text, border: 'none', borderRadius: '5px', cursor: 'pointer' }}
           >
             {isDark ? 'Light Mode' : 'Dark Mode'}
           </button>
@@ -778,7 +755,149 @@ function App() {
           </div>
       )}
 
-      <main style={{ flex: 1, position: 'relative', display: 'flex', overflow: 'hidden', backgroundColor: colors.bg }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <aside style={{ 
+          width: '70px', 
+          backgroundColor: colors.headerBg, 
+          borderRight: `1px solid ${colors.border}`,
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center',
+          padding: '10px 0', 
+          gap: '15px',
+          overflow: 'visible'
+        }}>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', alignItems: 'center' }}>
+            <button 
+              onClick={() => setMode('select')}
+              style={{ padding: '8px', background: mode === 'select' ? 'var(--highlight)' : 'transparent', border: 'none', color: colors.text, cursor: 'pointer', borderRadius: '5px' }}
+              title="Select / Move"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M 3 3 l 7.07 16.97 2.51-7.39 7.39-2.51 L 3 3 z" />
+                <path d="M 13 13 l 6 6" />
+              </svg>
+            </button>
+            <button 
+              onClick={() => setMode('wire')}
+              style={{ padding: '8px', background: mode === 'wire' ? 'var(--highlight)' : 'transparent', border: 'none', color: colors.text, cursor: 'pointer', borderRadius: '5px' }}
+              title="Draw Wire"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M 5 9 L 19 9" />
+                <circle cx="5" cy="9" r="2" fill="currentColor" />
+                <circle cx="19" cy="9" r="2" fill="currentColor" />
+              </svg>
+            </button>
+            <button 
+              onClick={() => setMode('probe')}
+              style={{ padding: '8px', background: mode === 'probe' ? 'var(--highlight)' : 'transparent', border: 'none', color: colors.text, cursor: 'pointer', borderRadius: '5px' }}
+              title="Add Probe"
+            >
+              <ProbeMenuIcon size={20} color={colors.text} />
+            </button>
+          </div>
+
+          <div style={{ width: '80%', height: '1px', backgroundColor: colors.border }} />
+
+                    <div ref={componentsContainerRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', alignItems: 'center', overflow: 'visible' }}>
+            {Object.entries(ComponentLibrary).slice(0, maxVisibleComponents).map(([type, comp]) => (
+              <button 
+                key={type}
+                title={`Place ${comp.name || type}`}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('componentType', type);
+                  e.dataTransfer.effectAllowed = 'copy';
+                }}
+                onClick={() => {
+                  setMode('place', type);
+                }}
+                style={{
+                  background: mode === 'place' && componentToPlace === type ? 'var(--highlight)' : 'transparent',
+                  border: 'none',
+                  color: colors.text,
+                  padding: '8px',
+                  borderRadius: '5px',
+                  cursor: 'grab',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <div style={{ transform: 'scale(1.2)', transformOrigin: 'center', display: 'flex' }}>
+                  {activeView === 'breadboard' ? PhysicalComponentIcons[type] : ComponentIcons[type]}
+                </div>
+              </button>
+            ))}
+
+            {Object.keys(ComponentLibrary).length > maxVisibleComponents && (
+            <div style={{ position: 'relative' }}>
+              <button 
+                onClick={() => setShowMoreComponents(!showMoreComponents)}
+                style={{ padding: '8px', background: showMoreComponents ? 'var(--highlight)' : 'transparent', border: 'none', color: colors.text, cursor: 'pointer', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="More Components"
+              >
+                <MoreHorizontal size={20} />
+              </button>
+
+              {showMoreComponents && (
+                <div style={{
+                  position: 'absolute',
+                  left: '100%',
+                  top: '-150%',
+                  marginLeft: '15px',
+                  background: colors.panelBg,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '5px',
+                  padding: '10px',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '8px',
+                  zIndex: 1000,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                }}>
+                  {Object.entries(ComponentLibrary).slice(maxVisibleComponents).map(([type, comp]) => (
+                    <button 
+                      key={type}
+                      title={`Place ${comp.name || type}`}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('componentType', type);
+                        e.dataTransfer.effectAllowed = 'copy';
+                        setShowMoreComponents(false);
+                      }}
+                      onClick={() => {
+                        setMode('place', type);
+                        setShowMoreComponents(false);
+                      }}
+                      style={{
+                        background: mode === 'place' && componentToPlace === type ? 'var(--highlight)' : 'transparent',
+                        border: 'none',
+                        color: colors.text,
+                        padding: '8px',
+                        borderRadius: '5px',
+                        cursor: 'grab',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <div style={{ transform: 'scale(1.2)', transformOrigin: 'center', display: 'flex' }}>
+                        {activeView === 'breadboard' ? PhysicalComponentIcons[type] : ComponentIcons[type]}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            )}
+          </div>
+          
+          </aside>
+
+        <main style={{ flex: 1, position: 'relative', display: 'flex', overflow: 'hidden', backgroundColor: colors.bg }}>
         <Canvas nodeVoltages={activeAnalysis === 'op' ? nodeVoltages : undefined} theme={theme} />
         
         {/* Properties Popup */}
@@ -789,11 +908,11 @@ function App() {
           <div style={{ position: 'absolute', bottom: '20px', left: '20px', background: colors.panelBg, padding: '10px', borderRadius: '5px', boxShadow: simFlash ? `0 0 0 2px #2ecc71, 0 4px 12px rgba(0,0,0,0.2)` : '0 2px 4px rgba(0,0,0,0.1)', transition: 'box-shadow 0.3s', pointerEvents: 'none', zIndex: 10 }}>
             <h4 style={{ margin: '0 0 5px 0', fontSize: '0.9rem', color: colors.text }}>DC Operating Point</h4>
             {Object.keys(nodeVoltages).length === 0 ? (
-              <div style={{ fontSize: '0.9rem', color: isDark ? '#a6adc8' : '#7f8c8d' }}>No nodes available</div>
+              <div style={{ fontSize: '0.9rem', color: isDark ? 'var(--ink)' : '#7f8c8d' }}>No nodes available</div>
             ) : (
               Object.entries(nodeVoltages).map(([node, v]) => (
                 <div key={node} style={{ fontSize: '0.85rem', fontFamily: 'monospace', color: colors.text, display: 'flex', gap: '8px' }}>
-                  <span style={{ fontWeight: 'bold', color: '#3498db' }}>Node {node}:</span>
+                  <span style={{ fontWeight: 'bold', color: 'var(--signal)' }}>Node {node}:</span>
                   <span>
                     {(() => {
                       const abs = Math.abs(v);
@@ -811,6 +930,7 @@ function App() {
           </div>
         )}
       </main>
+      </div>
             {/* Context Menu for Node */}
       
       {/* Custom Models Panel */}
@@ -824,7 +944,7 @@ function App() {
         />
         <button
           onClick={() => setCustomModels(customModelsInput)}
-          style={{ padding: '6px 10px', background: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', alignSelf: 'flex-end', fontWeight: 'bold' }}
+          style={{ padding: '6px 10px', background: 'var(--signal)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', alignSelf: 'flex-end', fontWeight: 'bold' }}
         >
           Apply
         </button>
