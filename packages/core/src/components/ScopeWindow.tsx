@@ -18,6 +18,42 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
   const containerRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [position, setPosition] = useState({ x: 50, y: 50 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      setPosition({
+        x: Math.max(0, e.clientX - dragStartPos.current.x),
+        y: Math.max(0, e.clientY - dragStartPos.current.y)
+      });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isExpanded) return;
+    setIsDragging(true);
+    dragStartPos.current = {
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    };
+  };
 
   useEffect(() => {
     if (!containerRef.current || !data.time || data.time.length === 0) {
@@ -161,6 +197,12 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
         plotRef.current = new uPlot(opts, plotData, containerRef.current);
       } else {
         plotRef.current.setData(plotData);
+        if (containerRef.current) {
+          plotRef.current.setSize({
+            width: containerRef.current.offsetWidth,
+            height: isExpanded ? window.innerHeight * 0.6 : 300
+          });
+        }
       }
     }
 
@@ -196,8 +238,8 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
   return (
     <div style={{
       position: 'absolute',
-      top: isExpanded ? '10%' : '50px',
-      left: isExpanded ? '10%' : '50px',
+      top: isExpanded ? '10%' : `${position.y}px`,
+      left: isExpanded ? '10%' : `${position.x}px`,
       width: isExpanded ? '80%' : '500px',
       background: '#111',
       border: '2px solid #333',
@@ -208,13 +250,16 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
       flexDirection: 'column',
       overflow: 'hidden'
     }}>
-      <div style={{
+      <div 
+        onMouseDown={handleMouseDown}
+        style={{
         background: '#222',
         padding: '8px 12px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottom: '1px solid #444'
+        borderBottom: '1px solid #444',
+        cursor: isExpanded ? 'default' : 'move'
       }}>
         <div style={{ color: '#ccc', fontWeight: 'bold', fontSize: '14px' }}>Oscilloscope ({oscilloscope.refDes || 'Scope'})</div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
