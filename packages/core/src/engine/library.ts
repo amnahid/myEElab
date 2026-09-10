@@ -1,12 +1,13 @@
 import { Pin } from "../models/circuit";
 
-export const ComponentLibrary: Record<string, { name?: string, type?: string, pins: Pin[], defaultParams?: any }> = {
+export const ComponentLibrary: Record<string, { name?: string, type?: string, pins: Pin[], defaultParams?: any, maxPower?: number }> = {
   resistor: {
     pins: [
       { id: "1", label: "p1", offset: { x: 0, y: -20 } },
       { id: "2", label: "p2", offset: { x: 0, y: 20 } },
     ],
-    defaultParams: { resistance: "1k" }
+    defaultParams: { resistance: "1k" },
+    maxPower: 0.25 // 250mW standard 1/4W resistor
   },
   capacitor: {
     pins: [
@@ -58,7 +59,28 @@ export const ComponentLibrary: Record<string, { name?: string, type?: string, pi
       { id: "1", label: "anode", offset: { x: 0, y: -20 } },
       { id: "2", label: "cathode", offset: { x: 0, y: 20 } }
     ],
-    defaultParams: { model: "1N4148" }
+    defaultParams: { model: "1N4148" },
+    maxPower: 0.5 // 500mW max for 1N4148
+  },
+  led: {
+    type: "led",
+    name: "LED",
+    pins: [
+      { id: "1", label: "anode", offset: { x: 0, y: -20 } },
+      { id: "2", label: "cathode", offset: { x: 0, y: 20 } }
+    ],
+    defaultParams: { model: "LED_RED", color: "#ff0000" },
+    maxPower: 0.05 // 50mW max for standard LED (e.g., 20mA * 2.5V)
+  },
+  zener: {
+    type: "zener",
+    name: "Zener Diode",
+    pins: [
+      { id: "1", label: "anode", offset: { x: 0, y: -20 } },
+      { id: "2", label: "cathode", offset: { x: 0, y: 20 } }
+    ],
+    defaultParams: { model: "1N4733A" },
+    maxPower: 1.0 // 1W max for 1N4733A Zener
   },
   npn: {
     type: "npn",
@@ -146,6 +168,17 @@ export const ComponentLibrary: Record<string, { name?: string, type?: string, pi
       { id: "scope", label: "SCOPE", offset: { x: 20, y: 0 } },
     ],
     defaultParams: {}
+  },
+  pushbutton: {
+    type: "pushbutton",
+    name: "Push Button",
+    pins: [
+      { id: "1", label: "L1", offset: { x: -20, y: -20 } },
+      { id: "2", label: "L2", offset: { x: -20, y: 20 } },
+      { id: "3", label: "R1", offset: { x: 20, y: -20 } },
+      { id: "4", label: "R2", offset: { x: 20, y: 20 } },
+    ],
+    defaultParams: { state: "open" }
   },
   breadboard: {
     type: "breadboard",

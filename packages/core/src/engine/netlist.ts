@@ -57,7 +57,9 @@ export class NetlistGenerator {
       // Assign refDes if missing or if it's a virtual instrument that requires a strict prefix
       let refDes = comp.refDes;
       if (comp.type === "multimeter") {
-        refDes = `${comp.params.mode === "current" ? "VMM_" : comp.params.mode === "resistance" ? "IMM_" : "RMM_"}${comp.id.replace(/-/g, '')}`;
+        const isCur = comp.params.mode === "current" || comp.params.mode === "ac_current";
+        const isRes = comp.params.mode === "resistance";
+        refDes = `${isCur ? "VMM_" : isRes ? "IMM_" : "RMM_"}${comp.id.replace(/-/g, '')}`;
       } else if (comp.type === "current_probe") {
         refDes = `V_CP_${comp.id.replace(/-/g, '')}`; // Dummy refDes to bypass prefix logic
       } else if (!refDes) {
@@ -67,10 +69,11 @@ export class NetlistGenerator {
         else if (comp.type === "inductor") prefix = "L";
         else if (comp.type === "vsource" || comp.type === "function_generator") prefix = "V";
         else if (comp.type === "isource") prefix = "I";
-        else if (comp.type === "diode") prefix = "D";
+        else if (comp.type === "diode" || comp.type === "led" || comp.type === "zener") prefix = "D";
         else if (comp.type === "npn" || comp.type === "pnp") prefix = "Q";
         else if (comp.type === "nmos" || comp.type === "pmos") prefix = "M";
         else if (comp.type === "opamp") prefix = "X";
+        else if (comp.type === "pushbutton") prefix = "SW";
         
         counters[prefix] = (counters[prefix] || 0) + 1;
         refDes = `${prefix}${counters[prefix]}`;
@@ -105,7 +108,7 @@ export class NetlistGenerator {
         }
       } else if (comp.type === "multimeter") {
         if (comp.params.mode === "resistance") value = "DC 1";
-        else if (comp.params.mode === "current") value = "DC 0";
+        else if (comp.params.mode === "current" || comp.params.mode === "ac_current") value = "DC 0";
         else value = "1G"; // Voltmeter is high impedance resistor
       }
 
@@ -116,8 +119,9 @@ export class NetlistGenerator {
         const vcp = `V_CP_${comp.id.replace(/-/g, '')}`;
         lines.push(`${vcp} ${n1} ${n2} DC 0`);
         lines.push(`H_CP_${comp.id.replace(/-/g, '')} ${nScope} 0 ${vcp} 1`);
-      } else if (comp.type === "diode") {
-        lines.push(`${refDes} ${pins.get("1") || "0"} ${pins.get("2") || "0"} ${comp.params.model || "1N4148"}`);
+      } else if (comp.type === "diode" || comp.type === "led" || comp.type === "zener") {
+        const defaultModel = comp.type === "led" ? "LED_RED" : (comp.type === "zener" ? "1N4733A" : "1N4148");
+        lines.push(`${refDes} ${pins.get("1") || "0"} ${pins.get("2") || "0"} ${comp.params.model || defaultModel}`);
       } else if (comp.type === "npn" || comp.type === "pnp") {
         lines.push(`${refDes} ${pins.get("c") || "0"} ${pins.get("b") || "0"} ${pins.get("e") || "0"} ${comp.params.model || (comp.type === "npn" ? "2N3904" : "2N3906")}`);
       } else if (comp.type === "nmos" || comp.type === "pmos") {
@@ -132,6 +136,15 @@ export class NetlistGenerator {
         const vn = pins.get("v-") || "0";
         const out = pins.get("out") || "0";
         lines.push(`${refDes} ${inp} ${inn} ${vp} ${vn} ${out} ${comp.params.model || "LM358"}`);
+      } else if (comp.type === "pushbutton") {
+        const l1 = pins.get("1") || "0";
+        const l2 = pins.get("2") || "0";
+        const r1 = pins.get("3") || "0";
+        const r2 = pins.get("4") || "0";
+        const idSafe = comp.id.replace(/-/g, '');
+        lines.push(`R_${idSafe}_L ${l1} ${l2} 1m`);
+        lines.push(`R_${idSafe}_R ${r1} ${r2} 1m`);
+        lines.push(`R_${refDes} ${l1} ${r1} ${comp.params.state === 'closed' ? '1m' : '1G'}`);
       } else {
         const n1 = pins.get("1") || "0";
         const n2 = pins.get("2") || "0";
@@ -141,6 +154,8 @@ export class NetlistGenerator {
 
     // Default Models for Semiconductors & Subcircuits
     lines.push(".model 1N4148 D(IS=2.52n RS=0.568 N=1.752 CJO=4p M=0.4 tt=20n IKF=1000)");
+    lines.push(".model LED_RED D(IS=93.2P RS=42M N=3.73 BV=5 IBV=10U CJO=2.98P VJ=.75 M=.333 TT=4.32U)");
+    lines.push(".model 1N4733A D(IS=1.004f RS=0.589 N=1.14 BV=5.1 IBV=49m CJO=285p VJ=0.75 M=0.33)");
     lines.push(".model 2N3904 NPN(IS=1E-14 VAF=100 Bf=300 IKF=0.4 XTB=1.5 BR=4 CJC=4E-12 CJE=8E-12 TR=250E-9 TF=350E-12 ITF=1 VTF=2 XTF=3 RB=10)");
     lines.push(".model 2N3906 PNP(IS=1E-14 VAF=100 Bf=200 IKF=0.4 XTB=1.5 BR=4 CJC=4.5E-12 CJE=10E-12 TR=250E-9 TF=350E-12 ITF=1 VTF=2 XTF=3 RB=10)");
     lines.push(".model BS170 NMOS(LEVEL=1 VTO=2.1 KP=0.320 CBD=1.0E-10 CBS=1.0E-10)");

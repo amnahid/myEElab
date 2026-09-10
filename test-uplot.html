@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://unpkg.com/uplot/dist/uPlot.min.css">
+    <script src="https://unpkg.com/uplot/dist/uPlot.iife.min.js"></script>
+</head>
+<body>
+<div id="chart"></div>
+<script>
+    let data = [
+        [0, 1, 2, 3, 4],
+        [0, 10, 20, 15, 5]
+    ];
+    let opts = {
+        width: 400, height: 300,
+        scales: { x: { time: false } },
+        series: [{}, {}]
+    };
+    let u = new uPlot(opts, data, document.getElementById('chart'));
+    u.setScale('x', { min: 1, max: 2 });
+    u.setScale('y', { min: 5, max: 15 });
+    
+    // now try to reset zoom
+    try {
+        u.setData(u.data);
+        console.log("Zoom after setData:", u.scales.x.min, u.scales.x.max, u.scales.y.min, u.scales.y.max);
+    } catch(e) { console.error(e); }
+</script>
+</body>
+</html>

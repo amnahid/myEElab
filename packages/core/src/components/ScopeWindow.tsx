@@ -306,15 +306,13 @@ export const ScopeWindow: React.FC<ScopeWindowProps> = ({ oscilloscope, data, on
           <button 
             onClick={() => {
               if (plotRef.current && data.time.length > 0) {
+                // Set X axis to full range
                 plotRef.current.setScale('x', { min: data.time[0], max: data.time[data.time.length - 1] });
-                plotRef.current.setScale('Voltage (V)', { min: null as any, max: null as any });
-                // Note: The y-axis might have a different scale key, uPlot usually defaults to the first series scale or 'y'
-                // Let's reset the default scales
-                const scales = plotRef.current.scales;
-                for (const key in scales) {
-                  if (key !== 'x') {
-                    plotRef.current.setScale(key, { min: null as any, max: null as any });
-                  }
+                
+                // Let uPlot recalculate the Y axes by re-feeding the data
+                // This safely resets all other scales to auto-range
+                if (plotRef.current.data) {
+                   plotRef.current.setData(plotRef.current.data);
                 }
               }
             }}

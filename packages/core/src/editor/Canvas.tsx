@@ -700,6 +700,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme })
             }
 
             const readings: Record<string, string> = {};
+            const powers: Record<string, number> = {};
             const resolver = new NodeResolver();
             const { components } = resolver.resolve(circuit);
             
@@ -714,14 +715,15 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme })
                   if (comp.params.mode === 'ac_voltage' || comp.params.mode === 'ac_current') {
                      if (tranData && tranData.time && tranData.time.length > 0) {
                         const vectors = tranData.vectors;
-                        const branchName = `v.vmm_${comp.id.replace(/-/g, '').toLowerCase()}#branch`;
+                        const expectedBranchName = `i(vmm_${comp.id.replace(/-/g, '')})`;
+                        const branchKey = Object.keys(vectors).find(k => k.toLowerCase() === expectedBranchName.toLowerCase());
                         
                         let sqSum = 0;
                         let count = 0;
                         for (let i = 0; i < tranData.time.length; i++) {
                           let v1 = 0, v2 = 0;
                           if (comp.params.mode === 'ac_current') {
-                            const iVec = vectors[branchName] || vectors[branchName.toUpperCase()];
+                            const iVec = branchKey ? vectors[branchKey] : null;
                             v1 = iVec ? iVec[i] : 0;
                           } else {
                             const vec1 = n1 === '0' ? null : (vectors[`v(${n1})`] || vectors[`V(${n1})`]);
@@ -738,8 +740,9 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme })
                   } else {
                     if (nodeVoltages && Object.keys(nodeVoltages).length > 0) {
                       if (comp.params.mode === 'current') {
-                        const branchName = `v.vmm_${comp.id.replace(/-/g, '').toLowerCase()}#branch`;
-                        reading = nodeVoltages[branchName] || 0;
+                        const expectedBranchName = `i(vmm_${comp.id.replace(/-/g, '')})`;
+                        const branchKey = Object.keys(nodeVoltages).find(k => k.toLowerCase() === expectedBranchName.toLowerCase());
+                        reading = branchKey ? nodeVoltages[branchKey] : 0;
                       } else {
                         const v1 = n1 === '0' ? 0 : (nodeVoltages[`v(${n1})`] || 0);
                         const v2 = n2 === '0' ? 0 : (nodeVoltages[`v(${n2})`] || 0);
@@ -776,6 +779,36 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme })
                   readings[comp.id] = formatted;
                 }
               }
+              
+              if (pinMap && nodeVoltages && Object.keys(nodeVoltages).length > 0) {
+                 if (comp.type === 'resistor') {
+                    const n1 = pinMap.get('1') || '0';
+                    const n2 = pinMap.get('2') || '0';
+                    const v1 = n1 === '0' ? 0 : (nodeVoltages[`v(${n1})`] || 0);
+                    const v2 = n2 === '0' ? 0 : (nodeVoltages[`v(${n2})`] || 0);
+                    let rStr = comp.params?.resistance || '1000';
+                    let r = parseFloat(rStr);
+                    const rLower = rStr.toLowerCase();
+                    if (rLower.includes('k')) r *= 1e3;
+                    else if (rLower.includes('meg')) r *= 1e6;
+                    else if (rLower.includes('m')) r *= 1e-3; // standard SPICE m is milli
+                    if (r > 0) {
+                      powers[comp.id] = Math.pow(v1 - v2, 2) / r;
+                    }
+                 } else if (comp.type === 'led' || comp.type === 'diode' || comp.type === 'zener') {
+                    const n1 = pinMap.get('1') || '0';
+                    const n2 = pinMap.get('2') || '0';
+                    const v1 = n1 === '0' ? 0 : (nodeVoltages[`v(${n1})`] || 0);
+                    const v2 = n2 === '0' ? 0 : (nodeVoltages[`v(${n2})`] || 0);
+                    const vDrop = v1 - v2;
+                    let maxDrop = comp.type === 'led' ? 3.0 : 1.2;
+                    if (vDrop > maxDrop) {
+                       powers[comp.id] = 100; // Fake huge power to trigger burning
+                    } else if (vDrop > 1.5) {
+                       powers[comp.id] = 0.02 * vDrop; // Approx normal usage
+                    }
+                 }
+              }
             }
 
             const renderComponent = (comp: any) => {
@@ -790,6 +823,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme })
                   theme={theme}
                   activeView={activeView}
                   multimeterReading={readings[comp.id]}
+                  powerDissipation={powers[comp.id]}
                   onSelect={(e) => {
                     if (mode === 'probe') {
                       const resolver = new NodeResolver();

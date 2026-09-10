@@ -76,6 +76,24 @@ const ComponentIcons: Record<string, React.ReactNode> = {
       <path d="M 12 16 v 6" />
     </svg>
   ),
+  led: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M 12 2 v 6" />
+      <path d="M 8 8 l 8 0 l -4 8 z" fill="currentColor" />
+      <path d="M 8 16 h 8" />
+      <path d="M 12 16 v 6" />
+      <path d="M 16 7 l 4 -4" />
+      <path d="M 18 9 l 4 -4" />
+    </svg>
+  ),
+  zener: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M 12 2 v 6" />
+      <path d="M 8 8 l 8 0 l -4 8 z" fill="currentColor" />
+      <path d="M 8 14 l 0 2 h 8 l 0 2" />
+      <path d="M 12 16 v 6" />
+    </svg>
+  ),
   npn: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M 2 12 h 6" />
@@ -224,6 +242,22 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
       <line x1="18" y1="12" x2="22" y2="12" stroke="var(--foreground)" strokeWidth="2" />
       <rect x="6" y="8" width="12" height="8" fill="var(--accent)" rx="1" />
       <rect x="16" y="8" width="2" height="8" fill="var(--ink)" />
+    </svg>
+  ),
+  led: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="2" y1="12" x2="6" y2="12" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="18" y1="12" x2="22" y2="12" stroke="var(--foreground)" strokeWidth="2" />
+      <circle cx="12" cy="12" r="6" fill="#e74c3c" stroke="var(--ink)" strokeWidth="1" />
+      <line x1="16" y1="8" x2="16" y2="16" stroke="var(--ink)" strokeWidth="1.5" />
+    </svg>
+  ),
+  zener: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="2" y1="12" x2="6" y2="12" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="18" y1="12" x2="22" y2="12" stroke="var(--foreground)" strokeWidth="2" />
+      <rect x="6" y="9" width="12" height="6" fill="#e67e22" rx="1" />
+      <rect x="15" y="9" width="3" height="6" fill="var(--ink)" />
     </svg>
   ),
   npn: (
@@ -395,7 +429,7 @@ function App() {
           const voltages: Record<string, number> = {};
           if (results && results.data) {
             results.data.forEach((d: any) => {
-              const isVoltage = d.type === 'voltage' || (d.name.startsWith('v(') && !d.name.includes('#branch'));
+              const isVoltage = (d.name.startsWith('v(') && !d.name.includes('#branch')) || d.type === 'voltage' || d.type === 'current';
               if (isVoltage && d.values && d.values.length > 0) {
                 const val = d.values[0];
                 voltages[d.name] = typeof val === 'object' ? val.real : Number(val);
@@ -410,7 +444,7 @@ function App() {
             results.data.forEach((d: any) => {
               if (d.name === 'time') {
                 time = d.values;
-              } else if (d.type === 'voltage') {
+              } else {
                 vectors[d.name] = d.values;
               }
             });
@@ -425,7 +459,7 @@ function App() {
             results.data.forEach((d: any) => {
               if (d.name === 'frequency') {
                 freq = d.values.map((v: any) => v.real);
-              } else if (d.type === 'voltage') {
+              } else {
                 const mag = d.values.map((v: any) => 20 * Math.log10(Math.max(1e-15, Math.hypot(v.real, v.img))));
                 const phase = d.values.map((v: any) => Math.atan2(v.img, v.real) * 180 / Math.PI);
                 magnitudes[d.name] = mag;

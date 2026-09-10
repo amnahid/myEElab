@@ -1,6 +1,8 @@
 import React from 'react';
 import { Group, Line, Circle, Text, Path, Rect, Label, Tag } from 'react-konva';
 import { ComponentInstance } from '../models/circuit';
+import { useEditorStore } from '../store/editorStore';
+import { Knob } from './Knob';
 import { BOARD_WIDTH, BOARD_HEIGHT, HOLES, getHolePosition } from './breadboardLayout';
 
 interface Props {
@@ -18,12 +20,21 @@ interface Props {
   theme?: 'light' | 'dark';
   activeView?: 'schematic' | 'breadboard';
   multimeterReading?: string;
+  powerDissipation?: number;
 }
 
-export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect, onDblClick, onDragStart, onDragEnd, onDragMove, onMouseEnter, onMouseLeave, opacity = 1, mode, theme = 'light', activeView = 'schematic', multimeterReading }) => {
+export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect, onDblClick, onDragStart, onDragEnd, onDragMove, onMouseEnter, onMouseLeave, opacity = 1, mode, theme = 'light', activeView = 'schematic', multimeterReading, powerDissipation }) => {
   const { type, position, color } = component;
   const defaultStroke = theme === 'dark' ? '#EEEAE4' : '#30383E';
-  const strokeColor = isSelected ? '#3498db' : (color || defaultStroke);
+  
+  const libComp = ComponentLibrary[type];
+  const maxPower = libComp?.maxPower || Infinity;
+  const power = powerDissipation || 0;
+  const isBurnt = power >= maxPower && maxPower < Infinity;
+  const heatRatio = maxPower < Infinity ? Math.min(1, Math.max(0, power / maxPower)) : 0;
+  const isHeating = heatRatio > 0.05 && !isBurnt;
+
+  const strokeColor = isBurnt ? '#000000' : (isSelected ? '#3498db' : (color || defaultStroke));
   const textColor = theme === 'dark' ? '#EEEAE4' : '#30383E';
   const subTextColor = theme === 'dark' ? '#E2DCD3' : '#30383E';
 
@@ -108,6 +119,30 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[0, -20, 0, -10]} stroke={strokeColor} strokeWidth={2} />
             <Line points={[-10, -10, 10, -10, 0, 10]} closed fill={strokeColor} stroke={strokeColor} strokeWidth={2} />
             <Line points={[-10, 10, 10, 10]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[0, 10, 0, 20]} stroke={strokeColor} strokeWidth={2} />
+          </Group>
+        );
+      case 'led':
+        return (
+          <Group>
+            <Line points={[0, -20, 0, -10]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-10, -10, 10, -10, 0, 10]} closed fill={strokeColor} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-10, 10, 10, 10]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[0, 10, 0, 20]} stroke={strokeColor} strokeWidth={2} />
+            {/* Arrows pointing outward */}
+            <Line points={[12, -2, 20, -10]} stroke={strokeColor} strokeWidth={1.5} />
+            <Line points={[16, -10, 20, -10, 20, -6]} stroke={strokeColor} strokeWidth={1.5} />
+            <Line points={[12, 6, 20, -2]} stroke={strokeColor} strokeWidth={1.5} />
+            <Line points={[16, -2, 20, -2, 20, 2]} stroke={strokeColor} strokeWidth={1.5} />
+          </Group>
+        );
+      case 'zener':
+        return (
+          <Group>
+            <Line points={[0, -20, 0, -10]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-10, -10, 10, -10, 0, 10]} closed fill={strokeColor} stroke={strokeColor} strokeWidth={2} />
+            {/* Zener cathode line */}
+            <Line points={[-10, 5, -10, 10, 10, 10, 10, 15]} stroke={strokeColor} strokeWidth={2} />
             <Line points={[0, 10, 0, 20]} stroke={strokeColor} strokeWidth={2} />
           </Group>
         );
@@ -214,6 +249,31 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
           </Group>
         );
       }
+      case 'pushbutton': {
+        const isClosed = component.params?.state === 'closed';
+        return (
+          <Group>
+            <Line points={[-20, 0, -10, 0]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[20, 0, 10, 0]} stroke={strokeColor} strokeWidth={2} />
+            <Circle x={-10} y={0} radius={2} fill={strokeColor} />
+            <Circle x={10} y={0} radius={2} fill={strokeColor} />
+            <Line points={[-10, 0, 10, isClosed ? 0 : -10]} stroke={strokeColor} strokeWidth={2} />
+            <Rect x={-15} y={-15} width={30} height={30} fill="transparent" 
+              onMouseDown={(e) => {
+                e.cancelBubble = true;
+                useEditorStore.getState().updateComponentParams(component.id, { state: 'closed' });
+              }}
+              onMouseUp={(e) => {
+                e.cancelBubble = true;
+                useEditorStore.getState().updateComponentParams(component.id, { state: 'open' });
+              }}
+              onMouseLeave={() => {
+                useEditorStore.getState().updateComponentParams(component.id, { state: 'open' });
+              }}
+            />
+          </Group>
+        );
+      }
       default:
         return <Circle radius={10} fill="red" />;
     }
@@ -305,35 +365,63 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
           const isDC = typeStr === 'dc';
           const isSin = typeStr === 'sin';
 
-          const freqVal = component.params?.frequency || '1k';
-          const ampVal = component.params?.amplitude || '5';
+          let freqVal = parseFloat(String(component.params?.frequency || '1000'));
+          if (isNaN(freqVal)) freqVal = 1000;
+          let ampVal = parseFloat(String(component.params?.amplitude || '5'));
+          if (isNaN(ampVal)) ampVal = 5;
           const dcVal = component.params?.dc || component.params?.value || '0';
           const acMag = component.params?.acMag || '1';
 
           let topText = '';
-          if (isSin) topText = `${freqVal}Hz`;
+          if (isSin) topText = freqVal >= 1000 ? `${(freqVal/1000).toFixed(1)}kHz` : `${Math.round(freqVal)}Hz`;
           else if (isAC) topText = `${acMag}V AC`;
           else if (isDC) topText = `${dcVal}V DC`;
 
           let bottomText = 'FUNCTION GENERATOR';
-          if (isSin) bottomText += ` (${ampVal}V)`;
+          if (isSin) bottomText += ` (${ampVal.toFixed(1)}V)`;
 
           let wavePath = '';
           if (isSin || isAC) {
             wavePath = "M -160 -20 Q -140 -40 -120 -20 T -80 -20 T -40 -20";
           } else if (isDC) {
-            wavePath = "M -160 -20 L -40 -20"; // straight flat line
+            wavePath = "M -160 -20 L -40 -20";
           }
+
+          let freqKnobVal = Math.log10(Math.max(1, freqVal)) / 6.0;
+          let ampKnobVal = ampVal / 10.0;
 
           return (
             <Group>
-              <Rect x={-200} y={-60} width={220} height={120} fill="#34495e" cornerRadius={6} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={isSelected ? 3 : 2} />
+              <Rect x={-200} y={-60} width={220} height={130} fill="#34495e" cornerRadius={6} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={isSelected ? 3 : 2} />
               
               <Rect x={-180} y={-45} width={130} height={50} fill="#111" cornerRadius={4} />
               <Path data={wavePath} stroke="#0f0" strokeWidth={2.5} fill="transparent" />
               <Text text={topText} x={-170} y={-5} width={110} align="center" fontSize={12} fill="#2ecc71" />
 
-              <Text text={bottomText} x={-190} y={15} width={180} align="center" fontSize={10} fill="#bdc3c7" />
+              <Text text={bottomText} x={-190} y={10} width={180} align="center" fontSize={10} fill="#bdc3c7" />
+
+              {isSin && (
+                <Group>
+                  <Knob 
+                    x={-145} y={45} radius={10} theme="dark"
+                    value={freqKnobVal} 
+                    label="FREQ" 
+                    onChange={(val) => {
+                      const newFreq = Math.pow(10, val * 6);
+                      useEditorStore.getState().updateComponentParams(component.id, { frequency: newFreq.toFixed(0) });
+                    }} 
+                  />
+                  <Knob 
+                    x={-85} y={45} radius={10} theme="dark"
+                    value={ampKnobVal} 
+                    label="AMPL" 
+                    onChange={(val) => {
+                      const newAmp = (val * 10).toFixed(1);
+                      useEditorStore.getState().updateComponentParams(component.id, { amplitude: newAmp });
+                    }} 
+                  />
+                </Group>
+              )}
 
               {/* + BNC Port */}
               <Circle x={0} y={-20} radius={6} fill="#e74c3c" />
@@ -348,15 +436,26 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
           );
       }
       case 'vsource': {
+          let currentDc = parseFloat(String(component.params?.dc || '5.0'));
+          if (isNaN(currentDc)) currentDc = 5.0;
           return (
             <Group>
-              <Rect x={-200} y={-60} width={220} height={120} fill="#ecf0f1" cornerRadius={6} stroke={isSelected ? '#3498db' : '#bdc3c7'} strokeWidth={isSelected ? 3 : 2} />
+              <Rect x={-200} y={-60} width={220} height={130} fill="#ecf0f1" cornerRadius={6} stroke={isSelected ? '#3498db' : '#bdc3c7'} strokeWidth={isSelected ? 3 : 2} />
               
               <Rect x={-180} y={-45} width={130} height={45} fill="#000" cornerRadius={4} />
-              <Text text={component.params?.dc ? `${component.params.dc}V` : '5.00V'} x={-175} y={-40} width={120} align="center" fontSize={22} fill="#e74c3c" fontStyle="bold" />
+              <Text text={`${currentDc.toFixed(2)}V`} x={-175} y={-40} width={120} align="center" fontSize={22} fill="#e74c3c" fontStyle="bold" />
               <Text text="0.00A" x={-175} y={-15} width={120} align="center" fontSize={14} fill="#3498db" />
 
-              <Text text="DC POWER SUPPLY" x={-190} y={15} width={180} align="center" fontSize={10} fill="#7f8c8d" />
+              <Text text="DC POWER SUPPLY" x={-190} y={10} width={180} align="center" fontSize={10} fill="#7f8c8d" />
+
+              <Knob 
+                x={-115} y={45} radius={12} 
+                value={currentDc / 30.0} 
+                label="VOLTAGE" 
+                onChange={(val) => {
+                  useEditorStore.getState().updateComponentParams(component.id, { dc: (val * 30).toFixed(2) });
+                }} 
+              />
 
               {/* + Port */}
               <Circle x={0} y={-20} radius={6} fill="#c0392b" />
@@ -433,6 +532,27 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[0, -20, 0, 20]} stroke="#bdc3c7" strokeWidth={2} />
             <Rect x={-6} y={-10} width={12} height={20} fill="#2c3e50" cornerRadius={2} stroke={isSelected ? '#3498db' : undefined} strokeWidth={isSelected ? 2 : 0} />
             <Rect x={-6} y={6} width={12} height={3} fill="#ecf0f1" />
+          </Group>
+        );
+      }
+      case 'led': {
+        const ledColor = (component.params?.color as string) || '#ff0000';
+        return (
+          <Group>
+            <Line points={[-5, -20, -5, 20]} stroke="#bdc3c7" strokeWidth={2} />
+            <Line points={[5, -20, 5, 20]} stroke="#bdc3c7" strokeWidth={2} />
+            <Circle x={0} y={0} radius={10} fill={ledColor} opacity={0.8} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={isSelected ? 2 : 1} />
+            {/* Flat spot for cathode */}
+            <Line points={[-9, 4, 9, 4]} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={1} />
+          </Group>
+        );
+      }
+      case 'zener': {
+        return (
+          <Group>
+            <Line points={[0, -20, 0, 20]} stroke="#bdc3c7" strokeWidth={2} />
+            <Rect x={-5} y={-8} width={10} height={16} fill="#e67e22" cornerRadius={1} stroke={isSelected ? '#3498db' : undefined} strokeWidth={isSelected ? 2 : 0} />
+            <Rect x={-5} y={4} width={10} height={3} fill="#000000" />
           </Group>
         );
       }
@@ -606,6 +726,28 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
           </Group>
         );
       }
+      case 'pushbutton': {
+        const isClosed = component.params?.state === 'closed';
+        return (
+          <Group>
+            <Rect x={-12} y={-12} width={24} height={24} fill="#2c3e50" cornerRadius={2} stroke={isSelected ? '#3498db' : '#1a252f'} strokeWidth={isSelected ? 2 : 1} />
+            <Circle x={0} y={0} radius={isClosed ? 6 : 7} fill={isClosed ? "#c0392b" : "#e74c3c"} />
+            <Rect x={-12} y={-12} width={24} height={24} fill="transparent"
+              onMouseDown={(e) => {
+                e.cancelBubble = true;
+                useEditorStore.getState().updateComponentParams(component.id, { state: 'closed' });
+              }}
+              onMouseUp={(e) => {
+                e.cancelBubble = true;
+                useEditorStore.getState().updateComponentParams(component.id, { state: 'open' });
+              }}
+              onMouseLeave={() => {
+                useEditorStore.getState().updateComponentParams(component.id, { state: 'open' });
+              }}
+            />
+          </Group>
+        );
+      }
       default:
         return <Circle radius={10} fill="red" />;
     }
@@ -697,11 +839,31 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
       }}
     >
       <Group rotation={component.rotation || 0} scaleX={component.mirrored ? -1 : 1}>
-        <Rect x={-10} y={-20} width={20} height={40} fill="transparent" />
-        {activeView === 'breadboard' ? renderPhysicalSymbol() : renderSchematicSymbol()}
+        {isHeating && (
+           <Circle x={0} y={0} radius={25 + heatRatio * 10} fill="red" opacity={heatRatio * 0.4} shadowBlur={20} shadowColor="red" listening={false} />
+        )}
+        <Group opacity={isBurnt ? 0.4 : 1}>
+          <Rect x={-10} y={-20} width={20} height={40} fill="transparent" />
+          {activeView === 'breadboard' ? renderPhysicalSymbol() : renderSchematicSymbol()}
+        </Group>
+        {isBurnt && (
+           <Text text="🔥" x={-12} y={-12} fontSize={24} listening={false} />
+        )}
       </Group>
       
       {renderLabels()}
+      
+      {power > 0 && maxPower < Infinity && (
+         <Text
+            text={`${(power * 1000).toFixed(1)} mW`}
+            x={15}
+            y={20}
+            fontSize={10}
+            fill="#e74c3c"
+            fontStyle="bold"
+            listening={false}
+         />
+      )}
     </Group>
   );
 };
