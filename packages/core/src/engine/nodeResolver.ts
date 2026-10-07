@@ -123,9 +123,9 @@ export class NodeResolver {
       let interiorCount = 0;
       
       for (const seg of allSegments) {
-        if (this.distanceToSegment(p, seg.a, seg.b) <= 4) {
-          const atA = Math.hypot(p.x - seg.a.x, p.y - seg.a.y) <= 4;
-          const atB = Math.hypot(p.x - seg.b.x, p.y - seg.b.y) <= 4;
+        if (this.distanceToSegment(p, seg.a, seg.b) <= 8) {
+          const atA = Math.hypot(p.x - seg.a.x, p.y - seg.a.y) <= 8;
+          const atB = Math.hypot(p.x - seg.b.x, p.y - seg.b.y) <= 8;
           if (atA || atB) {
             endpointCount++;
             endpointSegments.push(seg);
@@ -144,17 +144,13 @@ export class NodeResolver {
       }
       if (isPin) endpointCount++;
       
-      const totalDegree = endpointCount + (interiorCount * 2);
-      
-      // Approach B: Only allow auto-connections if they form a T-junction (degree <= 3) or if it's purely endpoints connecting.
-      // This prevents 4-way crossings from unintentionally connecting.
-      if (totalDegree <= 3 || interiorCount === 0) {
-        for (const seg of onSegments) {
-          this.union(pointId, seg.aId);
-        }
-        for (const seg of endpointSegments) {
-          this.union(pointId, seg.aId);
-        }
+      // Approach C: If an explicitly placed vertex or pin lands on a wire segment, connect it.
+      // Unintentional 4-way crossings naturally bypass this because they lack explicit vertices.
+      for (const seg of onSegments) {
+        this.union(pointId, seg.aId);
+      }
+      for (const seg of endpointSegments) {
+        this.union(pointId, seg.aId);
       }
     }
 

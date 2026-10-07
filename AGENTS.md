@@ -21,10 +21,10 @@ This boundary **is** the business model: the free tier's entire pitch is "fully 
 - Breadboard-view component art (Phase A7): SVG per part, generated/parameterized where possible (e.g. resistor color bands computed from its resistance value) rather than one hand-drawn asset per possible value — keep this data-driven or the art backlog grows without bound as the component library grows.
 - Simulation: ngspice compiled to WASM, run inside a Web Worker, driven via the shared-library callback API. Never shell out to a CLI binary or parse `.raw` files. Never run simulation on the main thread.
 - Cloud (`packages/cloud` only): an existing auth provider (don't build auth from scratch), Postgres, Yjs for CRDT sync, a WebSocket server, Stripe for billing.
-- Testing: TBD once the repo is scaffolded — document the choice here as soon as it's made.
+- Testing: Vitest (scaffolded in packages/core)
 
 ## Current phase
-Start at **Phase A1** (prove the ngspice bridge) unless told otherwise. `ROADMAP.md` §8–9 has the authoritative checklist per phase. Do not start a later phase's tasks before the current phase's Definition of Done is met, and do not start any Track B (cloud) phase before Track A phases A1–A4 are done and real users exist — see `ROADMAP.md` §10.
+Start at **Phase B1** (Accounts + cloud project storage) unless told otherwise. `ROADMAP.md` §8–9 has the authoritative checklist per phase. Do not start a later phase's tasks before the current phase's Definition of Done is met, and do not start any Track B (cloud) phase before Track A phases A1–A4 are done and real users exist — see `ROADMAP.md` §10.
 
 ## Hard constraints
 - Never add a network dependency to `packages/core`.

@@ -26,7 +26,7 @@ export const ValueUnitInput: React.FC<ValueUnitInputProps> = ({ value, onChange,
   
   // Parse incoming SPICE string (e.g. "10k", "4.7Meg", "100")
   const parseSpiceValue = (str: string) => {
-    const match = str.match(/^([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*([a-zA-Z]*)$/);
+    const match = str.match(/^([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*([a-zA-ZΩµ]*)$/i);
     if (match) {
       return { num: match[1], unit: match[2] };
     }

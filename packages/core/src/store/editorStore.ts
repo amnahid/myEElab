@@ -296,10 +296,11 @@ export const useEditorStore = create<EditorState>()(
                 const sinNew = Math.round(Math.sin(rotRadNew));
 
                 for (const pin of libComp.pins) {
-                  const oldX = c.position.x + (pin.offset.x * cosOld - pin.offset.y * sinOld);
-                  const oldY = c.position.y + (pin.offset.x * sinOld + pin.offset.y * cosOld);
-                  const newX = c.position.x + (pin.offset.x * cosNew - pin.offset.y * sinNew);
-                  const newY = c.position.y + (pin.offset.x * sinNew + pin.offset.y * cosNew);
+                  const mirroredOffsetX = c.mirrored ? -pin.offset.x : pin.offset.x;
+                  const oldX = c.position.x + (mirroredOffsetX * cosOld - pin.offset.y * sinOld);
+                  const oldY = c.position.y + (mirroredOffsetX * sinOld + pin.offset.y * cosOld);
+                  const newX = c.position.x + (mirroredOffsetX * cosNew - pin.offset.y * sinNew);
+                  const newY = c.position.y + (mirroredOffsetX * sinNew + pin.offset.y * cosNew);
 
                   wires = wires.map(w => {
                     let changed = false;
@@ -326,36 +327,6 @@ export const useEditorStore = create<EditorState>()(
           const components = state.circuit.components.map(c => {
             if (state.selectedIds.includes(c.id)) {
               const nextMirrored = !c.mirrored;
-              
-              const libComp = ComponentLibrary[c.type];
-              if (libComp) {
-                const rotRad = (c.rotation || 0) * Math.PI / 180;
-                const cos = Math.round(Math.cos(rotRad));
-                const sin = Math.round(Math.sin(rotRad));
-                
-                for (const pin of libComp.pins) {
-                  const oldMirroredOffsetX = c.mirrored ? -pin.offset.x : pin.offset.x;
-                  const newMirroredOffsetX = nextMirrored ? -pin.offset.x : pin.offset.x;
-                  
-                  const oldX = c.position.x + (oldMirroredOffsetX * cos - pin.offset.y * sin);
-                  const oldY = c.position.y + (oldMirroredOffsetX * sin + pin.offset.y * cos);
-                  const newX = c.position.x + (newMirroredOffsetX * cos - pin.offset.y * sin);
-                  const newY = c.position.y + (newMirroredOffsetX * sin + pin.offset.y * cos);
-
-                  wires = wires.map(w => {
-                    let changed = false;
-                    const newPoints = w.points.map(p => {
-                      if (p.x === oldX && p.y === oldY) {
-                        changed = true;
-                        return { x: newX, y: newY };
-                      }
-                      return p;
-                    });
-                    return changed ? { ...w, points: newPoints } : w;
-                  });
-                }
-              }
-
               return { ...c, mirrored: nextMirrored };
             }
             return c;
@@ -508,7 +479,10 @@ export const useEditorStore = create<EditorState>()(
           stagePos: state.stagePos,
           scale: state.scale,
           activeView: state.activeView,
-          autoSimulate: state.autoSimulate
+          autoSimulate: state.autoSimulate,
+          activeAnalysis: state.activeAnalysis,
+          probes: state.probes,
+          showInstruments: state.showInstruments
         }),
       }
     ),

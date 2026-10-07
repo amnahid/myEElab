@@ -184,6 +184,28 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
             <ValueUnitInput colors={colors} value={editingComponent.params.inductance || '1m'} onChange={val => updateComponentParams(editingComponent.id, { inductance: val })} />
           </div>
         )}
+        
+        {editingComponent && editingComponent.type === 'transformer' && (
+          <>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Primary Inductance L1 (H)</label>
+              <ValueUnitInput colors={colors} value={editingComponent.params.L1 || '1m'} onChange={val => updateComponentParams(editingComponent.id, { L1: val })} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Secondary Inductance L2 (H)</label>
+              <ValueUnitInput colors={colors} value={editingComponent.params.L2 || '1m'} onChange={val => updateComponentParams(editingComponent.id, { L2: val })} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Coupling Coefficient (K)</label>
+              <input 
+                type="text" 
+                value={editingComponent.params.K || '0.99'} 
+                onChange={e => updateComponentParams(editingComponent.id, { K: e.target.value })}
+                style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }}
+              />
+            </div>
+          </>
+        )}
 
         {editingComponent && (editingComponent.type === 'vsource' || editingComponent.type === 'function_generator' || editingComponent.type === 'isource') && (
           <>
@@ -275,7 +297,7 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
           </div>
         )}
 
-        {editingComponent && ['diode', 'npn', 'pnp', 'nmos', 'pmos', 'opamp'].includes(editingComponent.type) && (
+        {editingComponent && ['diode', 'zener', 'led', 'npn', 'pnp', 'nmos', 'pmos', 'opamp'].includes(editingComponent.type) && (
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Spice Model</label>
             <input 

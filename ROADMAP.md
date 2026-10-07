@@ -209,44 +209,44 @@ embeds (id, project_id, public_slug, config_json)
 
 Everything in this track ships in `packages/core`. It is entirely normal, AI-assisted-coding-friendly web development, with one exception (ngspice's internals, which you're integrating with, not writing).
 
-### Phase A1 — Prove the ngspice bridge
+### Phase A1 — Prove the ngspice bridge [DONE]
 **Goal:** confirm ngspice-in-WASM works end-to-end before writing a single line of UI.
-- [ ] Blank Vite + TypeScript app.
-- [ ] Load an existing ngspice WASM build (start from EEcircuit's or ngspice-wasm's build output — don't compile from source yet).
-- [ ] Load it inside a Web Worker.
-- [ ] Send a hardcoded RC-filter netlist via the shared-library command API.
-- [ ] Receive result vectors back via the callback interface; log them.
+- [x] Blank Vite + TypeScript app.
+- [x] Load an existing ngspice WASM build (start from EEcircuit's or ngspice-wasm's build output — don't compile from source yet).
+- [x] Load it inside a Web Worker.
+- [x] Send a hardcoded RC-filter netlist via the shared-library command API.
+- [x] Receive result vectors back via the callback interface; log them.
 
 **Definition of done:** the hardcoded netlist produces numerically sane transient output (voltage decaying on the expected RC time constant), fully in-browser, zero backend calls.
 **Non-goals:** no UI, no user-supplied netlists, no error-handling polish yet.
 
-### Phase A2 — Netlist generator
+### Phase A2 — Netlist generator [DONE]
 **Goal:** convert an in-memory circuit graph into valid SPICE text.
-- [ ] Implement the `Circuit` / `ComponentInstance` / `Wire` types above.
-- [ ] Node resolution: merge wire endpoints and component pins into named electrical nodes (union-find or equivalent); ground always resolves to node `0`.
-- [ ] Per-component-type netlist line emitters — resistor, capacitor, inductor, independent V/I source to start.
-- [ ] Analysis directive emission (`.op`, `.tran` to start).
-- [ ] Unit tests: build circuits directly in code (no editor yet), assert generated netlist text, feed to Phase A1's bridge, assert ngspice accepts it.
+- [x] Implement the `Circuit` / `ComponentInstance` / `Wire` types above.
+- [x] Node resolution: merge wire endpoints and component pins into named electrical nodes (union-find or equivalent); ground always resolves to node `0`.
+- [x] Per-component-type netlist line emitters — resistor, capacitor, inductor, independent V/I source to start.
+- [x] Analysis directive emission (`.op`, `.tran` to start).
+- [x] Unit tests: build circuits directly in code (no editor yet), assert generated netlist text, feed to Phase A1's bridge, assert ngspice accepts it.
 
 **Definition of done:** 5+ hand-built test circuits generate correct netlists and simulate successfully end-to-end.
 **Non-goals:** no rotation/mirroring logic yet (assume fixed orientation); no semiconductors yet.
 
-### Phase A3 — Minimal schematic editor
+### Phase A3 — Minimal schematic editor [DONE]
 **Goal:** a usable canvas editor for the five basic components.
-- [ ] Canvas setup with Konva (a raw canvas library, not a node-graph library like React Flow — components have fixed-position pins and need rotation, which graph libraries fight you on); pan/zoom, grid snap.
-- [ ] Component palette: resistor, capacitor, inductor, voltage source, ground.
-- [ ] Drag-to-place, click-to-wire (orthogonal routing), rotate/mirror with correct pin remapping.
-- [ ] Selection, delete, basic undo/redo.
-- [ ] Wire editor → Phase A2 → Phase A1 into one live pipeline.
-- [ ] Display DC operating-point node voltages directly on the schematic.
+- [x] Canvas setup with Konva (a raw canvas library, not a node-graph library like React Flow — components have fixed-position pins and need rotation, which graph libraries fight you on); pan/zoom, grid snap.
+- [x] Component palette: resistor, capacitor, inductor, voltage source, ground.
+- [x] Drag-to-place, click-to-wire (orthogonal routing), rotate/mirror with correct pin remapping.
+- [x] Selection, delete, basic undo/redo.
+- [x] Wire editor → Phase A2 → Phase A1 into one live pipeline.
+- [x] Display DC operating-point node voltages directly on the schematic.
 
 **Definition of done:** a user can draw a voltage divider from scratch, run it, and see correct node voltages on canvas.
 **Non-goals:** no transient/AC yet; no component search beyond the five basics; no touch/mobile support yet.
 
-### Phase A4 — Transient analysis + waveform viewer
-- [ ] `.tran` configuration UI (step size, stop time).
-- [ ] Scope-style plot: multiple traces, zoom/pan, cursor measurements (ΔV, ΔT, frequency).
-- [ ] Probe tool: click a wire/node to add it as a trace.
+### Phase A4 — Transient analysis + waveform viewer [DONE]
+- [x] `.tran` configuration UI (step size, stop time).
+- [x] Scope-style plot: multiple traces, zoom/pan, cursor measurements (ΔV, ΔT, frequency).
+- [x] Probe tool: click a wire/node to add it as a trace.
 
 **Definition of done:** RC/RL/RLC circuits simulate and plot correctly, cross-checked against hand-calculated time constants.
 **Non-goals:** no FFT/spectral view yet — comes with the AC phase.
@@ -259,11 +259,11 @@ Everything in this track ships in `packages/core`. It is entirely normal, AI-ass
 **Definition of done:** a common op-amp filter (e.g. Sallen-Key low-pass) simulates with a Bode plot matching hand calculations within expected tolerance.
 **Non-goals:** no proprietary manufacturer model *library* yet — that's a long-tail content problem, not an architecture phase (see Risks, §11).
 
-### Phase A6 — The live-simulation bet
-- [ ] Debounced re-simulation on every edit; measure actual latency before optimizing further.
-- [ ] Research spike (timeboxed): does ngspice's shared-library mode support warm-starting from a prior operating point, or does every edit force a full re-run from t=0?
-- [ ] Define and continuously test a performance budget (e.g., a 20-component circuit re-simulates within 150ms).
-- [ ] Graceful degradation: circuits too large/slow for live mode fall back to an explicit "Run" button rather than freezing the UI.
+### Phase A6 — The live-simulation bet [DONE]
+- [x] Debounced re-simulation on every edit; measure actual latency before optimizing further.
+- [x] Research spike (timeboxed): does ngspice's shared-library mode support warm-starting from a prior operating point, or does every edit force a full re-run from t=0?
+- [x] Define and continuously test a performance budget (e.g., a 20-component circuit re-simulates within 150ms).
+- [x] Graceful degradation: circuits too large/slow for live mode fall back to an explicit "Run" button rather than freezing the UI.
 
 **Definition of done:** a ~20–30 component circuit updates its waveform view within an imperceptible delay as values are edited via sliders.
 **Non-goals:** don't chase unbounded circuit size in this phase — define the performance envelope and respect it.
@@ -279,14 +279,24 @@ Everything in this track ships in `packages/core`. It is entirely normal, AI-ass
 **Definition of done:** a user builds an LED + resistor + battery circuit entirely in breadboard view, toggles to schematic view and sees the equivalent standard schematic, and simulation results match regardless of which view was used to build it.
 **Non-goals:** no IC/chip-level breadboard parts yet (op-amps, microcontrollers) — discrete passive/simple-active parts only; one standard board size to start.
 
-### Phase A8 — Virtual instruments
+### Phase A8 — Virtual instruments [DONE]
 **Goal:** let users practice operating real lab equipment inside the simulator — the direct payoff of the breadboard mode's "hands-on before real life" pitch.
-- [ ] Virtual multimeter: draggable onto the canvas, two probe leads the user attaches to specific holes/points, live voltage/current/resistance reading depending on a mode dial that mirrors a real multimeter's.
-- [ ] Virtual oscilloscope: probe leads attach to circuit nodes, renders a live waveform for that node (reuses Phase A4's plotting logic, restyled with scope-like volts/div and time/div controls).
-- [ ] Both instruments work identically regardless of whether the circuit was built in breadboard or schematic view.
+- [x] Virtual multimeter: draggable onto the canvas, two probe leads the user attaches to specific holes/points, live voltage/current/resistance reading depending on a mode dial that mirrors a real multimeter's.
+- [x] Virtual oscilloscope: probe leads attach to circuit nodes, renders a live waveform for that node (reuses Phase A4's plotting logic, restyled with scope-like volts/div and time/div controls).
+- [x] Both instruments work identically regardless of whether the circuit was built in breadboard or schematic view.
 
 **Definition of done:** a user probes any two points in a running circuit with the virtual multimeter and gets a correct reading, and attaches the virtual scope to see a correct live waveform, using controls that map to how the real instrument is operated.
 **Non-goals:** no simulated instrument imperfection (loading effects, noise) for v1 — model as ideal instruments; note as a possible later realism pass.
+
+### Phase A9 — Third-Party Importers
+**Goal:** Allow users to import circuits from desktop EDA tools like Proteus to bootstrap their simulation state in the browser.
+- [ ] Implement SPICE netlist parser (`.net` / `.cir` format) generated by Proteus.
+- [ ] Map netlist components to `ComponentInstance` and nets to `Wire` connections.
+- [ ] UI for file upload in the editor menu.
+- [ ] Resolve visual layout generation (deferred for later discussion).
+
+**Definition of done:** A user can upload a standard Proteus-exported SPICE netlist, and the simulator successfully interprets the connectivity and component values, allowing an immediate simulation run.
+**Non-goals:** Native `.pdsprj` parsing (due to undocumented proprietary format), auto-routing for breadboard view.
 
 ---
 

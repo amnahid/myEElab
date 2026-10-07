@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Stage, Layer, Line, Circle } from 'react-konva';
+import { Stage, Layer, Line, Circle, Group } from 'react-konva';
 import { BOARD_WIDTH, BOARD_HEIGHT, HOLES, getHolePosition } from './breadboardLayout';
 import { useEditorStore } from '../store/editorStore';
 import { ComponentNode } from './ComponentNode';
@@ -14,9 +14,10 @@ interface CanvasProps {
   nodeVoltages?: Record<string, number>;
   tranData?: { time: number[], vectors: Record<string, number[]> };
   theme: 'light' | 'dark';
+  simError?: string | null;
 }
 
-export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme }) => {
+export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, simError }) => {
   const { circuit, mode, componentToPlace, addComponent, updateComponentPosition, selectedIds, setSelection, addWire, stagePos, scale, setStageView, setEditingComponent, updateWirePoint, setMode, probes, toggleProbe, activeView, showInstruments } = useEditorStore();
   
   const [mousePos, setMousePos] = useState<{x: number, y: number} | null>(null);
@@ -705,8 +706,8 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme })
             const { components } = resolver.resolve(circuit);
             
             for (const comp of visibleComponents) {
+              const pinMap = components.get(comp.id);
               if (comp.type === 'multimeter') {
-                const pinMap = components.get(comp.id);
                 if (pinMap) {
                   const n1 = pinMap.get('1') || '0';
                   const n2 = pinMap.get('2') || '0';
@@ -786,7 +787,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme })
                     const n2 = pinMap.get('2') || '0';
                     const v1 = n1 === '0' ? 0 : (nodeVoltages[`v(${n1})`] || 0);
                     const v2 = n2 === '0' ? 0 : (nodeVoltages[`v(${n2})`] || 0);
-                    let rStr = comp.params?.resistance || '1000';
+                    let rStr = String(comp.params?.resistance || '1000');
                     let r = parseFloat(rStr);
                     const rLower = rStr.toLowerCase();
                     if (rLower.includes('k')) r *= 1e3;
@@ -974,19 +975,38 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme })
                   const rotatedOffsetX = mirroredOffsetX * cos - mirroredOffsetY * sin;
                   const rotatedOffsetY = mirroredOffsetX * sin + mirroredOffsetY * cos;
                   return (
-                    <Circle
-                      key={`${comp.id}-${pin.id}`}
-                x={renderPos.x + rotatedOffsetX}
-                y={renderPos.y + rotatedOffsetY}
-                radius={4}
-                fill="white"
-                stroke="#e74c3c"
-                strokeWidth={2}
-                listening={false}
-              />
+                    <Group key={`${comp.id}-${pin.id}`} x={renderPos.x + rotatedOffsetX} y={renderPos.y + rotatedOffsetY}>
+                      <Circle
+                        radius={4}
+                        fill="white"
+                        stroke="#e74c3c"
+                        strokeWidth={2}
+                        listening={false}
+                      />
+                      {pin.label && hoveredComponentId === comp.id && mode !== 'wire' && (
+                        <Label x={6} y={-10}>
+                          <Tag fill={theme === 'dark' ? '#30383E' : '#EEEAE4'} cornerRadius={2} opacity={0.9} />
+                          <Text text={pin.label} padding={3} fill={theme === 'dark' ? '#EEEAE4' : '#30383E'} fontSize={10} />
+                        </Label>
+                      )}
+                    </Group>
                   );
                 })}
               </React.Fragment>
+            );
+          })}
+          
+          {/* Component Name Tooltips */}
+          {hoveredComponentId !== null && mode !== 'wire' && visibleComponents.map(comp => {
+            if (comp.id !== hoveredComponentId) return null;
+            const libComp = ComponentLibrary[comp.type];
+            if (!libComp) return null;
+            const name = libComp.name || comp.type.charAt(0).toUpperCase() + comp.type.slice(1);
+            return (
+              <Label key={`tooltip-${comp.id}`} x={comp.position.x + 20} y={comp.position.y - 20}>
+                <Tag fill={theme === 'dark' ? '#30383E' : '#EEEAE4'} cornerRadius={3} pointerDirection="down" pointerWidth={10} pointerHeight={10} shadowColor="black" shadowBlur={5} shadowOpacity={0.3} />
+                <Text text={name} padding={5} fill={theme === 'dark' ? '#EEEAE4' : '#30383E'} fontSize={12} />
+              </Label>
             );
           })}
 
@@ -1121,6 +1141,82 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme })
               }
               return null;
             });
+          })()
+        )}
+        
+        {/* Render SPICE Error Box if applicable */}
+        {simError && (
+          (() => {
+            const match = simError.match(/node\s+([A-Za-z0-9_]+)/i);
+            if (!match) return null;
+            const errorNodeName = match[1];
+            
+            const resolver = new NodeResolver();
+            const { components, wires } = resolver.resolve(circuit);
+            
+            let coord: { x: number, y: number, dir: string } | null = null;
+            
+            // Search wires first
+            for (const wire of visibleWires) {
+              const nodeName = wires.get(wire.id);
+              if (nodeName && nodeName.toLowerCase() === errorNodeName.toLowerCase() && wire.points.length > 0) {
+                const pt = wire.points[Math.floor(wire.points.length / 2)];
+                coord = { x: pt.x, y: pt.y, dir: 'up' };
+                break;
+              }
+            }
+            
+            // Search components if not found on wires
+            if (!coord) {
+              for (const comp of visibleComponents) {
+                const compPinMap = components.get(comp.id);
+                if (compPinMap) {
+                  const libComp = ComponentLibrary[comp.type];
+                  if (libComp) {
+                    for (const pin of libComp.pins) {
+                      const nodeName = compPinMap.get(pin.id);
+                      if (nodeName && nodeName.toLowerCase() === errorNodeName.toLowerCase()) {
+                        const rotRad = (comp.rotation || 0) * Math.PI / 180;
+                        const cos = Math.round(Math.cos(rotRad));
+                        const sin = Math.round(Math.sin(rotRad));
+                        const rx = (comp.mirrored ? -pin.offset.x : pin.offset.x) * cos - pin.offset.y * sin;
+                        const ry = (comp.mirrored ? -pin.offset.x : pin.offset.x) * sin + pin.offset.y * cos;
+                        coord = { x: comp.position.x + rx, y: comp.position.y + ry, dir: 'up' };
+                        break;
+                      }
+                    }
+                  }
+                }
+                if (coord) break;
+              }
+            }
+            
+            if (!coord) return null;
+            
+            let reason = 'Floating / Singular Matrix';
+            if (simError.toLowerCase().includes('unknown parameter')) reason = 'Unknown Parameter';
+            
+            return (
+              <Label x={coord.x} y={coord.y} listening={false}>
+                <Tag 
+                  fill="#e74c3c"
+                  cornerRadius={4}
+                  pointerDirection={coord.dir}
+                  pointerWidth={10}
+                  pointerHeight={10}
+                  shadowColor="rgba(0,0,0,0.3)"
+                  shadowBlur={5}
+                />
+                <Text
+                  text={`Error at Node ${errorNodeName}\n${reason}`}
+                  fontSize={10}
+                  padding={6}
+                  fill="white"
+                  fontStyle="bold"
+                  align="center"
+                />
+              </Label>
+            );
           })()
         )}
 

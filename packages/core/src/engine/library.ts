@@ -23,6 +23,17 @@ export const ComponentLibrary: Record<string, { name?: string, type?: string, pi
     ],
     defaultParams: { inductance: "1m" }
   },
+  transformer: {
+    type: "transformer",
+    name: "Transformer",
+    pins: [
+      { id: "p1", label: "Pri +", offset: { x: -20, y: -20 } },
+      { id: "p2", label: "Pri -", offset: { x: -20, y: 20 } },
+      { id: "s1", label: "Sec +", offset: { x: 20, y: -20 } },
+      { id: "s2", label: "Sec -", offset: { x: 20, y: 20 } }
+    ],
+    defaultParams: { L1: "1m", L2: "1m", K: "0.99" }
+  },
   vsource: {
     name: "DC Power Supply",
     pins: [

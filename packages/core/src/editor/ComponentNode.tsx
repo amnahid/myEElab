@@ -4,6 +4,17 @@ import { ComponentInstance } from '../models/circuit';
 import { useEditorStore } from '../store/editorStore';
 import { Knob } from './Knob';
 import { BOARD_WIDTH, BOARD_HEIGHT, HOLES, getHolePosition } from './breadboardLayout';
+import { ComponentLibrary } from '../engine/library';
+
+const UnmirroredText = (props: React.ComponentProps<typeof Text> & { mirrored?: boolean }) => {
+  const { mirrored, x = 0, width = 0, ...rest } = props;
+  if (!mirrored) {
+    return <Text x={x} width={width || undefined} {...rest} />;
+  }
+  const w = width || 20;
+  const actualX = width ? x : x - w / 2;
+  return <Text x={-actualX - w} width={w} scaleX={-1} offsetX={w} align={props.align || (width ? undefined : 'center')} {...rest} />;
+};
 
 interface Props {
   component: ComponentInstance;
@@ -71,6 +82,22 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[0, -20, 0, -10]} stroke={strokeColor} strokeWidth={2} />
             <Path data="M 0 -10 A 5 5 0 1 1 0 0 A 5 5 0 1 1 0 10" stroke={strokeColor} strokeWidth={2} fill="transparent" />
             <Line points={[0, 10, 0, 20]} stroke={strokeColor} strokeWidth={2} />
+          </Group>
+        );
+      case 'transformer':
+        return (
+          <Group>
+            {/* Primary */}
+            <Line points={[-20, -20, -20, -10]} stroke={strokeColor} strokeWidth={2} />
+            <Path data="M -20 -10 A 5 5 0 1 0 -20 0 A 5 5 0 1 0 -20 10" stroke={strokeColor} strokeWidth={2} fill="transparent" />
+            <Line points={[-20, 10, -20, 20]} stroke={strokeColor} strokeWidth={2} />
+            {/* Core */}
+            <Line points={[-5, -10, -5, 10]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[5, -10, 5, 10]} stroke={strokeColor} strokeWidth={2} />
+            {/* Secondary */}
+            <Line points={[20, -20, 20, -10]} stroke={strokeColor} strokeWidth={2} />
+            <Path data="M 20 -10 A 5 5 0 1 1 20 0 A 5 5 0 1 1 20 10" stroke={strokeColor} strokeWidth={2} fill="transparent" />
+            <Line points={[20, 10, 20, 20]} stroke={strokeColor} strokeWidth={2} />
           </Group>
         );
       case 'vsource':
@@ -150,20 +177,20 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
         return (
           <Group>
             <Line points={[-20, 0, -10, 0]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[-10, -15, -10, 15]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[20, -20, 20, -15, -10, -5]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[20, 20, 20, 15, -10, 5]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[10, 15, 15, 15, 15, 10]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-10, -15, -10, 15]} stroke={strokeColor} strokeWidth={2.5} />
+            <Line points={[20, -20, -10, -5]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[20, 20, -10, 5]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[16, 18, 12, 12, 9, 18.5]} closed fill={strokeColor} stroke={strokeColor} strokeWidth={1} />
           </Group>
         );
       case 'pnp':
         return (
           <Group>
             <Line points={[-20, 0, -10, 0]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[-10, -15, -10, 15]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[20, 20, 20, 15, -10, 5]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[20, -20, 20, -15, -10, -5]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[-5, -10, -10, -5, -5, -3]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-10, -15, -10, 15]} stroke={strokeColor} strokeWidth={2.5} />
+            <Line points={[20, 20, -10, 5]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[20, -20, -10, -5]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-2, -9, 5, -8.5, 2, -15]} closed fill={strokeColor} stroke={strokeColor} strokeWidth={1} />
           </Group>
         );
       case 'nmos':
@@ -202,8 +229,8 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[0, -20, 0, -13]} stroke={strokeColor} strokeWidth={2} />
             <Line points={[0, 20, 0, 13]} stroke={strokeColor} strokeWidth={2} />
             <Line points={[-10, -20, -10, 20, 20, 0]} closed fill={theme === 'dark' ? '#20252A' : '#EEEAE4'} stroke={strokeColor} strokeWidth={2} />
-            <Text text="+" x={-8} y={5} fontSize={10} fill={strokeColor} />
-            <Text text="-" x={-7} y={-14} fontSize={10} fill={strokeColor} />
+            <UnmirroredText text="+" x={-10} y={5} width={10} align="center" fontSize={10} fill={strokeColor} mirrored={component.mirrored} />
+            <UnmirroredText text="-" x={-10} y={-14} width={10} align="center" fontSize={10} fill={strokeColor} mirrored={component.mirrored} />
           </Group>
         );
 
@@ -211,7 +238,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
         return (
           <Group>
             <Rect x={-50} y={-90} width={100} height={210} stroke={strokeColor} strokeWidth={2} fill="transparent" />
-            <Text text="OSC" x={-15} y={5} fontSize={16} fill={strokeColor} fontStyle="bold" />
+            <UnmirroredText text="OSC" x={-20} y={5} width={40} align="center" fontSize={16} fill={strokeColor} fontStyle="bold" mirrored={component.mirrored} />
             
             <Line points={[-80, -70, -50, -70]} stroke={strokeColor} strokeWidth={2} />
             <Line points={[-80, -50, -50, -50]} stroke={strokeColor} strokeWidth={2} />
@@ -225,10 +252,10 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[-80, 80, -50, 80]} stroke={strokeColor} strokeWidth={2} />
             <Line points={[-80, 100, -50, 100]} stroke={strokeColor} strokeWidth={2} />
             
-            <Text text="CH1" x={-45} y={-64} fontSize={10} fill={strokeColor} />
-            <Text text="CH2" x={-45} y={-14} fontSize={10} fill={strokeColor} />
-            <Text text="CH3" x={-45} y={36} fontSize={10} fill={strokeColor} />
-            <Text text="CH4" x={-45} y={86} fontSize={10} fill={strokeColor} />
+            <UnmirroredText text="CH1" x={-45} y={-64} width={20} fontSize={10} fill={strokeColor} mirrored={component.mirrored} />
+            <UnmirroredText text="CH2" x={-45} y={-14} width={20} fontSize={10} fill={strokeColor} mirrored={component.mirrored} />
+            <UnmirroredText text="CH3" x={-45} y={36} width={20} fontSize={10} fill={strokeColor} mirrored={component.mirrored} />
+            <UnmirroredText text="CH4" x={-45} y={86} width={20} fontSize={10} fill={strokeColor} mirrored={component.mirrored} />
           </Group>
         );
       case 'multimeter': {
@@ -239,13 +266,13 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
         return (
           <Group>
             <Circle x={0} y={0} radius={18} stroke={strokeColor} strokeWidth={2} fill={theme === 'dark' ? '#20252A' : '#EEEAE4'} />
-            <Text text={symbol} x={-6} y={-7} fontSize={14} fill={strokeColor} fontStyle="bold" align="center" width={12} />
+            <UnmirroredText text={symbol} x={-10} y={-7} width={20} align="center" fontSize={14} fill={strokeColor} fontStyle="bold" mirrored={component.mirrored} />
             {/* Left lead to pin 1 (-22, 48) */}
             <Line points={[-18, 0, -22, 0, -22, 48]} stroke={strokeColor} strokeWidth={2} />
-            <Text text="+" x={-32} y={20} fontSize={10} fill={strokeColor} fontStyle="bold" />
+            <UnmirroredText text="+" x={-37} y={20} width={10} align="center" fontSize={10} fill={strokeColor} fontStyle="bold" mirrored={component.mirrored} />
             {/* Right lead to pin 2 (22, 48) */}
             <Line points={[18, 0, 22, 0, 22, 48]} stroke={strokeColor} strokeWidth={2} />
-            <Text text="-" x={26} y={20} fontSize={10} fill={strokeColor} fontStyle="bold" />
+            <UnmirroredText text="-" x={21} y={20} width={10} align="center" fontSize={10} fill={strokeColor} fontStyle="bold" mirrored={component.mirrored} />
           </Group>
         );
       }
@@ -345,7 +372,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[0, -20, 0, -8]} stroke="#bdc3c7" strokeWidth={2} />
             <Line points={[0, 8, 0, 20]} stroke="#bdc3c7" strokeWidth={2} />
             <Circle x={0} y={0} radius={10} fill="#e67e22" stroke={isSelected ? '#3498db' : '#d35400'} strokeWidth={isSelected ? 2 : 1} />
-            <Text text="104" x={-8} y={-4} fontSize={7} fill="#2c3e50" />
+            <UnmirroredText text="104" x={-15} y={-4} width={30} align="center" fontSize={7} fill="#2c3e50" mirrored={component.mirrored} />
           </Group>
         );
       }
@@ -356,6 +383,56 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[0, 10, 0, 20]} stroke="#bdc3c7" strokeWidth={2} />
             <Circle x={0} y={0} radius={10} fill="#27ae60" stroke={isSelected ? '#3498db' : '#1e8449'} strokeWidth={isSelected ? 2 : 1} />
             <Path data="M -3 -6 C 0 -9 3 -6 3 -3 C 3 0 0 3 -3 0 C -3 -3 0 -6 3 -9" stroke="#c0392b" strokeWidth={1.5} fill="transparent" />
+          </Group>
+        );
+      }
+      case 'transformer': {
+        const pinColor = "#f1c40f";
+        const coreColor = "#bdc3c7";
+        const coreSideColor = "#95a5a6";
+        const bobbinColor = "#f5eedc";
+        const copperColor = "#b84e14";
+        const wireHighlight = "#e67e22";
+
+        return (
+          <Group>
+            {/* Pins (Gold/Brass colored) */}
+            <Line points={[-20, -10, -20, -20]} stroke={pinColor} strokeWidth={2.5} />
+            <Line points={[-20, 10, -20, 20]} stroke={pinColor} strokeWidth={2.5} />
+            <Line points={[20, -10, 20, -20]} stroke={pinColor} strokeWidth={2.5} />
+            <Line points={[20, 10, 20, 20]} stroke={pinColor} strokeWidth={2.5} />
+            
+            {/* Steel Core (Behind) */}
+            {/* Left and Right vertical legs */}
+            <Rect x={-22} y={-12} width={12} height={24} fill={coreSideColor} />
+            <Rect x={10} y={-12} width={12} height={24} fill={coreSideColor} />
+            {/* Top and Bottom horizontal bars */}
+            <Rect x={-24} y={-16} width={48} height={8} fill={coreColor} cornerRadius={3} stroke={isSelected ? '#3498db' : '#7f8c8d'} strokeWidth={isSelected ? 2 : 1} />
+            <Rect x={-24} y={8} width={48} height={8} fill={coreColor} cornerRadius={3} stroke={isSelected ? '#3498db' : '#7f8c8d'} strokeWidth={isSelected ? 2 : 1} />
+            
+            {/* Left Bobbin and Coil (Primary) */}
+            <Rect x={-24} y={-10} width={16} height={3} fill={bobbinColor} cornerRadius={1.5} stroke="#d1c7b3" strokeWidth={1} />
+            <Rect x={-24} y={7} width={16} height={3} fill={bobbinColor} cornerRadius={1.5} stroke="#d1c7b3" strokeWidth={1} />
+            <Rect x={-22} y={-7} width={12} height={14} fill={copperColor} />
+            {/* Left Coil Windings */}
+            {[...Array(7)].map((_, i) => (
+              <Line key={`l-${i}`} points={[-22, -6 + i * 2, -10, -6 + i * 2]} stroke={wireHighlight} strokeWidth={1} />
+            ))}
+
+            {/* Right Bobbin and Coil (Secondary) */}
+            <Rect x={8} y={-10} width={16} height={3} fill={bobbinColor} cornerRadius={1.5} stroke="#d1c7b3" strokeWidth={1} />
+            <Rect x={8} y={7} width={16} height={3} fill={bobbinColor} cornerRadius={1.5} stroke="#d1c7b3" strokeWidth={1} />
+            <Rect x={10} y={-7} width={12} height={14} fill={copperColor} />
+            {/* Right Coil Windings */}
+            {[...Array(7)].map((_, i) => (
+              <Line key={`r-${i}`} points={[10, -6 + i * 2, 22, -6 + i * 2]} stroke={wireHighlight} strokeWidth={1} />
+            ))}
+            
+            {/* Small Rivets on Core */}
+            <Circle x={-16} y={-12} radius={1.5} fill="#7f8c8d" />
+            <Circle x={16} y={-12} radius={1.5} fill="#7f8c8d" />
+            <Circle x={-16} y={12} radius={1.5} fill="#7f8c8d" />
+            <Circle x={16} y={12} radius={1.5} fill="#7f8c8d" />
           </Group>
         );
       }
@@ -381,10 +458,22 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
           if (isSin) bottomText += ` (${ampVal.toFixed(1)}V)`;
 
           let wavePath = '';
+          const screenStartX = -170;
+          const screenWidth = 110;
+          const centerY = -28;
           if (isSin || isAC) {
-            wavePath = "M -160 -20 Q -140 -40 -120 -20 T -80 -20 T -40 -20";
+            let cycles = Math.max(1, Math.min(6, Math.log10(freqVal + 1) * 1.5));
+            const segments = Math.floor(cycles * 20);
+            const step = screenWidth / segments;
+            let d = `M ${screenStartX} ${centerY}`;
+            for (let i = 1; i <= segments; i++) {
+              const px = screenStartX + i * step;
+              const py = centerY - Math.sin((i / segments) * cycles * 2 * Math.PI) * 10;
+              d += ` L ${px} ${py}`;
+            }
+            wavePath = d;
           } else if (isDC) {
-            wavePath = "M -160 -20 L -40 -20";
+            wavePath = `M ${screenStartX} ${centerY} L ${screenStartX + screenWidth} ${centerY}`;
           }
 
           let freqKnobVal = Math.log10(Math.max(1, freqVal)) / 6.0;
@@ -396,9 +485,9 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
               
               <Rect x={-180} y={-45} width={130} height={50} fill="#111" cornerRadius={4} />
               <Path data={wavePath} stroke="#0f0" strokeWidth={2.5} fill="transparent" />
-              <Text text={topText} x={-170} y={-5} width={110} align="center" fontSize={12} fill="#2ecc71" />
+              <UnmirroredText text={topText} x={-180} y={-14} width={130} align="center" fontSize={12} fill="#2ecc71" mirrored={component.mirrored} />
 
-              <Text text={bottomText} x={-190} y={10} width={180} align="center" fontSize={10} fill="#bdc3c7" />
+              <UnmirroredText text={bottomText} x={-190} y={10} width={180} align="center" fontSize={10} fill="#bdc3c7" mirrored={component.mirrored} />
 
               {isSin && (
                 <Group>
@@ -426,12 +515,12 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
               {/* + BNC Port */}
               <Circle x={0} y={-20} radius={6} fill="#e74c3c" />
               <Circle x={0} y={-20} radius={3} fill="#111" />
-              <Text text="+" x={-18} y={-25} fontSize={10} fill="#e74c3c" fontStyle="bold" />
+              <UnmirroredText text="+" x={-20} y={-25} width={10} align="center" fontSize={10} fill="#e74c3c" fontStyle="bold" mirrored={component.mirrored} />
 
               {/* - BNC Port */}
               <Circle x={0} y={20} radius={6} fill="#bdc3c7" />
               <Circle x={0} y={20} radius={3} fill="#111" />
-              <Text text="-" x={-15} y={15} fontSize={12} fill="#ecf0f1" fontStyle="bold" />
+              <UnmirroredText text="-" x={-20} y={15} width={10} align="center" fontSize={12} fill="#ecf0f1" fontStyle="bold" mirrored={component.mirrored} />
             </Group>
           );
       }
@@ -443,10 +532,10 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
               <Rect x={-200} y={-60} width={220} height={130} fill="#ecf0f1" cornerRadius={6} stroke={isSelected ? '#3498db' : '#bdc3c7'} strokeWidth={isSelected ? 3 : 2} />
               
               <Rect x={-180} y={-45} width={130} height={45} fill="#000" cornerRadius={4} />
-              <Text text={`${currentDc.toFixed(2)}V`} x={-175} y={-40} width={120} align="center" fontSize={22} fill="#e74c3c" fontStyle="bold" />
-              <Text text="0.00A" x={-175} y={-15} width={120} align="center" fontSize={14} fill="#3498db" />
+              <UnmirroredText text={`${currentDc.toFixed(2)}V`} x={-175} y={-40} width={120} align="center" fontSize={22} fill="#e74c3c" fontStyle="bold" mirrored={component.mirrored} />
+              <UnmirroredText text="0.00A" x={-175} y={-15} width={120} align="center" fontSize={14} fill="#3498db" mirrored={component.mirrored} />
 
-              <Text text="DC POWER SUPPLY" x={-190} y={10} width={180} align="center" fontSize={10} fill="#7f8c8d" />
+              <UnmirroredText text="DC POWER SUPPLY" x={-190} y={10} width={180} align="center" fontSize={10} fill="#7f8c8d" mirrored={component.mirrored} />
 
               <Knob 
                 x={-115} y={45} radius={12} 
@@ -460,12 +549,12 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
               {/* + Port */}
               <Circle x={0} y={-20} radius={6} fill="#c0392b" />
               <Circle x={0} y={-20} radius={3} fill="#111" />
-              <Text text="+" x={-15} y={-25} fontSize={10} fill="#c0392b" fontStyle="bold" />
+              <UnmirroredText text="+" x={-20} y={-25} width={10} align="center" fontSize={10} fill="#c0392b" fontStyle="bold" mirrored={component.mirrored} />
 
               {/* - Port */}
               <Circle x={0} y={20} radius={6} fill="#2c3e50" />
               <Circle x={0} y={20} radius={3} fill="#111" />
-              <Text text="-" x={-15} y={15} fontSize={12} fill="#2c3e50" fontStyle="bold" />
+              <UnmirroredText text="-" x={-20} y={15} width={10} align="center" fontSize={12} fill="#2c3e50" fontStyle="bold" mirrored={component.mirrored} />
             </Group>
           );
       }
@@ -478,19 +567,18 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
               
               <Rect x={-180} y={-45} width={130} height={50} fill="#111" cornerRadius={4} />
               <Path data="M -160 -20 Q -140 -40 -120 -20 T -80 -20 T -40 -20" stroke="#3498db" strokeWidth={2.5} fill="transparent" />
-              <Text text="I~" x={-170} y={-5} width={110} align="center" fontSize={12} fill="#3498db" />
-
-              <Text text="AC CURRENT SOURCE" x={-190} y={15} width={180} align="center" fontSize={10} fill="#bdc3c7" />
+              <UnmirroredText text="I~" x={-170} y={-5} width={110} align="center" fontSize={12} fill="#3498db" mirrored={component.mirrored} />
+              <UnmirroredText text="AC CURRENT SOURCE" x={-190} y={15} width={180} align="center" fontSize={10} fill="#bdc3c7" mirrored={component.mirrored} />
 
               {/* + BNC Port */}
               <Circle x={0} y={-20} radius={6} fill="#3498db" />
               <Circle x={0} y={-20} radius={3} fill="#111" />
-              <Text text="+" x={-18} y={-25} fontSize={10} fill="#3498db" fontStyle="bold" />
+              <UnmirroredText text="+" x={-20} y={-25} width={10} align="center" fontSize={10} fill="#3498db" fontStyle="bold" mirrored={component.mirrored} />
 
               {/* - BNC Port */}
               <Circle x={0} y={20} radius={6} fill="#bdc3c7" />
               <Circle x={0} y={20} radius={3} fill="#111" />
-              <Text text="-" x={-15} y={15} fontSize={12} fill="#ecf0f1" fontStyle="bold" />
+              <UnmirroredText text="-" x={-20} y={15} width={10} align="center" fontSize={12} fill="#ecf0f1" fontStyle="bold" mirrored={component.mirrored} />
             </Group>
           );
         } else {
@@ -499,20 +587,20 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
               <Rect x={-200} y={-60} width={220} height={120} fill="#ecf0f1" cornerRadius={6} stroke={isSelected ? '#3498db' : '#bdc3c7'} strokeWidth={isSelected ? 3 : 2} />
               
               <Rect x={-180} y={-45} width={130} height={45} fill="#000" cornerRadius={4} />
-              <Text text={component.params?.dc ? `${component.params.dc}A` : '1.00A'} x={-175} y={-40} width={120} align="center" fontSize={22} fill="#3498db" fontStyle="bold" />
-              <Text text="5.00V" x={-175} y={-15} width={120} align="center" fontSize={14} fill="#e74c3c" />
+              <UnmirroredText text={component.params?.dc ? `${component.params.dc}A` : '1.00A'} x={-175} y={-40} width={120} align="center" fontSize={22} fill="#3498db" fontStyle="bold" mirrored={component.mirrored} />
+              <UnmirroredText text="5.00V" x={-175} y={-15} width={120} align="center" fontSize={14} fill="#e74c3c" mirrored={component.mirrored} />
 
-              <Text text="DC CURRENT SOURCE" x={-190} y={15} width={180} align="center" fontSize={10} fill="#7f8c8d" />
+              <UnmirroredText text="DC CURRENT SOURCE" x={-190} y={15} width={180} align="center" fontSize={10} fill="#7f8c8d" mirrored={component.mirrored} />
 
               {/* + Port */}
               <Circle x={0} y={-20} radius={6} fill="#3498db" />
               <Circle x={0} y={-20} radius={3} fill="#111" />
-              <Text text="+" x={-15} y={-25} fontSize={10} fill="#3498db" fontStyle="bold" />
+              <UnmirroredText text="+" x={-20} y={-25} width={10} align="center" fontSize={10} fill="#3498db" fontStyle="bold" mirrored={component.mirrored} />
 
               {/* - Port */}
               <Circle x={0} y={20} radius={6} fill="#2c3e50" />
               <Circle x={0} y={20} radius={3} fill="#111" />
-              <Text text="-" x={-15} y={15} fontSize={12} fill="#2c3e50" fontStyle="bold" />
+              <UnmirroredText text="-" x={-20} y={15} width={10} align="center" fontSize={12} fill="#2c3e50" fontStyle="bold" mirrored={component.mirrored} />
             </Group>
           );
         }
@@ -564,7 +652,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[-20, 0, -12, 0]} stroke="#bdc3c7" strokeWidth={2} />
             <Line points={[20, 20, 20, 12]} stroke="#bdc3c7" strokeWidth={2} />
             <Rect x={-12} y={-12} width={34} height={24} fill="#2c3e50" cornerRadius={[12, 4, 4, 12]} stroke={isSelected ? '#3498db' : undefined} strokeWidth={isSelected ? 2 : 0} />
-            <Text text={type.toUpperCase()} x={-5} y={-5} fontSize={7} fill="white" />
+            <UnmirroredText text={type.toUpperCase()} x={-5} y={-5} width={20} align="center" fontSize={7} fill="white" mirrored={component.mirrored} />
           </Group>
         );
       }
@@ -577,7 +665,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[20, 20, 20, 14]} stroke="#bdc3c7" strokeWidth={2} />
             <Rect x={-14} y={-14} width={36} height={28} fill="#34495e" cornerRadius={3} stroke={isSelected ? '#3498db' : undefined} strokeWidth={isSelected ? 2 : 0} />
             <Rect x={14} y={-14} width={8} height={28} fill="#95a5a6" />
-            <Text text={type.toUpperCase()} x={-8} y={-5} fontSize={7} fill="white" />
+            <UnmirroredText text={type.toUpperCase()} x={-8} y={-5} width={20} align="center" fontSize={7} fill="white" mirrored={component.mirrored} />
           </Group>
         );
       }
@@ -617,39 +705,39 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             {/* Sine wave on screen (CH2 Yellow) */}
             <Path data="M 20 -10 Q 65 40 110 -10 T 200 -10" stroke="#f1c40f" strokeWidth={1.5} fill="transparent" opacity={0.7} />
             
-            <Text text="OSCILLOSCOPE" x={20} y={75} width={180} align="center" fontSize={14} fill="#bdc3c7" fontStyle="bold" />
+            <UnmirroredText text="OSCILLOSCOPE" x={20} y={75} width={180} align="center" fontSize={14} fill="#bdc3c7" fontStyle="bold" mirrored={component.mirrored} />
 
             {/* CH1 */}
             <Circle x={-80} y={-70} radius={6} fill="#2ecc71" />
             <Circle x={-80} y={-70} radius={3} fill="#111" />
-            <Text text="CH1+" x={-65} y={-75} fontSize={10} fill="#2ecc71" fontStyle="bold" />
+            <UnmirroredText text="CH1+" x={-65} y={-75} width={30} fontSize={10} fill="#2ecc71" fontStyle="bold" mirrored={component.mirrored} />
             <Circle x={-80} y={-50} radius={6} fill="#7f8c8d" />
             <Circle x={-80} y={-50} radius={3} fill="#111" />
-            <Text text="CH1-" x={-65} y={-55} fontSize={10} fill="#95a5a6" fontStyle="bold" />
+            <UnmirroredText text="CH1-" x={-65} y={-55} width={30} fontSize={10} fill="#95a5a6" fontStyle="bold" mirrored={component.mirrored} />
 
             {/* CH2 */}
             <Circle x={-80} y={-20} radius={6} fill="#f1c40f" />
             <Circle x={-80} y={-20} radius={3} fill="#111" />
-            <Text text="CH2+" x={-65} y={-25} fontSize={10} fill="#f1c40f" fontStyle="bold" />
+            <UnmirroredText text="CH2+" x={-65} y={-25} width={30} fontSize={10} fill="#f1c40f" fontStyle="bold" mirrored={component.mirrored} />
             <Circle x={-80} y={0} radius={6} fill="#7f8c8d" />
             <Circle x={-80} y={0} radius={3} fill="#111" />
-            <Text text="CH2-" x={-65} y={-5} fontSize={10} fill="#95a5a6" fontStyle="bold" />
+            <UnmirroredText text="CH2-" x={-65} y={-5} width={30} fontSize={10} fill="#95a5a6" fontStyle="bold" mirrored={component.mirrored} />
 
             {/* CH3 */}
             <Circle x={-80} y={30} radius={6} fill="#00ffff" />
             <Circle x={-80} y={30} radius={3} fill="#111" />
-            <Text text="CH3+" x={-65} y={25} fontSize={10} fill="#00ffff" fontStyle="bold" />
+            <UnmirroredText text="CH3+" x={-65} y={25} width={30} fontSize={10} fill="#00ffff" fontStyle="bold" mirrored={component.mirrored} />
             <Circle x={-80} y={50} radius={6} fill="#7f8c8d" />
             <Circle x={-80} y={50} radius={3} fill="#111" />
-            <Text text="CH3-" x={-65} y={45} fontSize={10} fill="#95a5a6" fontStyle="bold" />
+            <UnmirroredText text="CH3-" x={-65} y={45} width={30} fontSize={10} fill="#95a5a6" fontStyle="bold" mirrored={component.mirrored} />
 
             {/* CH4 */}
             <Circle x={-80} y={80} radius={6} fill="#ff00ff" />
             <Circle x={-80} y={80} radius={3} fill="#111" />
-            <Text text="CH4+" x={-65} y={75} fontSize={10} fill="#ff00ff" fontStyle="bold" />
+            <UnmirroredText text="CH4+" x={-65} y={75} width={30} fontSize={10} fill="#ff00ff" fontStyle="bold" mirrored={component.mirrored} />
             <Circle x={-80} y={100} radius={6} fill="#7f8c8d" />
             <Circle x={-80} y={100} radius={3} fill="#111" />
-            <Text text="CH4-" x={-65} y={95} fontSize={10} fill="#95a5a6" fontStyle="bold" />
+            <UnmirroredText text="CH4-" x={-65} y={95} width={30} fontSize={10} fill="#95a5a6" fontStyle="bold" mirrored={component.mirrored} />
           </Group>
         );
       }
@@ -684,7 +772,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Rect x={-30} y={-61} width={60} height={20} fill="#95a5a6" cornerRadius={2} />
 
             {/* Reading text */}
-            <Text
+            <UnmirroredText
               text={multimeterReading || "0.00"}
               x={-28}
               y={-57}
@@ -693,6 +781,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
               fontStyle="bold"
               align="right"
               width={56}
+              mirrored={component.mirrored}
             />
 
             {/* Rotary dial area */}
@@ -700,9 +789,9 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Circle x={0} y={-10} radius={18} fill="#2c3e50" />
 
             {/* Mode indicators around dial */}
-            <Text text="V" x={-18} y={-30} fontSize={9} fill="white" fontStyle="bold" />
-            <Text text="A" x={-3} y={-38} fontSize={9} fill="white" fontStyle="bold" />
-            <Text text="Ω" x={12} y={-30} fontSize={9} fill="white" fontStyle="bold" />
+            <UnmirroredText text="V" x={-18} y={-30} fontSize={9} fill="white" fontStyle="bold" mirrored={component.mirrored} />
+            <UnmirroredText text="A" x={-3} y={-38} fontSize={9} fill="white" fontStyle="bold" mirrored={component.mirrored} />
+            <UnmirroredText text="Ω" x={12} y={-30} fontSize={9} fill="white" fontStyle="bold" mirrored={component.mirrored} />
 
             {/* Dial knob */}
             <Group x={0} y={-10} rotation={modeRot}>
@@ -711,8 +800,8 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             </Group>
 
             {/* Labels placed cleanly ABOVE the sockets inside the body */}
-            <Text text="V/Ω/A" x={-38} y={30} fontSize={8} fill="#2c3e50" fontStyle="bold" align="center" width={32} />
-            <Text text="COM" x={6} y={30} fontSize={8} fill="#2c3e50" fontStyle="bold" align="center" width={32} />
+            <UnmirroredText text="V/Ω/A" x={-38} y={30} fontSize={8} fill="#2c3e50" fontStyle="bold" align="center" width={32} mirrored={component.mirrored} />
+            <UnmirroredText text="COM" x={6} y={30} fontSize={8} fill="#2c3e50" fontStyle="bold" align="center" width={32} mirrored={component.mirrored} />
 
             {/* Pin 1: Red Jack Socket at EXACTLY {-22, 48} */}
             <Circle x={-22} y={48} radius={8} fill="#c0392b" />
@@ -779,19 +868,25 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
        dy = activeView === 'breadboard' ? 82 : 55;
     }
 
-
+    if (type === 'transformer') {
+       dx = 25;
+       dy = -25;
+    }
 
     const bgFill = theme === 'dark' ? '#20252A' : '#EEEAE4';
 
     let valStr: string | null = null;
     if (type === 'function_generator' || (type === 'vsource' && component.params?.type === 'sin')) {
        valStr = `${component.params?.amplitude || 5}V ${component.params?.frequency || '1k'}Hz`;
+    } else if (type === 'transformer') {
+       valStr = `${component.params?.L1 || '1m'}H, ${component.params?.L2 || '1m'}H`;
     } else {
        valStr = component.params?.value ? String(component.params.value) :
                    component.params?.resistance ? `${component.params.resistance}Ω` :
                    component.params?.capacitance ? `${component.params.capacitance}F` :
                    component.params?.inductance ? `${component.params.inductance}H` :
-                   component.params?.dc ? `${component.params.dc}V` : null;
+                   component.params?.dc ? `${component.params.dc}V` : 
+                   component.params?.model ? String(component.params.model) : null;
     }
 
     return (

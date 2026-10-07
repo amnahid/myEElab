@@ -12,7 +12,7 @@ export interface Pin {
 
 export interface ComponentInstance {
   id: string;                                 // unique within the circuit
-  type: string;                                // "resistor" | "capacitor" | "vsource" | "inductor" | "isource" | "ground"
+  type: string;                                // "resistor" | "capacitor" | "vsource" | "inductor" | "isource" | "ground" | "transformer"
   position: Point;
   rotation: 0 | 90 | 180 | 270;
 
@@ -41,6 +41,7 @@ export interface Circuit {
   analyses: AnalysisConfig[];
   customModels?: string; // User-provided .model or .subckt definitions
   breadboard?: Breadboard;
+  warnings?: string[]; // E.g. unparsed components
 }
 
 export interface BreadboardHole {

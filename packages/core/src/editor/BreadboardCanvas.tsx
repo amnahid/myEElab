@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Stage, Layer, Rect, Group, Line, Text, Circle } from 'react-konva';
+import { Stage, Layer, Rect, Group, Line, Text, Circle, Label, Tag } from 'react-konva';
 import { useEditorStore } from '../store/editorStore';
 import { ComponentLibrary } from '../engine/library';
 import { PhysicalComponentNode } from './PhysicalComponentNode';
@@ -17,6 +17,7 @@ export const BreadboardCanvas: React.FC = () => {
   } = useEditorStore();
 
   const [hoveredHole, setHoveredHole] = useState<string | null>(null);
+  const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
   const [bbTool, setBbTool] = useState<BreadboardTool>('select');
   const [jumperStart, setJumperStart] = useState<string | null>(null);
 
@@ -286,7 +287,27 @@ export const BreadboardCanvas: React.FC = () => {
             {circuit.breadboard?.placements.map(placement => {
               const comp = circuit.components.find(c => c.id === placement.componentId);
               if (!comp) return null;
-              return <PhysicalComponentNode key={placement.componentId} component={comp} placement={placement} />;
+              
+              const isHovered = hoveredComponentId === comp.id;
+              const libComp = ComponentLibrary[comp.type];
+              const name = libComp?.name || comp.type.charAt(0).toUpperCase() + comp.type.slice(1);
+              const firstHolePos = getHolePosition(Object.values(placement.legHoles)[0] || '');
+              
+              return (
+                <Group
+                  key={placement.componentId}
+                  onMouseEnter={() => setHoveredComponentId(comp.id)}
+                  onMouseLeave={() => setHoveredComponentId(null)}
+                >
+                  <PhysicalComponentNode component={comp} placement={placement} />
+                  {isHovered && firstHolePos && (
+                    <Label x={firstHolePos.x + 15} y={firstHolePos.y - 15}>
+                      <Tag fill={theme === 'dark' ? '#30383E' : '#EEEAE4'} cornerRadius={3} pointerDirection="down" pointerWidth={10} pointerHeight={10} shadowColor="black" shadowBlur={5} shadowOpacity={0.3} />
+                      <Text text={name} padding={5} fill={theme === 'dark' ? '#EEEAE4' : '#30383E'} fontSize={12} />
+                    </Label>
+                  )}
+                </Group>
+              );
             })}
           </Group>
         </Layer>

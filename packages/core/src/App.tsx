@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Canvas } from './editor/Canvas';
 import { useEditorStore } from './store/editorStore';
-import { Undo, Redo, RotateCw, Trash2, Settings, Eye, EyeOff, MoreHorizontal } from 'lucide-react';
+import { Undo, Redo, RotateCw, FlipHorizontal, Trash2, Settings, Eye, EyeOff, MoreHorizontal } from 'lucide-react';
 import { NetlistGenerator } from './engine/netlist';
 import { WaveformViewer } from './editor/WaveformViewer';
 import { BodePlot } from './components/BodePlot';
@@ -11,6 +11,7 @@ import { ProbeMenuIcon } from './editor/ProbeIcon';
 import { ScopeWindow } from './components/ScopeWindow';
 import { NodeResolver } from './engine/nodeResolver';
 import { ComponentLibrary } from './engine/library';
+import { parseProteusNetlist, parsePdsprjExperimental } from './importers/proteus';
 
 const ComponentIcons: Record<string, React.ReactNode> = {
   resistor: (
@@ -31,6 +32,14 @@ const ComponentIcons: Record<string, React.ReactNode> = {
       <path d="M 3 12 h 3" />
       <path d="M 6 12 c 0 -5 4 -5 4 0 c 0 -5 4 -5 4 0 c 0 -5 4 -5 4 0" />
       <path d="M 18 12 h 3" />
+    </svg>
+  ),
+  transformer: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M 6 3 v 3 c 4 0 4 4 0 4 c 4 0 4 4 0 4 c 4 0 4 4 0 4 v 3" />
+      <path d="M 18 3 v 3 c -4 0 -4 4 0 4 c -4 0 -4 4 0 4 c -4 0 -4 4 0 4 v 3" />
+      <line x1="10" y1="3" x2="10" y2="21" />
+      <line x1="14" y1="3" x2="14" y2="21" />
     </svg>
   ),
   vsource: (
@@ -206,6 +215,28 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
       <path d="M 8 9 h 8 M 8 12 h 8 M 8 15 h 8" stroke="var(--accent)" strokeWidth="1.5" />
     </svg>
   ),
+  transformer: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {/* Pins */}
+      <line x1="6" y1="2" x2="6" y2="6" stroke="#f1c40f" strokeWidth="2" />
+      <line x1="6" y1="18" x2="6" y2="22" stroke="#f1c40f" strokeWidth="2" />
+      <line x1="18" y1="2" x2="18" y2="6" stroke="#f1c40f" strokeWidth="2" />
+      <line x1="18" y1="18" x2="18" y2="22" stroke="#f1c40f" strokeWidth="2" />
+      
+      {/* Core Top/Bottom */}
+      <rect x="2" y="4" width="20" height="4" fill="#bdc3c7" stroke="none" rx="1" />
+      <rect x="2" y="16" width="20" height="4" fill="#bdc3c7" stroke="none" rx="1" />
+      
+      {/* Bobbins and Coils */}
+      <rect x="2" y="8" width="8" height="2" fill="#f5eedc" stroke="none" />
+      <rect x="2" y="14" width="8" height="2" fill="#f5eedc" stroke="none" />
+      <rect x="4" y="10" width="4" height="4" fill="#b84e14" stroke="none" />
+      
+      <rect x="14" y="8" width="8" height="2" fill="#f5eedc" stroke="none" />
+      <rect x="14" y="14" width="8" height="2" fill="#f5eedc" stroke="none" />
+      <rect x="16" y="10" width="4" height="4" fill="#b84e14" stroke="none" />
+    </svg>
+  ),
   vsource: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="4" y="4" width="16" height="16" fill="var(--background)" rx="2" />
@@ -346,6 +377,8 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
 };
 
 function App() {
+  const [importWarnings, setImportWarnings] = useState<string[] | null>(null);
+  const [importComponentsOnly, setImportComponentsOnly] = useState(false);
   const { mode, setMode, deleteSelected, circuit, rotateSelected, mirrorSelected, componentToPlace, activeAnalysis, setActiveAnalysis, updateAnalysis,
     setCustomModels,
     autoSimulate,
@@ -475,6 +508,9 @@ function App() {
       } else if (e.data.type === 'error') {
         const errorMsg = e.data.error?.message || (typeof e.data.error === 'string' ? e.data.error : 'Simulation Failed');
         setSimError(errorMsg);
+        setTranData({ time: [], vectors: {} });
+        setAcData({ freq: [], magnitudes: {}, phases: {} });
+        setNodeVoltages({});
         // Force recreation of the worker on fatal error to reset ngspice WASM state
         workerRef.current?.terminate();
         workerRef.current = null;
@@ -500,32 +536,50 @@ function App() {
 
   const runSimulation = () => {
     if (circuit.components.length === 0) return;
+    setSimError(null);
+
+    // Deep clone circuit to avoid mutating state directly
+    const activeCircuit = JSON.parse(JSON.stringify(circuit));
+    activeCircuit.customModels = customModelsInput;
+    
+    // Ensure analyses array exists and has the active analysis (vital for imported circuits)
+    if (!activeCircuit.analyses) activeCircuit.analyses = [];
+    if (!activeCircuit.analyses.find((a: any) => a.kind === activeAnalysis)) {
+      activeCircuit.analyses.push({ kind: activeAnalysis, params: {} });
+    }
+
     const generator = new NetlistGenerator();
     
     // Ensure default .tran params exist if running transient
     if (activeAnalysis === 'tran') {
-      const tranSettings = circuit.analyses.find(a => a.kind === 'tran');
+      const tranSettings = activeCircuit.analyses.find((a: any) => a.kind === 'tran');
       if (!tranSettings || !tranSettings.params.step) {
         updateAnalysis('tran', { step: '100u', stop: '10m' });
+        tranSettings.params = { step: '100u', stop: '10m' };
       }
     } else if (activeAnalysis === 'ac') {
-      const acSettings = circuit.analyses.find(a => a.kind === 'ac');
+      const acSettings = activeCircuit.analyses.find((a: any) => a.kind === 'ac');
       if (!acSettings || !acSettings.params.variation) {
         updateAnalysis('ac', { variation: 'dec', points: '10', fstart: '1', fstop: '1Meg' });
+        acSettings.params = { variation: 'dec', points: '10', fstart: '1', fstop: '1Meg' };
       }
     }
 
-    const netlist = generator.generate(circuit, activeAnalysis);
-    // @ts-ignore
-    if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
-      console.groupCollapsed(`🛠️ Generated Netlist (${activeAnalysis})`);
-      console.log(netlist);
-      console.groupEnd();
+    try {
+      const netlist = generator.generate(activeCircuit, activeAnalysis);
+      // @ts-ignore
+      if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
+        console.groupCollapsed(`🛠️ Generated Netlist (${activeAnalysis})`);
+        console.log(netlist);
+        console.groupEnd();
+      }
+      if (!workerRef.current) {
+        initWorker();
+      }
+      workerRef.current?.postMessage({ type: 'start', netlist });
+    } catch (err: any) {
+      setSimError(err.message);
     }
-    if (!workerRef.current) {
-      initWorker();
-    }
-    workerRef.current?.postMessage({ type: 'start', netlist });
   };
 
   // Global Keyboard Shortcuts
@@ -604,6 +658,53 @@ function App() {
           >
             Auto: {autoSimulate ? 'ON' : 'OFF'}
           </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label style={{ padding: '6px 12px', background: 'var(--panel)', color: 'var(--text)', border: `1px solid var(--border)`, borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center' }}>
+              Import Circuit
+              <input 
+                type="file" 
+                accept=".net,.cir,.pdsprj" 
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  
+                  if (file.name.endsWith('.pdsprj')) {
+                    alert(`Deep Analysis mode active: Extracting raw binary coordinates for components${importComponentsOnly ? ' only' : ' and wires'}.`);
+                    const buffer = await file.arrayBuffer();
+                    try {
+                      const importedCircuit = await parsePdsprjExperimental(buffer, file.name, { componentsOnly: importComponentsOnly });
+                      useEditorStore.setState({ circuit: importedCircuit });
+                      useEditorStore.temporal.getState().clear();
+                      if (importedCircuit.warnings && importedCircuit.warnings.length > 0) {
+                          setImportWarnings(importedCircuit.warnings);
+                      }
+                    } catch (err) {
+                      alert("Failed to parse .pdsprj file.");
+                    }
+                  } else {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      if (ev.target?.result) {
+                        const importedCircuit = parseProteusNetlist(ev.target.result as string, file.name);
+                        useEditorStore.setState({ circuit: importedCircuit });
+                        useEditorStore.temporal.getState().clear();
+                      }
+                    };
+                    reader.readAsText(file);
+                  }
+                }}
+              />
+            </label>
+            <label style={{ fontSize: '0.85rem', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={importComponentsOnly} 
+                onChange={(e) => setImportComponentsOnly(e.target.checked)} 
+              />
+              Components Only
+            </label>
+          </div>
         </div>
         
         {/* Toolbars Container */}
@@ -626,6 +727,12 @@ function App() {
               onClick={() => rotateSelected()} title="Rotate (R)"
             >
               <RotateCw size={18} />
+            </button>
+            <button 
+              style={{ padding: '8px', background: 'transparent', color: colors.text, border: 'none', cursor: 'pointer', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onClick={() => mirrorSelected()} title="Flip (M)"
+            >
+              <FlipHorizontal size={18} />
             </button>
             <div style={{ width: '1px', background: colors.border, margin: '0 5px' }} />
             <button 
@@ -933,7 +1040,7 @@ function App() {
           </aside>
 
         <main style={{ flex: 1, position: 'relative', display: 'flex', overflow: 'hidden', backgroundColor: colors.bg }}>
-        <Canvas nodeVoltages={activeAnalysis === 'op' ? nodeVoltages : undefined} tranData={activeAnalysis === 'tran' ? tranData : undefined} theme={theme} />
+        <Canvas nodeVoltages={activeAnalysis === 'op' ? nodeVoltages : undefined} tranData={activeAnalysis === 'tran' ? tranData : undefined} theme={theme} simError={simError} />
         
         {/* Properties Popup */}
         <PropertyPopup theme={theme} />
@@ -950,13 +1057,15 @@ function App() {
                   <span style={{ fontWeight: 'bold', color: 'var(--signal)' }}>Node {node}:</span>
                   <span>
                     {(() => {
+                      const isCurrent = node.toLowerCase().startsWith('i(');
+                      const unit = isCurrent ? 'A' : 'V';
                       const abs = Math.abs(v);
-                      if (abs === 0) return '0 V';
-                      if (abs >= 1e3) return `${parseFloat((v / 1e3).toFixed(3))} kV`;
-                      if (abs >= 1) return `${parseFloat(v.toFixed(3))} V`;
-                      if (abs >= 1e-3) return `${parseFloat((v * 1e3).toFixed(3))} mV`;
-                      if (abs >= 1e-6) return `${parseFloat((v * 1e6).toFixed(3))} µV`;
-                      return `${v.toExponential(2)} V`;
+                      if (abs === 0) return `0 ${unit}`;
+                      if (abs >= 1e3) return `${parseFloat((v / 1e3).toFixed(3))} k${unit}`;
+                      if (abs >= 1) return `${parseFloat(v.toFixed(3))} ${unit}`;
+                      if (abs >= 1e-3) return `${parseFloat((v * 1e3).toFixed(3))} m${unit}`;
+                      if (abs >= 1e-6) return `${parseFloat((v * 1e6).toFixed(3))} µ${unit}`;
+                      return `${v.toExponential(2)} ${unit}`;
                     })()}
                   </span>
                 </div>
@@ -1010,6 +1119,55 @@ function App() {
             />
           );
         })()
+      )}
+
+      {/* Import Warnings Dialog */}
+      {importWarnings && importWarnings.length > 0 && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            backgroundColor: theme === 'dark' ? '#2a2a2a' : '#fff',
+            color: theme === 'dark' ? '#eee' : '#333',
+            borderRadius: '8px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '60vh',
+            overflow: 'auto',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+          }}>
+            <h3 style={{ margin: '0 0 12px 0', color: '#e67e22' }}>⚠️ Import Warnings</h3>
+            <p style={{ margin: '0 0 12px 0', fontSize: '14px', opacity: 0.8 }}>
+              The following items from the Proteus file could not be mapped:
+            </p>
+            <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px', fontSize: '13px', lineHeight: '1.6' }}>
+              {Array.from(new Set(importWarnings)).map((w, i) => (
+                <li key={i} style={{ fontFamily: 'monospace' }}>{w}</li>
+              ))}
+            </ul>
+            <button
+              onClick={() => setImportWarnings(null)}
+              style={{
+                padding: '8px 20px',
+                backgroundColor: '#3498db',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

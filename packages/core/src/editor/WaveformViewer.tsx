@@ -16,8 +16,32 @@ export const WaveformViewer: React.FC<WaveformViewerProps> = ({ data, probes }) 
   const containerRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
   const { theme } = useEditorStore();
-  const [height, setHeight] = useState(250);
-  const [viewMode, setViewMode] = useState<'normal' | 'minimized' | 'fullscreen'>('normal');
+  const [height, setHeight] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('waveform_height');
+      if (saved) return parseInt(saved, 10);
+    }
+    return 250;
+  });
+  const [viewMode, setViewMode] = useState<'normal' | 'minimized' | 'fullscreen'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('waveform_viewMode');
+      if (saved === 'normal' || saved === 'minimized' || saved === 'fullscreen') return saved;
+    }
+    return 'normal';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('waveform_height', height.toString());
+    }
+  }, [height]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('waveform_viewMode', viewMode);
+    }
+  }, [viewMode]);
 
   // Keep track of previous theme to force recreate uPlot
   const prevThemeRef = useRef(theme);
