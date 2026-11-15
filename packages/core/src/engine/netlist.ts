@@ -2,6 +2,7 @@ import { Circuit } from "../models/circuit";
 import { NodeResolver } from "./nodeResolver";
 import { deriveBreadboardWires } from "./breadboardSync";
 import { useEditorStore } from "../store/editorStore";
+import { ComponentLibrary } from "./library";
 
 function parseSpiceValue(val: string | number): number {
   if (typeof val === 'number') return val;
@@ -40,6 +41,7 @@ export class NetlistGenerator {
     // Track refDes counters to assign them if absent
     const counters: Record<string, number> = {};
     const usedRefDes = new Set<string>();
+    const subcircuitsToEmit = new Map<string, string>();
 
     const showInstruments = useEditorStore.getState().showInstruments;
 
@@ -66,20 +68,24 @@ export class NetlistGenerator {
         continue;
       }
 
+      const libComp = comp.customDefinition || circuit.customComponents?.[comp.type] || ComponentLibrary[comp.type];
+
       // Assign refDes if missing or if it's a virtual instrument that requires a strict prefix
       let refDes = comp.refDes ? comp.refDes.replace(/\s+/g, '_') : undefined;
-      let prefix = "X";
-      if (comp.type === "resistor") prefix = "R";
-      else if (comp.type === "capacitor") prefix = "C";
-      else if (comp.type === "inductor") prefix = "L";
-      else if (comp.type === "vsource" || comp.type === "function_generator") prefix = "V";
-      else if (comp.type === "isource") prefix = "I";
-      else if (comp.type === "diode" || comp.type === "led" || comp.type === "zener") prefix = "D";
-      else if (comp.type === "npn" || comp.type === "pnp") prefix = "Q";
-      else if (comp.type === "nmos" || comp.type === "pmos") prefix = "M";
-      else if (comp.type === "opamp") prefix = "X";
-      else if (comp.type === "transformer") prefix = "TX";
-      else if (comp.type === "pushbutton") prefix = "SW";
+      let prefix = libComp?.spice?.prefix || "X";
+      if (!libComp?.spice?.prefix) {
+        if (comp.type === "resistor") prefix = "R";
+        else if (comp.type === "capacitor") prefix = "C";
+        else if (comp.type === "inductor") prefix = "L";
+        else if (comp.type === "vsource" || comp.type === "function_generator" || comp.type === "clock") prefix = "V";
+        else if (comp.type === "isource") prefix = "I";
+        else if (comp.type === "diode" || comp.type === "led" || comp.type === "zener") prefix = "D";
+        else if (comp.type === "npn" || comp.type === "pnp") prefix = "Q";
+        else if (comp.type === "nmos" || comp.type === "pmos") prefix = "M";
+        else if (comp.type === "opamp") prefix = "X";
+        else if (comp.type === "transformer") prefix = "TX";
+        else if (comp.type === "pushbutton") prefix = "SW";
+      }
 
       if (comp.type === "multimeter") {
         const isCur = comp.params.mode === "current" || comp.params.mode === "ac_current";
@@ -137,9 +143,37 @@ export class NetlistGenerator {
            }
            
            value = `SINE(${offset} ${amplitudeStr} ${freq} 0 0 ${phase})`;
+        } else if (comp.params.type === "square") {
+           const offsetNum = parseSpiceValue(comp.params.offset || "0");
+           let amplitudeNum = parseSpiceValue(comp.params.amplitude || "5");
+           const mode = comp.params.amplitudeMode || "peak";
+           if (mode === "pp") amplitudeNum = amplitudeNum / 2;
+           const vlow = (offsetNum - amplitudeNum).toString();
+           const vhigh = (offsetNum + amplitudeNum).toString();
+           const freqStr = comp.params.frequency?.toString() || "1k";
+           const freq = parseSpiceValue(freqStr) || 1000;
+           const period = freq > 0 ? 1 / freq : 0.001;
+           const trise = "1n";
+           const tfall = "1n";
+           const twidth = Math.max(1e-12, period / 2 - 1e-9).toExponential(4);
+           value = `PULSE(${vlow} ${vhigh} 0 ${trise} ${tfall} ${twidth} ${period.toExponential(4)})`;
         } else {
            value = sanitizeVal(comp.params.value, "DC 0");
         }
+      } else if (comp.type === "clock") {
+        const vlow = sanitizeVal(comp.params.vlow ?? comp.params.low, "0");
+        const vhigh = sanitizeVal(comp.params.vhigh ?? comp.params.high, "5");
+        const freqStr = comp.params.frequency?.toString() || "1k";
+        const freq = parseSpiceValue(freqStr) || 1000;
+        const period = freq > 0 ? 1 / freq : 0.001;
+        const dutyPercent = parseFloat(String(comp.params.duty ?? comp.params.dutyCycle ?? "50")) || 50;
+        const trise = sanitizeVal(comp.params.trise ?? comp.params.tr, "1n");
+        const tfall = sanitizeVal(comp.params.tfall ?? comp.params.tf, "1n");
+        const tdelay = sanitizeVal(comp.params.delay ?? comp.params.tdelay, "0");
+        const triseNum = parseSpiceValue(trise) || 1e-9;
+        const twidthNum = Math.max(1e-12, (period * (dutyPercent / 100)) - triseNum);
+
+        value = `PULSE(${vlow} ${vhigh} ${tdelay} ${trise} ${tfall} ${twidthNum.toExponential(4)} ${period.toExponential(4)})`;
       } else if (comp.type === "multimeter") {
         if (comp.params.mode === "resistance") value = "DC 1";
         else if (comp.params.mode === "current" || comp.params.mode === "ac_current") value = "DC 0";
@@ -165,13 +199,25 @@ export class NetlistGenerator {
         const s = pins.get("s") || "0";
         const defaultModel = comp.type === "nmos" ? "BS170" : "BS250";
         lines.push(`${refDes} ${d} ${g} ${s} ${s} ${sanitizeVal(comp.params.model, defaultModel)}`);
-      } else if (comp.type === "opamp") {
-        const inp = pins.get("in+") || "0";
-        const inn = pins.get("in-") || "0";
-        const vp = pins.get("v+") || "0";
-        const vn = pins.get("v-") || "0";
-        const out = pins.get("out") || "0";
-        lines.push(`${refDes} ${inp} ${inn} ${vp} ${vn} ${out} ${sanitizeVal(comp.params.model, "LM358")}`);
+      } else if (comp.type === "opamp" || prefix === "X" || libComp?.spice?.modelType === "subcircuit") {
+        const pinOrder = libComp?.spice?.pinOrder || (comp.type === "opamp" ? ["1", "2", "3", "4", "5"] : libComp?.pins.map(p => p.id) || []);
+        const orderedNodes = pinOrder.map(pid => {
+          if (pins.has(pid)) return pins.get(pid)!;
+          const lower = pid.toLowerCase();
+          for (const [k, v] of pins.entries()) {
+            if (k.toLowerCase() === lower) return v;
+          }
+          const pDef = libComp?.pins.find(p => p.id === pid || p.label.toLowerCase() === lower);
+          if (pDef && pins.has(pDef.id)) return pins.get(pDef.id)!;
+          return "0";
+        });
+        const defaultSubName = libComp?.spice?.subcircuitName || (comp.type === "opamp" ? "LM358" : comp.type.toUpperCase());
+        const modelName = sanitizeVal(comp.params.model || defaultSubName, defaultSubName);
+        lines.push(`${refDes} ${orderedNodes.join(" ")} ${modelName}`);
+
+        if (libComp?.spice?.subcircuitBody && !subcircuitsToEmit.has(modelName)) {
+          subcircuitsToEmit.set(modelName, libComp.spice.subcircuitBody);
+        }
       } else if (comp.type === "transformer") {
         const idSafe = comp.id.replace(/-/g, '');
         const l1 = `L_${idSafe}_1`;
@@ -212,10 +258,16 @@ export class NetlistGenerator {
     lines.push(".model 2N3906 PNP(IS=1E-14 VAF=100 Bf=200 IKF=0.4 XTB=1.5 BR=4 CJC=4.5E-12 CJE=10E-12 TR=250E-9 TF=350E-12 ITF=1 VTF=2 XTF=3 RB=10)");
     lines.push(".model BS170 NMOS(LEVEL=1 VTO=2.1 KP=0.320 CBD=1.0E-10 CBS=1.0E-10)");
     lines.push(".model BS250 PMOS(LEVEL=1 VTO=-2.1 KP=0.320 CBD=1.0E-10 CBS=1.0E-10)");
-    lines.push(".subckt LM358 1 2 3 4 5");
-    lines.push("* 1=in+, 2=in-, 3=v+, 4=v-, 5=out");
-    lines.push("E1 5 0 1 2 100k");
-    lines.push(".ends LM358");
+    // Emit all referenced subcircuits
+    for (const body of subcircuitsToEmit.values()) {
+      lines.push(body);
+    }
+    if (!subcircuitsToEmit.has("LM358")) {
+      lines.push(".subckt LM358 1 2 3 4 5");
+      lines.push("* 1=in+, 2=in-, 3=v+, 4=v-, 5=out");
+      lines.push("E1 5 0 1 2 100k");
+      lines.push(".ends LM358");
+    }
 
     if (circuit.customModels) {
       lines.push(circuit.customModels);

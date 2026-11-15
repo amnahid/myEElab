@@ -3,6 +3,7 @@ import { Group, Line, Rect, Circle, Text } from 'react-konva';
 import { ComponentInstance, BreadboardPlacement } from '../models/circuit';
 import { getHolePosition } from './breadboardLayout';
 import { useEditorStore } from '../store/editorStore';
+import { ComponentLibrary } from '../engine/library';
 
 interface Props {
   component: ComponentInstance;
@@ -11,6 +12,8 @@ interface Props {
 
 export const PhysicalComponentNode: React.FC<Props> = ({ component, placement }) => {
   const { type } = component;
+  const libComp = component.customDefinition || ComponentLibrary[type];
+  const pkg = libComp?.package || 'discrete';
 
   // Render Resistor
   if (type === 'resistor') {
@@ -24,7 +27,6 @@ export const PhysicalComponentNode: React.FC<Props> = ({ component, placement })
       const angle = Math.atan2(dy, dx) * 180 / Math.PI;
 
       // Color bands for resistance
-      // Simplified colors:
       const bands = ['#8B4513', '#000000', '#FF0000', '#DAA520']; 
 
       return (
@@ -159,6 +161,27 @@ export const PhysicalComponentNode: React.FC<Props> = ({ component, placement })
     }
   }
 
+  // Render Clock (Pulse Generator Source)
+  if (type === 'clock') {
+    const pos1 = getHolePosition(placement.legHoles['1']); // + (CLK)
+    const pos2 = getHolePosition(placement.legHoles['2']); // - (GND)
+    
+    if (pos1 && pos2) {
+      const freq = component.params?.frequency || '1k';
+      return (
+        <Group>
+          {/* Module box */}
+          <Rect x={-110} y={pos1.y - 25} width={70} height={50} fill="#1a252f" stroke="#34495e" strokeWidth={1.5} cornerRadius={4} />
+          <Text x={-105} y={pos1.y - 18} text="CLK GEN" fill="#2ecc71" fontSize={10} fontStyle="bold" />
+          <Text x={-105} y={pos1.y - 2} text={`${freq}Hz`} fill="#ecf0f1" fontSize={11} />
+          {/* Leads */}
+          <Line points={[-40, pos1.y - 10, pos1.x, pos1.y]} stroke="#e74c3c" strokeWidth={3} />
+          <Line points={[-40, pos1.y + 10, pos2.x, pos2.y]} stroke="#34495e" strokeWidth={3} />
+        </Group>
+      );
+    }
+  }
+
   // Render Pushbutton
   if (type === 'pushbutton') {
     const pos1 = getHolePosition(placement.legHoles['1']); // L1
@@ -166,11 +189,10 @@ export const PhysicalComponentNode: React.FC<Props> = ({ component, placement })
     const pos3 = getHolePosition(placement.legHoles['3']); // R1
     const pos4 = getHolePosition(placement.legHoles['4']); // R2
     
-    // Find average center
-    const validPos = [pos1, pos2, pos3, pos4].filter(p => p);
+    const validPos = [pos1, pos2, pos3, pos4].filter((p): p is { x: number; y: number } => Boolean(p));
     if (validPos.length > 0) {
-      const cx = validPos.reduce((sum, p) => sum + p!.x, 0) / validPos.length;
-      const cy = validPos.reduce((sum, p) => sum + p!.y, 0) / validPos.length;
+      const cx = validPos.reduce((sum, p) => sum + p.x, 0) / validPos.length;
+      const cy = validPos.reduce((sum, p) => sum + p.y, 0) / validPos.length;
       const isClosed = component.params?.state === 'closed';
 
       return (
@@ -181,7 +203,7 @@ export const PhysicalComponentNode: React.FC<Props> = ({ component, placement })
           {pos3 && <Line points={[0, 0, pos3.x - cx, pos3.y - cy]} stroke="#bdc3c7" strokeWidth={2} />}
           {pos4 && <Line points={[0, 0, pos4.x - cx, pos4.y - cy]} stroke="#bdc3c7" strokeWidth={2} />}
           
-          {/* Body (6x6 mm typical switch, scale a bit) */}
+          {/* Body */}
           <Rect x={-12} y={-12} width={24} height={24} fill="#2c3e50" cornerRadius={2} />
           {/* Button */}
           <Circle x={0} y={0} radius={isClosed ? 5 : 6} fill={isClosed ? "#c0392b" : "#e74c3c"} />
@@ -205,7 +227,144 @@ export const PhysicalComponentNode: React.FC<Props> = ({ component, placement })
     }
   }
 
-  // For unsupported components, just draw red dots at holes
+  // Render DIP Package (DIP-8, DIP-14, DIP-16, NE555, TL072, 74HC, etc.)
+  const isDIP = pkg === 'dip8' || pkg === 'dip14' || pkg === 'dip16' || type === 'ne555' || type === 'tl072' || type === 'opamp' || type.startsWith('74hc');
+  if (isDIP) {
+    const holeEntries = Object.entries(placement.legHoles)
+      .map(([pinId, hId]) => ({ pinId, pos: getHolePosition(hId) }))
+      .filter((e): e is { pinId: string; pos: { x: number; y: number } } => Boolean(e.pos));
+
+    if (holeEntries.length >= 2) {
+      const xs = holeEntries.map(e => e.pos.x);
+      const ys = holeEntries.map(e => e.pos.y);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const bodyWidth = Math.max(22, (maxX - minX) - 8);
+      const bodyHeight = (maxY - minY) + 14;
+      const chipName = (component.params?.model as string) || libComp?.name || type.toUpperCase();
+
+      return (
+        <Group>
+          {/* Silver pins to holes */}
+          {holeEntries.map(e => (
+            <Line
+              key={e.pinId}
+              points={[centerX > e.pos.x ? centerX - bodyWidth / 2 : centerX + bodyWidth / 2, e.pos.y, e.pos.x, e.pos.y]}
+              stroke="#bdc3c7"
+              strokeWidth={3}
+            />
+          ))}
+
+          {/* IC Body */}
+          <Rect
+            x={centerX - bodyWidth / 2}
+            y={minY - 7}
+            width={bodyWidth}
+            height={bodyHeight}
+            fill="#1e272e"
+            stroke="#111111"
+            strokeWidth={1}
+            cornerRadius={2}
+            shadowColor="black"
+            shadowBlur={4}
+            shadowOpacity={0.4}
+          />
+
+          {/* Pin 1 Notch at top */}
+          <Circle
+            x={centerX}
+            y={minY - 7}
+            radius={3.5}
+            fill="#111111"
+          />
+
+          {/* Pin 1 Index Dot */}
+          <Circle
+            x={centerX - bodyWidth / 2 + 4}
+            y={minY - 1}
+            radius={1.5}
+            fill="#718093"
+          />
+
+          {/* Laser-etched text */}
+          <Text
+            text={chipName}
+            x={centerX - bodyWidth / 2}
+            y={centerY - 4}
+            width={bodyWidth}
+            align="center"
+            fontSize={7}
+            fill="#d2dae2"
+            fontStyle="bold"
+          />
+        </Group>
+      );
+    }
+  }
+
+  // Render TO-220 Package (LM7805, Power Regulators/MOSFETs)
+  if (pkg === 'to220' || type === 'lm7805') {
+    const pos1 = getHolePosition(placement.legHoles['1']);
+    const pos2 = getHolePosition(placement.legHoles['2']);
+    const pos3 = getHolePosition(placement.legHoles['3']);
+    const valid = [pos1, pos2, pos3].filter((p): p is { x: number; y: number } => Boolean(p));
+
+    if (valid.length >= 2) {
+      const cx = valid.reduce((sum, p) => sum + p.x, 0) / valid.length;
+      const cy = valid.reduce((sum, p) => sum + p.y, 0) / valid.length;
+
+      return (
+        <Group x={cx} y={cy}>
+          {/* Leads */}
+          {valid.map((p, idx) => (
+            <Line key={idx} points={[0, 0, p.x - cx, p.y - cy]} stroke="#bdc3c7" strokeWidth={2.5} />
+          ))}
+          {/* Metal Heatsink Tab */}
+          <Rect x={-12} y={-18} width={24} height={8} fill="#bdc3c7" stroke="#7f8c8d" strokeWidth={1} cornerRadius={1} />
+          {/* Mounting Hole */}
+          <Circle x={0} y={-14} radius={2.5} fill="#7f8c8d" />
+          {/* Black molded epoxy body */}
+          <Rect x={-12} y={-10} width={24} height={14} fill="#2c3e50" stroke="#1a252f" strokeWidth={1} cornerRadius={1} />
+          <Text text="7805" x={-12} y={-6} width={24} align="center" fontSize={6.5} fill="#ecf0f1" fontStyle="bold" />
+        </Group>
+      );
+    }
+  }
+
+  // Render TO-92 Package (Transistors NPN/PNP, BS170)
+  if (pkg === 'to92' || type === 'npn' || type === 'pnp' || type === 'nmos' || type === 'pmos') {
+    const pins = [
+      getHolePosition(placement.legHoles['1'] || placement.legHoles['c'] || placement.legHoles['d']),
+      getHolePosition(placement.legHoles['2'] || placement.legHoles['b'] || placement.legHoles['g']),
+      getHolePosition(placement.legHoles['3'] || placement.legHoles['e'] || placement.legHoles['s'])
+    ].filter((p): p is { x: number; y: number } => Boolean(p));
+
+    if (pins.length >= 2) {
+      const cx = pins.reduce((sum, p) => sum + p.x, 0) / pins.length;
+      const cy = pins.reduce((sum, p) => sum + p.y, 0) / pins.length;
+      const label = (component.params?.model as string) || (type === 'npn' ? '2N3904' : type === 'pnp' ? '2N3906' : 'BS170');
+
+      return (
+        <Group x={cx} y={cy}>
+          {pins.map((p, idx) => (
+            <Line key={idx} points={[0, 0, p.x - cx, p.y - cy]} stroke="#bdc3c7" strokeWidth={2} />
+          ))}
+          {/* D-shaped package */}
+          <Circle x={0} y={-2} radius={7} fill="#2c3e50" stroke="#1a252f" strokeWidth={1} />
+          <Rect x={-7} y={-2} width={14} height={6} fill="#2c3e50" stroke="#1a252f" strokeWidth={1} />
+          <Line points={[-7, 4, 7, 4]} stroke="#1a252f" strokeWidth={1.5} />
+          <Text text={label.slice(0, 5)} x={-7} y={-5} width={14} align="center" fontSize={5} fill="#bdc3c7" />
+        </Group>
+      );
+    }
+  }
+
+  // Fallback for unsupported components: draw red/magenta dots at holes
   const p1 = getHolePosition(placement.legHoles['1'] || placement.legHoles['c'] || placement.legHoles['d'] || placement.legHoles['in+']);
   const p2 = getHolePosition(placement.legHoles['2'] || placement.legHoles['e'] || placement.legHoles['s'] || placement.legHoles['out']);
   

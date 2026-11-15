@@ -72,7 +72,7 @@ export class NodeResolver {
     const allPointsList: { point: Point, id: number }[] = [];
 
     for (const comp of circuit.components) {
-      const libComp = ComponentLibrary[comp.type];
+      const libComp = comp.customDefinition || circuit.customComponents?.[comp.type] || ComponentLibrary[comp.type];
       if (!libComp) continue;
 
       const pinMap = new Map<string, number>();

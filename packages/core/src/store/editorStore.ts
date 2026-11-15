@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { temporal } from 'zundo';
-import { Circuit, ComponentInstance, Wire, Point, Probe } from '../models/circuit';
+import { Circuit, ComponentInstance, Wire, Point, Probe, ComponentDefinition } from '../models/circuit';
 import { ComponentLibrary } from '../engine/library';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -25,6 +25,7 @@ interface EditorState {
   placedLegs: Record<string, string>; // pinId -> holeId
   
   // Actions
+  addCustomComponent: (def: ComponentDefinition) => void;
   setAutoSimulate: (auto: boolean) => void;
   setShowInstruments: (show: boolean) => void;
   setActiveView: (view: 'schematic' | 'breadboard') => void;
@@ -469,6 +470,19 @@ export const useEditorStore = create<EditorState>()(
           editingComponentId: null,
           probes: []
         }),
+
+        addCustomComponent: (def: ComponentDefinition) => {
+          ComponentLibrary[def.type] = def;
+          set((state) => ({
+            circuit: {
+              ...state.circuit,
+              customComponents: {
+                ...(state.circuit.customComponents || {}),
+                [def.type]: def
+              }
+            }
+          }));
+        },
 
         setTheme: (theme) => set({ theme })
       }),

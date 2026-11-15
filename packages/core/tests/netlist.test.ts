@@ -172,4 +172,76 @@ describe("Node Resolver and Netlist Generator", () => {
       expect(e).toBeDefined();
     }
   });
+
+  it("should simulate a subcircuit component (LM7805 regulator)", async () => {
+    const circuit: Circuit = {
+      id: "test-7805",
+      name: "7805 Regulator Test",
+      components: [
+        { id: "v1", type: "vsource", position: { x: 0, y: 0 }, rotation: 0, mirrored: false, params: { type: "dc", value: 12 } },
+        { id: "u1", type: "lm7805", position: { x: 100, y: 0 }, rotation: 0, mirrored: false, params: {} },
+        { id: "r1", type: "resistor", position: { x: 200, y: 0 }, rotation: 0, mirrored: false, params: { resistance: "100" } },
+        { id: "gnd", type: "ground", position: { x: 100, y: 100 }, rotation: 0, mirrored: false, params: {} }
+      ],
+      wires: [
+        { id: "w_in", points: [{ x: 0, y: -20 }, { x: 70, y: -10 }] },
+        { id: "w_out", points: [{ x: 130, y: -10 }, { x: 200, y: -20 }] },
+        { id: "w_gnd1", points: [{ x: 0, y: 20 }, { x: 100, y: 20 }] },
+        { id: "w_gnd2", points: [{ x: 100, y: 20 }, { x: 200, y: 20 }] },
+        { id: "w_gnd3", points: [{ x: 100, y: 20 }, { x: 100, y: 80 }] },
+      ],
+      analyses: [{ kind: "op", params: {} }]
+    };
+
+    const generator = new NetlistGenerator();
+    const netlist = generator.generate(circuit);
+
+    expect(netlist).toContain(".subckt LM7805");
+    expect(netlist).toMatch(/X\w* \d+ 0 \d+ LM7805/);
+
+    const sim = new Simulation();
+    await sim.start();
+    sim.setNetList(netlist);
+    const results = await sim.runSim();
+
+    expect(results).toBeDefined();
+    const outVar = results.data.find(v => v.values.some(val => Math.abs(val - 5.0) < 0.1));
+    expect(outVar).toBeDefined();
+  });
+
+  it("should generate correct SPICE PULSE for clock component and simulate transient response", async () => {
+    const circuit: Circuit = {
+      id: "test-clock",
+      name: "Clock Source Test",
+      components: [
+        { id: "clk1", type: "clock", position: { x: 0, y: 0 }, rotation: 0, mirrored: false, params: { frequency: "1k", vhigh: "5", vlow: "0", duty: "50" } },
+        { id: "r1", type: "resistor", position: { x: 100, y: 0 }, rotation: 0, mirrored: false, params: { resistance: "1k" } },
+        { id: "gnd", type: "ground", position: { x: 0, y: 100 }, rotation: 0, mirrored: false, params: {} }
+      ],
+      wires: [
+        { id: "w_sig", points: [{ x: 0, y: -20 }, { x: 100, y: -20 }] },
+        { id: "w_gnd1", points: [{ x: 0, y: 20 }, { x: 100, y: 20 }] },
+        { id: "w_gnd2", points: [{ x: 0, y: 20 }, { x: 0, y: 80 }] }
+      ],
+      analyses: [
+        { kind: "tran", params: { step: "10u", stop: "2m" } }
+      ]
+    };
+
+    const generator = new NetlistGenerator();
+    const netlist = generator.generate(circuit, "tran");
+
+    expect(netlist).toContain(".tran 10u 2m");
+    expect(netlist).toMatch(/V1 \d+ 0 PULSE\(0 5 0 1n 1n \S+ 1\.0000e-3\)/);
+
+    const sim = new Simulation();
+    await sim.start();
+    sim.setNetList(netlist);
+    const results = await sim.runSim();
+
+    expect(results).toBeDefined();
+    expect(results.data.length).toBeGreaterThan(0);
+    const vSig = results.data.find(d => d.name !== "time" && d.values.some(v => v > 4.5) && d.values.some(v => v < 0.5));
+    expect(vSig).toBeDefined();
+  });
 });

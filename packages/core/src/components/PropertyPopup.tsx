@@ -220,6 +220,7 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
                   <option value="dc">DC</option>
                   <option value="ac">AC</option>
                   <option value="sin">Sine (Transient)</option>
+                  <option value="square">Square (Pulse)</option>
                 </select>
               </div>
             )}
@@ -245,7 +246,7 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
                 </div>
               </>
             )}
-            {editingComponent.params.type === 'sin' && (
+            {(editingComponent.params.type === 'sin' || editingComponent.params.type === 'square') && (
               <>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>DC Offset ({(editingComponent.type === 'vsource' || editingComponent.type === 'function_generator') ? 'V' : 'A'})</label>
@@ -271,12 +272,54 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
                   <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Frequency (Hz)</label>
                   <ValueUnitInput colors={colors} value={editingComponent.params.frequency || '1k'} onChange={val => updateComponentParams(editingComponent.id, { frequency: val })} />
                 </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Phase (°)</label>
-                  <input type="number" value={editingComponent.params.phase || '0'} onChange={e => updateComponentParams(editingComponent.id, { phase: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
-                </div>
+                {editingComponent.params.type === 'sin' && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Phase (°)</label>
+                    <input type="number" value={editingComponent.params.phase || '0'} onChange={e => updateComponentParams(editingComponent.id, { phase: e.target.value })} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }} />
+                  </div>
+                )}
               </>
             )}
+          </>
+        )}
+
+        {editingComponent && editingComponent.type === 'clock' && (
+          <>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Frequency (Hz)</label>
+              <ValueUnitInput colors={colors} value={editingComponent.params.frequency || '1k'} onChange={val => updateComponentParams(editingComponent.id, { frequency: val })} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>High Voltage (V)</label>
+              <ValueUnitInput colors={colors} value={editingComponent.params.vhigh || '5'} onChange={val => updateComponentParams(editingComponent.id, { vhigh: val })} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Low Voltage (V)</label>
+              <ValueUnitInput colors={colors} value={editingComponent.params.vlow || '0'} onChange={val => updateComponentParams(editingComponent.id, { vlow: val })} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Duty Cycle (%)</label>
+              <input
+                type="number"
+                min="1"
+                max="99"
+                value={editingComponent.params.duty || '50'}
+                onChange={e => updateComponentParams(editingComponent.id, { duty: e.target.value })}
+                style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Rise Time (s)</label>
+              <ValueUnitInput colors={colors} value={editingComponent.params.trise || '1n'} onChange={val => updateComponentParams(editingComponent.id, { trise: val })} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Fall Time (s)</label>
+              <ValueUnitInput colors={colors} value={editingComponent.params.tfall || '1n'} onChange={val => updateComponentParams(editingComponent.id, { tfall: val })} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Delay (s)</label>
+              <ValueUnitInput colors={colors} value={editingComponent.params.delay || '0'} onChange={val => updateComponentParams(editingComponent.id, { delay: val })} />
+            </div>
           </>
         )}
 

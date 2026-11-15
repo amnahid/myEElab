@@ -49,14 +49,68 @@ export function parseProteusNetlist(netlistContent: string, circuitName: string 
       nodes = [parts[1], parts[2]];
       params.inductance = parseValue(parts[3]);
     } else if (prefix === "V") {
-      type = "vsource";
       nodes = [parts[1], parts[2]];
-      // Minimal naive parsing for DC source: V1 N1 N2 DC 5
-      params.voltage = parseValue(parts[parts.length - 1]);
+      if (line.toUpperCase().includes("PULSE")) {
+        type = "clock";
+        const pulseMatch = line.match(/PULSE\s*\(\s*([^)]+)\s*\)/i);
+        if (pulseMatch) {
+          const pArgs = pulseMatch[1].trim().split(/\s+/);
+          if (pArgs.length >= 7) {
+            params.vlow = pArgs[0];
+            params.vhigh = pArgs[1];
+            params.delay = pArgs[2];
+            params.trise = pArgs[3];
+            params.tfall = pArgs[4];
+            const ton = parseNumericSpice(pArgs[5]);
+            const tperiod = parseNumericSpice(pArgs[6]);
+            if (tperiod > 0) {
+              const freq = Math.round(1 / tperiod);
+              params.frequency = freq >= 1000 ? `${(freq / 1000).toFixed(1)}k` : `${freq}`;
+              params.duty = Math.round((ton / tperiod) * 100).toString();
+            }
+          }
+        }
+      } else {
+        type = "vsource";
+        params.voltage = parseValue(parts[parts.length - 1]);
+      }
     } else if (prefix === "I") {
       type = "isource";
       nodes = [parts[1], parts[2]];
       params.current = parseValue(parts[parts.length - 1]);
+    } else if (prefix === "D") {
+      type = "diode";
+      nodes = [parts[1], parts[2]];
+      params.model = parts[3] || "1N4148";
+    } else if (prefix === "Q") {
+      type = "npn";
+      nodes = [parts[1], parts[2], parts[3]];
+      params.model = parts[4] || "2N3904";
+    } else if (prefix === "M") {
+      type = "nmos";
+      nodes = [parts[1], parts[2], parts[3], parts[4]];
+      params.model = parts[5] || "BS170";
+    } else if (prefix === "X" || prefix === "U") {
+      const modelToken = parts[parts.length - 1].toUpperCase();
+      nodes = parts.slice(1, parts.length - 1);
+      if (modelToken.includes("555")) {
+        type = "ne555";
+      } else if (modelToken.includes("7805")) {
+        type = "lm7805";
+      } else if (modelToken.includes("7400") || modelToken.includes("74HC00")) {
+        type = "74hc00";
+      } else if (modelToken.includes("7404") || modelToken.includes("74HC04")) {
+        type = "74hc04";
+      } else if (modelToken.includes("7408") || modelToken.includes("74HC08")) {
+        type = "74hc08";
+      } else if (modelToken.includes("7432") || modelToken.includes("74HC32")) {
+        type = "74hc32";
+      } else if (modelToken.includes("TL072")) {
+        type = "tl072";
+      } else {
+        type = "opamp";
+        params.model = modelToken;
+      }
     } else {
       // Unknown or unhandled component
       continue;
@@ -124,6 +178,25 @@ export function parseProteusNetlist(netlistContent: string, circuitName: string 
       { kind: 'ac', params: { variation: 'dec', points: '10', fstart: '1', fstop: '10k' } }
     ] // Will default to whatever the editor sets up
   };
+}
+
+function parseNumericSpice(val: string): number {
+  const match = val.match(/^([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)(.*)$/);
+  if (!match) return parseFloat(val) || 0;
+  const num = parseFloat(match[1]);
+  const suffix = match[2].trim().toLowerCase();
+  switch (suffix) {
+    case 't': return num * 1e12;
+    case 'g': return num * 1e9;
+    case 'meg': return num * 1e6;
+    case 'k': return num * 1e3;
+    case 'm': return num * 1e-3;
+    case 'u': return num * 1e-6;
+    case 'n': return num * 1e-9;
+    case 'p': return num * 1e-12;
+    case 'f': return num * 1e-15;
+    default: return num;
+  }
 }
 
 function parseValue(val: string): string {
@@ -212,7 +285,7 @@ export async function parsePdsprjExperimental(buffer: ArrayBuffer, circuitName: 
           if (/^[A-Za-z]+\d+$/.test(str)) {
              lastRef = str;
              lastRotByte = bytes[i+2+len+10];
-          } else if (["RESISTOR", "CAPACITOR", "NPN", "DIODE", "ALTERNATOR", "BATTERY", "2N2222", "1N4148", "$IDC VOLTMETER", "$IDC AMMETER", "$IAC VOLTMETER", "$IAC AMMETER", "$IOSCILLOSCOPE", "GROUND", "GND", "$DCGEN", "$DCGN", "SINEWAVE", "VCC", "VSINE", "VSOURCE", "BATTERY", "TERMINAL", "$TEROUTPUT", "SlowSine", "FastSine"].includes(str)) {
+          } else if (["RESISTOR", "CAPACITOR", "NPN", "DIODE", "ALTERNATOR", "BATTERY", "2N2222", "1N4148", "$IDC VOLTMETER", "$IDC AMMETER", "$IAC VOLTMETER", "$IAC AMMETER", "$IOSCILLOSCOPE", "GROUND", "GND", "$DCGEN", "$DCGN", "SINEWAVE", "VCC", "VSINE", "VSOURCE", "BATTERY", "TERMINAL", "$TEROUTPUT", "SlowSine", "FastSine", "555", "NE555", "7805", "LM7805", "7400", "74HC00", "7404", "74HC04", "7408", "74HC08", "7432", "74HC32", "TL072", "LM358"].includes(str)) {
              const rawX = (view.getInt32(i+2+len, true) / 254000) * 20;
              const rawY = (view.getInt32(i+2+len+4, true) / 254000) * 20;
              
@@ -252,6 +325,34 @@ export async function parsePdsprjExperimental(buffer: ArrayBuffer, circuitName: 
              else if (str === "NPN" || str === "2N2222" || (lastRef || "").startsWith("Q")) { type = "npn"; params.model = "2N2222"; }
              else if ((lastRef || "").startsWith("I")) { type = "isource"; params.current = "1m"; }
              else if (str === "RESISTOR") { type = "resistor"; params.resistance = "10k"; }
+             else if (str === "555" || str === "NE555") { type = "ne555"; }
+             else if (str === "7805" || str === "LM7805") { type = "lm7805"; }
+             else if (str === "7812" || str === "LM7812") { type = "lm7812"; }
+             else if (str === "7400" || str === "74HC00") { type = "74hc00"; }
+             else if (str === "7402" || str === "74HC02") { type = "74hc02"; }
+             else if (str === "7404" || str === "74HC04") { type = "74hc04"; }
+             else if (str === "7408" || str === "74HC08") { type = "74hc08"; }
+             else if (str === "7432" || str === "74HC32") { type = "74hc32"; }
+             else if (str === "7486" || str === "74HC86") { type = "74hc86"; }
+             else if (str === "TL072") { type = "tl072"; }
+             else if (str === "LM358" || str === "OPAMP") { type = "opamp"; }
+             else if (str === "741" || str === "LM741") { type = "lm741"; }
+             else if (str === "324" || str === "LM324") { type = "lm324"; }
+             else if (str === "161" || str === "74161" || str === "74HC161") { type = "74hc161"; }
+             else if (str === "163" || str === "74163" || str === "74HC163") { type = "74hc163"; }
+             else if (str === "160" || str === "74160" || str === "74HC160") { type = "74hc160"; }
+             else if (str === "164" || str === "74164" || str === "74HC164") { type = "74hc164"; }
+             else if (str === "165" || str === "74165" || str === "74HC165") { type = "74hc165"; }
+             else if (str === "595" || str === "74595" || str === "74HC595") { type = "74hc595"; }
+             else if (str === "74" || str === "7474" || str === "74HC74") { type = "74hc74"; }
+             else if (str === "138" || str === "74138" || str === "74HC138") { type = "74hc138"; }
+             else if (str === "4017" || str === "CD4017") { type = "cd4017"; }
+             else if (str === "393" || str === "LM393") { type = "lm393"; }
+             else if (str === "317" || str === "LM317") { type = "lm317"; }
+             else if (str === "CLOCK" || str === "DCLOCK" || str === "PULSE" || str.includes("DCLOCK")) {
+               type = "clock";
+               params = { frequency: "1k", vhigh: "5", vlow: "0", duty: "50" };
+             }
              
              components.push({
                id: generateId("comp"),
@@ -266,7 +367,7 @@ export async function parsePdsprjExperimental(buffer: ArrayBuffer, circuitName: 
              lastRef = null;
           } else if (["$MKDECREMENT", "$MKLABEL", "$MKPINNAME"].includes(str)) {
               // Decorative markers — silently ignore, not real components
-          } else if (["PULSE", "TEXT"].includes(str)) {
+          } else if (["TEXT"].includes(str)) {
               // Known unsupported components
               unparsedRefs.push(`Unsupported: "${str}"${lastRef ? ` (ref: ${lastRef})` : ''}`);
               lastRef = null;
@@ -283,6 +384,9 @@ export async function parsePdsprjExperimental(buffer: ArrayBuffer, circuitName: 
     // Since our extracted component coordinates are actually the RefDes text label coordinates,
     // they are slightly off from the true center. We triangulate the true center using the wire endpoints!
     const exactProteusMap: Record<string, { dx: number, dy: number, myPinId: string }[]> = {
+        "clock": [
+            { dx: 0, dy: -50, myPinId: "1" }, { dx: 0, dy: 50, myPinId: "2" }
+        ],
         "resistor": [
             { dx: 0, dy: -50, myPinId: "1" }, { dx: 0, dy: 50, myPinId: "2" }
         ],

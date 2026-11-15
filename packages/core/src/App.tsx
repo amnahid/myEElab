@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Canvas } from './editor/Canvas';
 import { useEditorStore } from './store/editorStore';
-import { Undo, Redo, RotateCw, FlipHorizontal, Trash2, Settings, Eye, EyeOff, MoreHorizontal } from 'lucide-react';
+import { Undo, Redo, RotateCw, FlipHorizontal, Trash2, Settings, Eye, EyeOff, MoreHorizontal, Cpu, BookOpen } from 'lucide-react';
 import { NetlistGenerator } from './engine/netlist';
 import { WaveformViewer } from './editor/WaveformViewer';
 import { BodePlot } from './components/BodePlot';
@@ -12,6 +12,22 @@ import { ScopeWindow } from './components/ScopeWindow';
 import { NodeResolver } from './engine/nodeResolver';
 import { ComponentLibrary } from './engine/library';
 import { parseProteusNetlist, parsePdsprjExperimental } from './importers/proteus';
+import { ComponentBrowserModal } from './components/ComponentBrowserModal';
+
+const renderGenericIcon = (label: string) => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="5" y="4" width="14" height="16" rx="2" fill="currentColor" fillOpacity="0.1" />
+    <line x1="2" y1="8" x2="5" y2="8" />
+    <line x1="2" y1="12" x2="5" y2="12" />
+    <line x1="2" y1="16" x2="5" y2="16" />
+    <line x1="19" y1="8" x2="22" y2="8" />
+    <line x1="19" y1="12" x2="22" y2="12" />
+    <line x1="19" y1="16" x2="22" y2="16" />
+    <text x="12" y="14" textAnchor="middle" fontSize="6" fill="currentColor" stroke="none" fontWeight="bold">
+      {label}
+    </text>
+  </svg>
+);
 
 const ComponentIcons: Record<string, React.ReactNode> = {
   resistor: (
@@ -58,6 +74,14 @@ const ComponentIcons: Record<string, React.ReactNode> = {
       <path d="M 12 2 v 3" />
       <path d="M 12 19 v 3" />
       <path d="M 8 12 Q 10 8 12 12 T 16 12" />
+    </svg>
+  ),
+  clock: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="7" />
+      <path d="M 12 2 v 3" />
+      <path d="M 12 19 v 3" />
+      <path d="M 8 13.5 h 2 v -3 h 4 v 3 h 2" />
     </svg>
   ),
   isource: (
@@ -174,6 +198,23 @@ const ComponentIcons: Record<string, React.ReactNode> = {
       <path d="M4.93 4.93l2.83 2.83" />
     </svg>
   ),
+  ne555: renderGenericIcon("555"),
+  lm7805: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="5" y="2" width="14" height="6" fill="#bdc3c7" stroke="#7f8c8d" />
+      <circle cx="12" cy="5" r="1.5" fill="#7f8c8d" />
+      <rect x="5" y="8" width="14" height="10" rx="1" fill="currentColor" fillOpacity="0.2" />
+      <line x1="8" y1="18" x2="8" y2="23" />
+      <line x1="12" y1="18" x2="12" y2="23" />
+      <line x1="16" y1="18" x2="16" y2="23" />
+      <text x="12" y="15" textAnchor="middle" fontSize="5" fill="currentColor" stroke="none" fontWeight="bold">7805</text>
+    </svg>
+  ),
+  tl072: renderGenericIcon("TL072"),
+  "74hc00": renderGenericIcon("7400"),
+  "74hc04": renderGenericIcon("7404"),
+  "74hc08": renderGenericIcon("7408"),
+  "74hc32": renderGenericIcon("7432"),
   breadboard: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="6" width="20" height="12" rx="2" />
@@ -250,6 +291,14 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
       <rect x="4" y="4" width="16" height="16" fill="var(--foreground)" rx="2" />
       <rect x="6" y="6" width="12" height="6" fill="var(--ink)" rx="1" />
       <path d="M 8 9 Q 10 7 12 9 T 16 9" stroke="var(--signal)" strokeWidth="1.5" />
+      <circle cx="12" cy="16" r="2" fill="var(--accent)" />
+    </svg>
+  ),
+  clock: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="4" width="16" height="16" fill="var(--foreground)" rx="2" />
+      <rect x="6" y="6" width="12" height="6" fill="var(--ink)" rx="1" />
+      <path d="M 8 10 h 2 v -3 h 4 v 3 h 2" stroke="var(--signal)" strokeWidth="1.2" />
       <circle cx="12" cy="16" r="2" fill="var(--accent)" />
     </svg>
   ),
@@ -361,6 +410,81 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
       <path d="M12 18v4" stroke="var(--ink)" />
     </svg>
   ),
+  ne555: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="4" width="14" height="16" rx="1" fill="#1e272e" stroke="#111" />
+      <circle cx="12" cy="4" r="1.5" fill="#111" />
+      <circle cx="8" cy="7" r="0.8" fill="#718093" />
+      <line x1="2" y1="8" x2="5" y2="8" stroke="#bdc3c7" strokeWidth="2" />
+      <line x1="2" y1="12" x2="5" y2="12" stroke="#bdc3c7" strokeWidth="2" />
+      <line x1="2" y1="16" x2="5" y2="16" stroke="#bdc3c7" strokeWidth="2" />
+      <line x1="19" y1="8" x2="22" y2="8" stroke="#bdc3c7" strokeWidth="2" />
+      <line x1="19" y1="12" x2="22" y2="12" stroke="#bdc3c7" strokeWidth="2" />
+      <line x1="19" y1="16" x2="22" y2="16" stroke="#bdc3c7" strokeWidth="2" />
+      <text x="12" y="14" textAnchor="middle" fontSize="5.5" fill="#d2dae2" stroke="none" fontWeight="bold">555</text>
+    </svg>
+  ),
+  lm7805: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="5" y="2" width="14" height="6" fill="#bdc3c7" stroke="#7f8c8d" />
+      <circle cx="12" cy="5" r="1.5" fill="#7f8c8d" />
+      <rect x="5" y="8" width="14" height="10" rx="1" fill="#2c3e50" stroke="#1a252f" />
+      <line x1="8" y1="18" x2="8" y2="23" stroke="#bdc3c7" strokeWidth="2" />
+      <line x1="12" y1="18" x2="12" y2="23" stroke="#bdc3c7" strokeWidth="2" />
+      <line x1="16" y1="18" x2="16" y2="23" stroke="#bdc3c7" strokeWidth="2" />
+      <text x="12" y="15" textAnchor="middle" fontSize="5" fill="#ecf0f1" stroke="none" fontWeight="bold">7805</text>
+    </svg>
+  ),
+  tl072: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="4" width="14" height="16" rx="1" fill="#1e272e" stroke="#111" />
+      <circle cx="12" cy="4" r="1.5" fill="#111" />
+      <circle cx="8" cy="7" r="0.8" fill="#718093" />
+      <line x1="2" y1="8" x2="5" y2="8" stroke="#bdc3c7" strokeWidth="2" />
+      <line x1="2" y1="12" x2="5" y2="12" stroke="#bdc3c7" strokeWidth="2" />
+      <line x1="2" y1="16" x2="5" y2="16" stroke="#bdc3c7" strokeWidth="2" />
+      <line x1="19" y1="8" x2="22" y2="8" stroke="#bdc3c7" strokeWidth="2" />
+      <line x1="19" y1="12" x2="22" y2="12" stroke="#bdc3c7" strokeWidth="2" />
+      <line x1="19" y1="16" x2="22" y2="16" stroke="#bdc3c7" strokeWidth="2" />
+      <text x="12" y="14" textAnchor="middle" fontSize="4.5" fill="#d2dae2" stroke="none" fontWeight="bold">TL072</text>
+    </svg>
+  ),
+  "74hc00": (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="2" width="14" height="20" rx="1" fill="#1e272e" stroke="#111" />
+      <circle cx="12" cy="2" r="1.5" fill="#111" />
+      <line x1="2" y1="5" x2="5" y2="5" stroke="#bdc3c7" strokeWidth="1.5" />
+      <line x1="2" y1="8" x2="5" y2="8" stroke="#bdc3c7" strokeWidth="1.5" />
+      <line x1="2" y1="11" x2="5" y2="11" stroke="#bdc3c7" strokeWidth="1.5" />
+      <line x1="2" y1="14" x2="5" y2="14" stroke="#bdc3c7" strokeWidth="1.5" />
+      <line x1="19" y1="5" x2="22" y2="5" stroke="#bdc3c7" strokeWidth="1.5" />
+      <line x1="19" y1="8" x2="22" y2="8" stroke="#bdc3c7" strokeWidth="1.5" />
+      <line x1="19" y1="11" x2="22" y2="11" stroke="#bdc3c7" strokeWidth="1.5" />
+      <line x1="19" y1="14" x2="22" y2="14" stroke="#bdc3c7" strokeWidth="1.5" />
+      <text x="12" y="13" textAnchor="middle" fontSize="4.5" fill="#d2dae2" stroke="none" fontWeight="bold">7400</text>
+    </svg>
+  ),
+  "74hc04": (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="2" width="14" height="20" rx="1" fill="#1e272e" stroke="#111" />
+      <circle cx="12" cy="2" r="1.5" fill="#111" />
+      <text x="12" y="13" textAnchor="middle" fontSize="4.5" fill="#d2dae2" stroke="none" fontWeight="bold">7404</text>
+    </svg>
+  ),
+  "74hc08": (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="2" width="14" height="20" rx="1" fill="#1e272e" stroke="#111" />
+      <circle cx="12" cy="2" r="1.5" fill="#111" />
+      <text x="12" y="13" textAnchor="middle" fontSize="4.5" fill="#d2dae2" stroke="none" fontWeight="bold">7408</text>
+    </svg>
+  ),
+  "74hc32": (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="2" width="14" height="20" rx="1" fill="#1e272e" stroke="#111" />
+      <circle cx="12" cy="2" r="1.5" fill="#111" />
+      <text x="12" y="13" textAnchor="middle" fontSize="4.5" fill="#d2dae2" stroke="none" fontWeight="bold">7432</text>
+    </svg>
+  ),
   breadboard: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="6" width="20" height="12" fill="var(--panel)" stroke="var(--foreground)" strokeWidth="1" rx="2" />
@@ -379,6 +503,7 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
 function App() {
   const [importWarnings, setImportWarnings] = useState<string[] | null>(null);
   const [importComponentsOnly, setImportComponentsOnly] = useState(false);
+  const [isComponentBrowserOpen, setIsComponentBrowserOpen] = useState(false);
   const { mode, setMode, deleteSelected, circuit, rotateSelected, mirrorSelected, componentToPlace, activeAnalysis, setActiveAnalysis, updateAnalysis,
     setCustomModels,
     autoSimulate,
@@ -406,6 +531,18 @@ function App() {
   const [activeScopeId, setActiveScopeId] = useState<string | null>(null);
   const [showAnalysisSettings, setShowAnalysisSettings] = useState(false);
   const [showMoreComponents, setShowMoreComponents] = useState(false);
+  const moreComponentsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMoreComponents) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreComponentsRef.current && !moreComponentsRef.current.contains(e.target as Node)) {
+        setShowMoreComponents(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMoreComponents]);
 
   const componentsContainerRef = useRef<HTMLDivElement>(null);
   const [maxVisibleComponents, setMaxVisibleComponents] = useState(6);
@@ -598,6 +735,8 @@ function App() {
         rotateSelected();
       } else if (e.key === 'm') {
         mirrorSelected();
+      } else if ((e.key === 'p' || e.key === 'a') && !e.ctrlKey && !e.metaKey && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+        setIsComponentBrowserOpen(true);
       } else if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
         if (e.shiftKey) {
           useEditorStore.temporal.getState().redo();
@@ -704,6 +843,26 @@ function App() {
               />
               Components Only
             </label>
+            <button
+              onClick={() => setIsComponentBrowserOpen(true)}
+              style={{
+                padding: '6px 14px',
+                background: 'var(--panel)',
+                color: 'var(--text)',
+                border: `1px solid var(--border)`,
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+              title="Browse Component Library & Footprints (Press P or A)"
+            >
+              <Cpu size={16} color="var(--signal)" />
+              Component Library (P)
+            </button>
           </div>
         </div>
         
@@ -943,7 +1102,27 @@ function App() {
 
           <div style={{ width: '80%', height: '1px', backgroundColor: colors.border }} />
 
-                    <div ref={componentsContainerRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', alignItems: 'center', overflow: 'visible' }}>
+          <button 
+            onClick={() => setIsComponentBrowserOpen(true)}
+            style={{ 
+              padding: '8px', 
+              background: isComponentBrowserOpen ? 'var(--highlight)' : 'transparent', 
+              border: `1px solid var(--border)`, 
+              color: colors.text, 
+              cursor: 'pointer', 
+              borderRadius: '5px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '38px',
+              height: '38px'
+            }}
+            title="Browse Component Library (P / A)"
+          >
+            <BookOpen size={18} color="var(--signal)" />
+          </button>
+
+          <div ref={componentsContainerRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', alignItems: 'center', overflow: 'visible' }}>
             {Object.entries(ComponentLibrary).slice(0, maxVisibleComponents).map(([type, comp]) => (
               <button 
                 key={type}
@@ -969,13 +1148,13 @@ function App() {
                 }}
               >
                 <div style={{ transform: 'scale(1.2)', transformOrigin: 'center', display: 'flex' }}>
-                  {activeView === 'breadboard' ? PhysicalComponentIcons[type] : ComponentIcons[type]}
+                  {activeView === 'breadboard' ? (PhysicalComponentIcons[type] || ComponentIcons[type] || renderGenericIcon(type.slice(0, 4).toUpperCase())) : (ComponentIcons[type] || renderGenericIcon(type.slice(0, 4).toUpperCase()))}
                 </div>
               </button>
             ))}
 
             {Object.keys(ComponentLibrary).length > maxVisibleComponents && (
-            <div style={{ position: 'relative' }}>
+            <div ref={moreComponentsRef} style={{ position: 'relative' }}>
               <button 
                 onClick={() => setShowMoreComponents(!showMoreComponents)}
                 style={{ padding: '8px', background: showMoreComponents ? 'var(--highlight)' : 'transparent', border: 'none', color: colors.text, cursor: 'pointer', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -988,49 +1167,99 @@ function App() {
                 <div style={{
                   position: 'absolute',
                   left: '100%',
-                  top: '-150%',
+                  bottom: '0',
                   marginLeft: '15px',
                   background: colors.panelBg,
                   border: `1px solid ${colors.border}`,
-                  borderRadius: '5px',
-                  padding: '10px',
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  width: '260px',
+                  maxHeight: 'min(520px, calc(100vh - 120px))',
+                  display: 'flex',
+                  flexDirection: 'column',
                   gap: '8px',
                   zIndex: 1000,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                  boxSizing: 'border-box'
                 }}>
-                  {Object.entries(ComponentLibrary).slice(maxVisibleComponents).map(([type, comp]) => (
-                    <button 
-                      key={type}
-                      title={`Place ${comp.name || type}`}
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('componentType', type);
-                        e.dataTransfer.effectAllowed = 'copy';
-                        setShowMoreComponents(false);
-                      }}
+                  {/* Popover Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${colors.border}`, paddingBottom: '6px' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: colors.text, opacity: 0.8, letterSpacing: '0.5px' }}>
+                      COMPONENTS ({Object.keys(ComponentLibrary).length - maxVisibleComponents})
+                    </span>
+                    <button
                       onClick={() => {
-                        setMode('place', type);
                         setShowMoreComponents(false);
+                        setIsComponentBrowserOpen(true);
                       }}
                       style={{
-                        background: mode === 'place' && componentToPlace === type ? 'var(--highlight)' : 'transparent',
+                        background: 'transparent',
                         border: 'none',
-                        color: colors.text,
-                        padding: '8px',
-                        borderRadius: '5px',
-                        cursor: 'grab',
+                        color: 'var(--highlight)',
+                        fontSize: '0.75rem',
+                        cursor: 'pointer',
+                        padding: '2px 4px',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
+                        gap: '4px',
+                        borderRadius: '3px'
                       }}
+                      title="Open Full Component Library Browser"
                     >
-                      <div style={{ transform: 'scale(1.2)', transformOrigin: 'center', display: 'flex' }}>
-                        {activeView === 'breadboard' ? PhysicalComponentIcons[type] : ComponentIcons[type]}
-                      </div>
+                      <BookOpen size={13} />
+                      <span>Catalog</span>
                     </button>
-                  ))}
+                  </div>
+
+                  {/* Scrollable Component Grid */}
+                  <div style={{
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '6px',
+                    paddingRight: '4px',
+                    maxHeight: '440px'
+                  }}>
+                    {Object.entries(ComponentLibrary).slice(maxVisibleComponents).map(([type, comp]) => (
+                      <button 
+                        key={type}
+                        title={`Place ${comp.name || type}`}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('componentType', type);
+                          e.dataTransfer.effectAllowed = 'copy';
+                          setShowMoreComponents(false);
+                        }}
+                        onClick={() => {
+                          setMode('place', type);
+                          setShowMoreComponents(false);
+                        }}
+                        style={{
+                          background: mode === 'place' && componentToPlace === type ? 'var(--highlight)' : 'transparent',
+                          border: `1px solid ${colors.border}`,
+                          color: colors.text,
+                          padding: '6px 4px',
+                          borderRadius: '5px',
+                          cursor: 'grab',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '3px',
+                          minHeight: '46px',
+                          boxSizing: 'border-box'
+                        }}
+                      >
+                        <div style={{ transform: 'scale(1.1)', transformOrigin: 'center', display: 'flex' }}>
+                          {activeView === 'breadboard' ? (PhysicalComponentIcons[type] || ComponentIcons[type] || renderGenericIcon(type.slice(0, 4).toUpperCase())) : (ComponentIcons[type] || renderGenericIcon(type.slice(0, 4).toUpperCase()))}
+                        </div>
+                        <span style={{ fontSize: '0.62rem', color: colors.text, opacity: 0.75, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '64px', textAlign: 'center' }}>
+                          {comp.name || type}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -1169,6 +1398,14 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Component Library Browser (EasyEDA & KiCad Style) */}
+      <ComponentBrowserModal
+        isOpen={isComponentBrowserOpen}
+        onClose={() => setIsComponentBrowserOpen(false)}
+        onSelectComponent={(type) => setMode('place', type)}
+        theme={theme}
+      />
     </div>
   );
 }

@@ -23,7 +23,6 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
   const [mousePos, setMousePos] = useState<{x: number, y: number} | null>(null);
   const [previewSnapPos, setPreviewSnapPos] = useState<{x: number, y: number} | null>(null);
   const [drawingWirePoints, setDrawingWirePoints] = useState<{x: number, y: number}[]>([]);
-  const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
 
   // Compute ratlines (breadboard to schematic sync)
   const ratlines = useMemo(() => deriveBreadboardWires(circuit), [circuit]);
@@ -890,8 +889,6 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
                     useEditorStore.temporal.getState().resume();
                     updateComponentPosition(comp.id, newPos);
                   }}
-                  onMouseEnter={() => setHoveredComponentId(comp.id)}
-                  onMouseLeave={() => setHoveredComponentId(null)}
                 />
               );
             };
@@ -954,10 +951,8 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
             />
           )}
           
-          {/* Pin Indicators */}
-          {(mode === 'wire' || hoveredComponentId !== null) && visibleComponents.flatMap(comp => {
-            if (mode !== 'wire' && comp.id !== hoveredComponentId) return [];
-            
+          {/* Pin Indicators (Only visible in Wire Mode for snapping) */}
+          {mode === 'wire' && visibleComponents.flatMap(comp => {
             const libComp = ComponentLibrary[comp.type];
             if (!libComp) return [];
             const rot = comp.rotation;
@@ -977,36 +972,16 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
                   return (
                     <Group key={`${comp.id}-${pin.id}`} x={renderPos.x + rotatedOffsetX} y={renderPos.y + rotatedOffsetY}>
                       <Circle
-                        radius={4}
+                        radius={3.5}
                         fill="white"
                         stroke="#e74c3c"
-                        strokeWidth={2}
+                        strokeWidth={1.5}
                         listening={false}
                       />
-                      {pin.label && hoveredComponentId === comp.id && mode !== 'wire' && (
-                        <Label x={6} y={-10}>
-                          <Tag fill={theme === 'dark' ? '#30383E' : '#EEEAE4'} cornerRadius={2} opacity={0.9} />
-                          <Text text={pin.label} padding={3} fill={theme === 'dark' ? '#EEEAE4' : '#30383E'} fontSize={10} />
-                        </Label>
-                      )}
                     </Group>
                   );
                 })}
               </React.Fragment>
-            );
-          })}
-          
-          {/* Component Name Tooltips */}
-          {hoveredComponentId !== null && mode !== 'wire' && visibleComponents.map(comp => {
-            if (comp.id !== hoveredComponentId) return null;
-            const libComp = ComponentLibrary[comp.type];
-            if (!libComp) return null;
-            const name = libComp.name || comp.type.charAt(0).toUpperCase() + comp.type.slice(1);
-            return (
-              <Label key={`tooltip-${comp.id}`} x={comp.position.x + 20} y={comp.position.y - 20}>
-                <Tag fill={theme === 'dark' ? '#30383E' : '#EEEAE4'} cornerRadius={3} pointerDirection="down" pointerWidth={10} pointerHeight={10} shadowColor="black" shadowBlur={5} shadowOpacity={0.3} />
-                <Text text={name} padding={5} fill={theme === 'dark' ? '#EEEAE4' : '#30383E'} fontSize={12} />
-              </Label>
             );
           })}
 

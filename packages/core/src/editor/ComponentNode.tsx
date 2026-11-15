@@ -38,7 +38,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
   const { type, position, color } = component;
   const defaultStroke = theme === 'dark' ? '#EEEAE4' : '#30383E';
   
-  const libComp = ComponentLibrary[type];
+  const libComp = component.customDefinition || ComponentLibrary[type];
   const maxPower = libComp?.maxPower || Infinity;
   const power = powerDissipation || 0;
   const isBurnt = power >= maxPower && maxPower < Infinity;
@@ -119,6 +119,15 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[0, -20, 0, -10]} stroke={strokeColor} strokeWidth={2} />
             <Circle x={0} y={0} radius={10} stroke={strokeColor} strokeWidth={2} />
             <Path data="M -5 0 Q -2.5 -5 0 0 T 5 0" stroke={strokeColor} strokeWidth={2} fill="transparent" />
+            <Line points={[0, 10, 0, 20]} stroke={strokeColor} strokeWidth={2} />
+          </Group>
+        );
+      case 'clock':
+        return (
+          <Group>
+            <Line points={[0, -20, 0, -10]} stroke={strokeColor} strokeWidth={2} />
+            <Circle x={0} y={0} radius={10} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-5, 2, -2, 2, -2, -3, 2, -3, 2, 2, 5, 2]} stroke={strokeColor} strokeWidth={1.5} />
             <Line points={[0, 10, 0, 20]} stroke={strokeColor} strokeWidth={2} />
           </Group>
         );
@@ -301,8 +310,227 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
           </Group>
         );
       }
-      default:
+      default: {
+        const pins = libComp?.pins || [];
+        if (pins.length >= 2) {
+          // Identify top/bottom power pins vs side pins
+          const isVccPin = (p: typeof pins[0]) => {
+            const lbl = (p.label || '').toUpperCase();
+            return lbl.includes('VCC') || lbl.includes('VDD') || lbl === 'V+' || (p.offset.x === 0 && p.offset.y < 0);
+          };
+          const isGndPin = (p: typeof pins[0]) => {
+            const lbl = (p.label || '').toUpperCase();
+            return lbl.includes('GND') || lbl.includes('VSS') || lbl === 'V-' || (p.offset.x === 0 && p.offset.y > 0);
+          };
+
+          const topPins = pins.filter(p => isVccPin(p));
+          const bottomPins = pins.filter(p => isGndPin(p));
+          const sidePins = pins.filter(p => !isVccPin(p) && !isGndPin(p));
+
+          const leftPins = sidePins.filter(p => p.offset.x < 0);
+          const rightPins = sidePins.filter(p => p.offset.x >= 0);
+
+          // Compute vertical bounds from side pins
+          const sideYs = sidePins.map(p => p.offset.y);
+          const minSideY = sideYs.length > 0 ? Math.min(...sideYs) : Math.min(...pins.map(p => p.offset.y));
+          const maxSideY = sideYs.length > 0 ? Math.max(...sideYs) : Math.max(...pins.map(p => p.offset.y));
+
+          // Box vertical limits with clean padding
+          const boxTop = Math.min(-20, minSideY - 15);
+          const boxBottom = Math.max(20, maxSideY + 15);
+          const boxH = boxBottom - boxTop;
+
+          // Box horizontal limits: 
+          // Standard width is 100 (-50 to 50) when side pins are at -70/70
+          const minLeftX = leftPins.length > 0 ? Math.min(...leftPins.map(p => p.offset.x)) : -70;
+          const maxRightX = rightPins.length > 0 ? Math.max(...rightPins.map(p => p.offset.x)) : 70;
+
+          const boxLeft = Math.min(-35, minLeftX <= -50 ? -50 : minLeftX + 10);
+          const boxRight = Math.max(35, maxRightX >= 50 ? 50 : maxRightX - 10);
+          const boxW = boxRight - boxLeft;
+
+          // Concise title: Part model (e.g. "74HC164") instead of long wrapped description
+          const partTitle = (component.params?.model as string) || (libComp?.name ? libComp.name.split(' ')[0] : type.toUpperCase());
+          const centerY = (boxTop + boxBottom) / 2;
+          const pinNumColor = theme === 'dark' ? '#E53E3E' : '#C53030';
+
+          return (
+            <Group>
+              {/* Main IC Body Box */}
+              <Rect
+                x={boxLeft}
+                y={boxTop}
+                width={boxW}
+                height={boxH}
+                fill={theme === 'dark' ? '#20252A' : '#EEEAE4'}
+                stroke={strokeColor}
+                strokeWidth={2}
+                cornerRadius={2}
+              />
+
+              {/* IC Notch at top edge */}
+              <Path
+                data={`M -8 ${boxTop} A 8 8 0 0 0 8 ${boxTop}`}
+                stroke={strokeColor}
+                strokeWidth={1.5}
+                fill="transparent"
+              />
+
+              {/* Centered RefDes & Part Name */}
+              <UnmirroredText
+                text={component.refDes || 'U?'}
+                x={boxLeft}
+                y={centerY - 14}
+                width={boxW}
+                align="center"
+                fontSize={11}
+                fontStyle="bold"
+                fill={subTextColor}
+                mirrored={component.mirrored}
+              />
+              <UnmirroredText
+                text={partTitle}
+                x={boxLeft}
+                y={centerY + 2}
+                width={boxW}
+                align="center"
+                fontSize={12}
+                fontStyle="bold"
+                fill={textColor}
+                mirrored={component.mirrored}
+              />
+
+              {/* Top Pins (VCC / V+) */}
+              {topPins.map(pin => (
+                <Group key={pin.id}>
+                  {/* Vertical lead to top edge */}
+                  <Line points={[pin.offset.x, pin.offset.y, pin.offset.x, boxTop]} stroke={strokeColor} strokeWidth={2} />
+                  <Circle x={pin.offset.x} y={pin.offset.y} radius={2} fill={strokeColor} />
+                  {/* Pin Number outside */}
+                  <UnmirroredText
+                    text={pin.id}
+                    x={pin.offset.x + 4}
+                    y={(pin.offset.y + boxTop) / 2 - 5}
+                    fontSize={8}
+                    fill={pinNumColor}
+                    fontStyle="bold"
+                    mirrored={component.mirrored}
+                  />
+                  {/* Pin Label inside box */}
+                  <UnmirroredText
+                    text={pin.label}
+                    x={pin.offset.x - 20}
+                    y={boxTop + 6}
+                    width={40}
+                    align="center"
+                    fontSize={9}
+                    fontStyle="bold"
+                    fill={textColor}
+                    mirrored={component.mirrored}
+                  />
+                </Group>
+              ))}
+
+              {/* Bottom Pins (GND / V-) */}
+              {bottomPins.map(pin => (
+                <Group key={pin.id}>
+                  {/* Vertical lead to bottom edge */}
+                  <Line points={[pin.offset.x, pin.offset.y, pin.offset.x, boxBottom]} stroke={strokeColor} strokeWidth={2} />
+                  <Circle x={pin.offset.x} y={pin.offset.y} radius={2} fill={strokeColor} />
+                  {/* Pin Number outside */}
+                  <UnmirroredText
+                    text={pin.id}
+                    x={pin.offset.x + 4}
+                    y={(pin.offset.y + boxBottom) / 2 - 5}
+                    fontSize={8}
+                    fill={pinNumColor}
+                    fontStyle="bold"
+                    mirrored={component.mirrored}
+                  />
+                  {/* Pin Label inside box */}
+                  <UnmirroredText
+                    text={pin.label}
+                    x={pin.offset.x - 20}
+                    y={boxBottom - 16}
+                    width={40}
+                    align="center"
+                    fontSize={9}
+                    fontStyle="bold"
+                    fill={textColor}
+                    mirrored={component.mirrored}
+                  />
+                </Group>
+              ))}
+
+              {/* Left Side Pins */}
+              {leftPins.map(pin => (
+                <Group key={pin.id}>
+                  {/* Horizontal lead to left edge */}
+                  <Line points={[pin.offset.x, pin.offset.y, boxLeft, pin.offset.y]} stroke={strokeColor} strokeWidth={2} />
+                  <Circle x={pin.offset.x} y={pin.offset.y} radius={2} fill={strokeColor} />
+                  {/* Pin Number outside above lead */}
+                  <UnmirroredText
+                    text={pin.id}
+                    x={pin.offset.x + 4}
+                    y={pin.offset.y - 11}
+                    fontSize={8}
+                    fill={pinNumColor}
+                    fontStyle="bold"
+                    align="left"
+                    mirrored={component.mirrored}
+                  />
+                  {/* Pin Label inside box beside left edge */}
+                  <UnmirroredText
+                    text={pin.label}
+                    x={boxLeft + 6}
+                    y={pin.offset.y - 5}
+                    width={38}
+                    fontSize={9}
+                    fontStyle="bold"
+                    fill={textColor}
+                    align="left"
+                    mirrored={component.mirrored}
+                  />
+                </Group>
+              ))}
+
+              {/* Right Side Pins */}
+              {rightPins.map(pin => (
+                <Group key={pin.id}>
+                  {/* Horizontal lead to right edge */}
+                  <Line points={[boxRight, pin.offset.y, pin.offset.x, pin.offset.y]} stroke={strokeColor} strokeWidth={2} />
+                  <Circle x={pin.offset.x} y={pin.offset.y} radius={2} fill={strokeColor} />
+                  {/* Pin Number outside above lead */}
+                  <UnmirroredText
+                    text={pin.id}
+                    x={pin.offset.x - 18}
+                    y={pin.offset.y - 11}
+                    width={14}
+                    fontSize={8}
+                    fill={pinNumColor}
+                    fontStyle="bold"
+                    align="right"
+                    mirrored={component.mirrored}
+                  />
+                  {/* Pin Label inside box beside right edge */}
+                  <UnmirroredText
+                    text={pin.label}
+                    x={boxRight - 44}
+                    y={pin.offset.y - 5}
+                    width={38}
+                    fontSize={9}
+                    fontStyle="bold"
+                    fill={textColor}
+                    align="right"
+                    mirrored={component.mirrored}
+                  />
+                </Group>
+              ))}
+            </Group>
+          );
+        }
         return <Circle radius={10} fill="red" />;
+      }
     }
   };
 
@@ -521,6 +749,30 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
               <Circle x={0} y={20} radius={6} fill="#bdc3c7" />
               <Circle x={0} y={20} radius={3} fill="#111" />
               <UnmirroredText text="-" x={-20} y={15} width={10} align="center" fontSize={12} fill="#ecf0f1" fontStyle="bold" mirrored={component.mirrored} />
+            </Group>
+          );
+      }
+      case 'clock': {
+          const freqStr = String(component.params?.frequency || '1k');
+          const vhigh = String(component.params?.vhigh || '5');
+          const duty = String(component.params?.duty || '50');
+          return (
+            <Group>
+              <Rect x={-140} y={-50} width={160} height={100} fill="#2c3e50" cornerRadius={6} stroke={isSelected ? '#3498db' : '#1a252f'} strokeWidth={isSelected ? 3 : 2} />
+              <Rect x={-125} y={-40} width={90} height={35} fill="#000" cornerRadius={4} />
+              <UnmirroredText text={`${freqStr}Hz`} x={-125} y={-38} width={90} align="center" fontSize={14} fill="#2ecc71" fontStyle="bold" mirrored={component.mirrored} />
+              <UnmirroredText text={`${vhigh}V ${duty}%`} x={-125} y={-18} width={90} align="center" fontSize={11} fill="#3498db" mirrored={component.mirrored} />
+              <UnmirroredText text="DIGITAL CLOCK" x={-135} y={5} width={100} align="center" fontSize={9} fill="#bdc3c7" fontStyle="bold" mirrored={component.mirrored} />
+              
+              {/* + Output Port */}
+              <Circle x={0} y={-20} radius={6} fill="#e74c3c" />
+              <Circle x={0} y={-20} radius={3} fill="#111" />
+              <UnmirroredText text="CLK" x={-25} y={-25} width={20} align="center" fontSize={9} fill="#e74c3c" fontStyle="bold" mirrored={component.mirrored} />
+
+              {/* - Output Port */}
+              <Circle x={0} y={20} radius={6} fill="#34495e" />
+              <Circle x={0} y={20} radius={3} fill="#111" />
+              <UnmirroredText text="GND" x={-25} y={15} width={20} align="center" fontSize={9} fill="#ecf0f1" fontStyle="bold" mirrored={component.mirrored} />
             </Group>
           );
       }
@@ -837,12 +1089,243 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
           </Group>
         );
       }
-      default:
+      default: {
+        const pins = libComp?.pins || [];
+        if (pins.length >= 2) {
+          // Identify top/bottom power pins vs side pins
+          const isVccPin = (p: typeof pins[0]) => {
+            const lbl = (p.label || '').toUpperCase();
+            return lbl.includes('VCC') || lbl.includes('VDD') || lbl === 'V+' || (p.offset.x === 0 && p.offset.y < 0);
+          };
+          const isGndPin = (p: typeof pins[0]) => {
+            const lbl = (p.label || '').toUpperCase();
+            return lbl.includes('GND') || lbl.includes('VSS') || lbl === 'V-' || (p.offset.x === 0 && p.offset.y > 0);
+          };
+
+          const topPins = pins.filter(p => isVccPin(p));
+          const bottomPins = pins.filter(p => isGndPin(p));
+          const sidePins = pins.filter(p => !isVccPin(p) && !isGndPin(p));
+
+          const leftPins = sidePins.filter(p => p.offset.x < 0);
+          const rightPins = sidePins.filter(p => p.offset.x >= 0);
+
+          // Compute vertical bounds from side pins
+          const sideYs = sidePins.map(p => p.offset.y);
+          const minSideY = sideYs.length > 0 ? Math.min(...sideYs) : Math.min(...pins.map(p => p.offset.y));
+          const maxSideY = sideYs.length > 0 ? Math.max(...sideYs) : Math.max(...pins.map(p => p.offset.y));
+
+          // Box vertical limits with clean padding
+          const boxTop = Math.min(-20, minSideY - 15);
+          const boxBottom = Math.max(20, maxSideY + 15);
+          const boxH = boxBottom - boxTop;
+
+          // Box horizontal limits: 
+          // Standard width is 100 (-50 to 50) when side pins are at -70/70
+          const minLeftX = leftPins.length > 0 ? Math.min(...leftPins.map(p => p.offset.x)) : -70;
+          const maxRightX = rightPins.length > 0 ? Math.max(...rightPins.map(p => p.offset.x)) : 70;
+
+          const boxLeft = Math.min(-35, minLeftX <= -50 ? -50 : minLeftX + 10);
+          const boxRight = Math.max(35, maxRightX >= 50 ? 50 : maxRightX - 10);
+          const boxW = boxRight - boxLeft;
+
+          // Concise title: Part model (e.g. "74HC164") instead of long wrapped description
+          const partTitle = (component.params?.model as string) || (libComp?.name ? libComp.name.split(' ')[0] : type.toUpperCase());
+          const centerY = (boxTop + boxBottom) / 2;
+          const pinNumColor = theme === 'dark' ? '#E53E3E' : '#C53030';
+
+          return (
+            <Group>
+              {/* Main IC Body Box */}
+              <Rect
+                x={boxLeft}
+                y={boxTop}
+                width={boxW}
+                height={boxH}
+                fill={theme === 'dark' ? '#20252A' : '#EEEAE4'}
+                stroke={strokeColor}
+                strokeWidth={2}
+                cornerRadius={2}
+              />
+
+              {/* IC Notch at top edge */}
+              <Path
+                data={`M -8 ${boxTop} A 8 8 0 0 0 8 ${boxTop}`}
+                stroke={strokeColor}
+                strokeWidth={1.5}
+                fill="transparent"
+              />
+
+              {/* Centered RefDes & Part Name */}
+              <UnmirroredText
+                text={component.refDes || 'U?'}
+                x={boxLeft}
+                y={centerY - 14}
+                width={boxW}
+                align="center"
+                fontSize={11}
+                fontStyle="bold"
+                fill={subTextColor}
+                mirrored={component.mirrored}
+              />
+              <UnmirroredText
+                text={partTitle}
+                x={boxLeft}
+                y={centerY + 2}
+                width={boxW}
+                align="center"
+                fontSize={12}
+                fontStyle="bold"
+                fill={textColor}
+                mirrored={component.mirrored}
+              />
+
+              {/* Top Pins (VCC / V+) */}
+              {topPins.map(pin => (
+                <Group key={pin.id}>
+                  {/* Vertical lead to top edge */}
+                  <Line points={[pin.offset.x, pin.offset.y, pin.offset.x, boxTop]} stroke={strokeColor} strokeWidth={2} />
+                  <Circle x={pin.offset.x} y={pin.offset.y} radius={2} fill={strokeColor} />
+                  {/* Pin Number outside */}
+                  <UnmirroredText
+                    text={pin.id}
+                    x={pin.offset.x + 4}
+                    y={(pin.offset.y + boxTop) / 2 - 5}
+                    fontSize={8}
+                    fill={pinNumColor}
+                    fontStyle="bold"
+                    mirrored={component.mirrored}
+                  />
+                  {/* Pin Label inside box */}
+                  <UnmirroredText
+                    text={pin.label}
+                    x={pin.offset.x - 20}
+                    y={boxTop + 6}
+                    width={40}
+                    align="center"
+                    fontSize={9}
+                    fontStyle="bold"
+                    fill={textColor}
+                    mirrored={component.mirrored}
+                  />
+                </Group>
+              ))}
+
+              {/* Bottom Pins (GND / V-) */}
+              {bottomPins.map(pin => (
+                <Group key={pin.id}>
+                  {/* Vertical lead to bottom edge */}
+                  <Line points={[pin.offset.x, pin.offset.y, pin.offset.x, boxBottom]} stroke={strokeColor} strokeWidth={2} />
+                  <Circle x={pin.offset.x} y={pin.offset.y} radius={2} fill={strokeColor} />
+                  {/* Pin Number outside */}
+                  <UnmirroredText
+                    text={pin.id}
+                    x={pin.offset.x + 4}
+                    y={(pin.offset.y + boxBottom) / 2 - 5}
+                    fontSize={8}
+                    fill={pinNumColor}
+                    fontStyle="bold"
+                    mirrored={component.mirrored}
+                  />
+                  {/* Pin Label inside box */}
+                  <UnmirroredText
+                    text={pin.label}
+                    x={pin.offset.x - 20}
+                    y={boxBottom - 16}
+                    width={40}
+                    align="center"
+                    fontSize={9}
+                    fontStyle="bold"
+                    fill={textColor}
+                    mirrored={component.mirrored}
+                  />
+                </Group>
+              ))}
+
+              {/* Left Side Pins */}
+              {leftPins.map(pin => (
+                <Group key={pin.id}>
+                  {/* Horizontal lead to left edge */}
+                  <Line points={[pin.offset.x, pin.offset.y, boxLeft, pin.offset.y]} stroke={strokeColor} strokeWidth={2} />
+                  <Circle x={pin.offset.x} y={pin.offset.y} radius={2} fill={strokeColor} />
+                  {/* Pin Number outside above lead */}
+                  <UnmirroredText
+                    text={pin.id}
+                    x={pin.offset.x + 4}
+                    y={pin.offset.y - 11}
+                    fontSize={8}
+                    fill={pinNumColor}
+                    fontStyle="bold"
+                    align="left"
+                    mirrored={component.mirrored}
+                  />
+                  {/* Pin Label inside box beside left edge */}
+                  <UnmirroredText
+                    text={pin.label}
+                    x={boxLeft + 6}
+                    y={pin.offset.y - 5}
+                    width={38}
+                    fontSize={9}
+                    fontStyle="bold"
+                    fill={textColor}
+                    align="left"
+                    mirrored={component.mirrored}
+                  />
+                </Group>
+              ))}
+
+              {/* Right Side Pins */}
+              {rightPins.map(pin => (
+                <Group key={pin.id}>
+                  {/* Horizontal lead to right edge */}
+                  <Line points={[boxRight, pin.offset.y, pin.offset.x, pin.offset.y]} stroke={strokeColor} strokeWidth={2} />
+                  <Circle x={pin.offset.x} y={pin.offset.y} radius={2} fill={strokeColor} />
+                  {/* Pin Number outside above lead */}
+                  <UnmirroredText
+                    text={pin.id}
+                    x={pin.offset.x - 18}
+                    y={pin.offset.y - 11}
+                    width={14}
+                    fontSize={8}
+                    fill={pinNumColor}
+                    fontStyle="bold"
+                    align="right"
+                    mirrored={component.mirrored}
+                  />
+                  {/* Pin Label inside box beside right edge */}
+                  <UnmirroredText
+                    text={pin.label}
+                    x={boxRight - 44}
+                    y={pin.offset.y - 5}
+                    width={38}
+                    fontSize={9}
+                    fontStyle="bold"
+                    fill={textColor}
+                    align="right"
+                    mirrored={component.mirrored}
+                  />
+                </Group>
+              ))}
+            </Group>
+          );
+        }
         return <Circle radius={10} fill="red" />;
+      }
     }
   };
 
   const renderLabels = () => {
+    // If it's a generic IC, RefDes and Part Title are already cleanly rendered inside the body box!
+    const isGenericIC = ![
+      'resistor', 'capacitor', 'inductor', 'transformer', 'vsource',
+      'function_generator', 'isource', 'ground', 'diode', 'led', 'zener',
+      'npn', 'pnp', 'nmos', 'pmos', 'opamp', 'oscilloscope', 'multimeter',
+      'pushbutton', 'breadboard'
+    ].includes(type);
+
+    if (isGenericIC) {
+      return null;
+    }
+
     const isHorizontal = (component.rotation === 90 || component.rotation === 270);
     const isNativeHorizontal = (type === 'opamp' || type === 'multimeter');
     const isEffectivelyHorizontal = isNativeHorizontal ? !isHorizontal : isHorizontal;
@@ -878,6 +1361,8 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
     let valStr: string | null = null;
     if (type === 'function_generator' || (type === 'vsource' && component.params?.type === 'sin')) {
        valStr = `${component.params?.amplitude || 5}V ${component.params?.frequency || '1k'}Hz`;
+    } else if (type === 'clock') {
+       valStr = `${component.params?.frequency || '1k'}Hz (${component.params?.vhigh || 5}V)`;
     } else if (type === 'transformer') {
        valStr = `${component.params?.L1 || '1m'}H, ${component.params?.L2 || '1m'}H`;
     } else {

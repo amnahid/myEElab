@@ -10,9 +10,34 @@ export interface Pin {
 
 }
 
+export type PackageType = 'discrete' | 'dip8' | 'dip14' | 'dip16' | 'to92' | 'to220' | 'custom';
+
+export interface ComponentSpiceConfig {
+  prefix: 'R' | 'C' | 'L' | 'D' | 'Q' | 'M' | 'X' | 'V' | 'I' | 'SW' | 'TX';
+  modelType?: 'primitive' | 'subcircuit' | 'model';
+  subcircuitName?: string;
+  subcircuitBody?: string;
+  pinOrder?: string[]; // IDs or labels of pins matching the .subckt port declaration
+}
+
+export interface ComponentDefinition {
+  type: string;
+  name?: string;
+  category?: 'passives' | 'sources' | 'semiconductors' | 'analog_ic' | 'digital_logic' | 'power' | 'instruments' | 'inputs' | 'custom';
+  pins: Pin[];
+  package?: PackageType;
+  defaultParams?: Record<string, string | number>;
+  maxPower?: number;
+  spice?: ComponentSpiceConfig;
+  description?: string;
+  manufacturer?: string;
+  keywords?: string[];
+  datasheet?: string;
+}
+
 export interface ComponentInstance {
   id: string;                                 // unique within the circuit
-  type: string;                                // "resistor" | "capacitor" | "vsource" | "inductor" | "isource" | "ground" | "transformer"
+  type: string;                                // "resistor" | "capacitor" | "vsource" | ...
   position: Point;
   rotation: 0 | 90 | 180 | 270;
 
@@ -20,6 +45,7 @@ export interface ComponentInstance {
   color?: string;
   params: Record<string, number | string>;      // e.g. { resistance: 1000 }
   refDes?: string;                               // "R1", "C3" — assigned at netlist-gen time if absent
+  customDefinition?: ComponentDefinition;       // Custom/imported definition if not in standard library
 }
 
 export interface Wire {
@@ -40,6 +66,7 @@ export interface Circuit {
   wires: Wire[];
   analyses: AnalysisConfig[];
   customModels?: string; // User-provided .model or .subckt definitions
+  customComponents?: Record<string, ComponentDefinition>; // User-imported custom components
   breadboard?: Breadboard;
   warnings?: string[]; // E.g. unparsed components
 }
