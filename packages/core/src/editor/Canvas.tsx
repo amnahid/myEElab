@@ -1,14 +1,18 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Stage, Layer, Line, Circle, Group } from 'react-konva';
+import { Stage, Layer, Line, Circle, Group, Rect, Label, Tag, Text } from 'react-konva';
 import { BOARD_WIDTH, BOARD_HEIGHT, HOLES, getHolePosition } from './breadboardLayout';
-import { useEditorStore } from '../store/editorStore';
+import { useEditorStore, getComponentPinCoords } from '../store/editorStore';
 import { ComponentNode } from './ComponentNode';
 import { WireNode } from './WireNode';
 import { ProbeKonvaNode, getProbeCursorSvgUrl } from './ProbeIcon';
 import { ComponentLibrary } from '../engine/library';
 import { deriveBreadboardWires } from '../engine/breadboardSync';
 import { NodeResolver } from '../engine/nodeResolver';
-import { Label, Tag, Text } from 'react-konva';
+import { ensureCircuitRefDes, isUnindexedRefDes } from '../engine/refDes';
+import { Point } from '../models/circuit';
+import { getMagneticSnapPosition } from './snapUtils';
+import { moveWireSegment, getTextScale } from './wireUtils';
+import { useSimulationStore } from '../store/simulationStore';
 
 interface CanvasProps {
   nodeVoltages?: Record<string, number>;
@@ -17,15 +21,48 @@ interface CanvasProps {
   simError?: string | null;
 }
 
-export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, simError }) => {
-  const { circuit, mode, componentToPlace, addComponent, updateComponentPosition, selectedIds, setSelection, addWire, stagePos, scale, setStageView, setEditingComponent, updateWirePoint, setMode, probes, toggleProbe, activeView, showInstruments } = useEditorStore();
+export let lastCanvasPointerPos: Point | null = null;
+export const getLastCanvasPointerPos = (): Point | null => lastCanvasPointerPos;
+
+export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages: propNodeVoltages, tranData, theme, simError }) => {
+  const storeVoltages = useSimulationStore(state => state.nodeVoltages);
+  const storeLedStates = useSimulationStore(state => state.ledStates);
+  const nodeVoltages = propNodeVoltages !== undefined ? propNodeVoltages : storeVoltages;
+  const { circuit, mode, componentToPlace, addComponent, updateComponentPosition, selectedIds, setSelection, addWire, stagePos, scale, setStageView, setEditingComponent, updateWirePoint, updateWirePoints, setMode, probes, toggleProbe, removeProbe, activeView, showInstruments, activeAnalysis } = useEditorStore();
+  const textScale = getTextScale(scale);
   
   const [mousePos, setMousePos] = useState<{x: number, y: number} | null>(null);
   const [previewSnapPos, setPreviewSnapPos] = useState<{x: number, y: number} | null>(null);
   const [drawingWirePoints, setDrawingWirePoints] = useState<{x: number, y: number}[]>([]);
+  const [selectionBox, setSelectionBox] = useState<{ start: Point; current: Point } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const panStartRef = useRef<{ mouseX: number; mouseY: number; stageX: number; stageY: number } | null>(null);
+  const draggingSegmentRef = useRef<{ wireId: string; segIndex: number; startPos: Point; initialPoints: Point[] } | null>(null);
+  const suppressNextClickRef = useRef(false);
 
   // Compute ratlines (breadboard to schematic sync)
   const ratlines = useMemo(() => deriveBreadboardWires(circuit), [circuit]);
+
+  // Automatically annotate missing or unindexed Reference Designators (e.g. R1, R2, C1, U1, LED1)
+  useEffect(() => {
+    if (circuit?.components && circuit.components.length > 0) {
+      const needsAnnotation = circuit.components.some(c =>
+        (c.type === 'ground' || c.type === 'breadboard')
+          ? c.refDes !== undefined
+          : (!c.refDes || isUnindexedRefDes(c.refDes, c.type))
+      );
+      if (needsAnnotation) {
+        const clonedCircuit = {
+          ...circuit,
+          components: circuit.components.map(c => ({ ...c }))
+        };
+        if (ensureCircuitRefDes(clonedCircuit)) {
+          useEditorStore.setState({ circuit: clonedCircuit });
+        }
+      }
+    }
+  }, [circuit.components]);
 
   // Determine visibility of instruments and their attached wires
   const isHiddenInstrument = (comp: any) => {
@@ -95,24 +132,295 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
     return true;
   });
 
+  // Resolve circuit topology (memoized to avoid re-resolving on animation frames)
+  const resolvedCircuit = useMemo(() => {
+    const resolver = new NodeResolver();
+    return resolver.resolve(circuit);
+  }, [circuit]);
+
+  // Compute junction dots (only changes when wires/components/theme change)
+  const junctionDots = useMemo(() => {
+    const dots: React.ReactNode[] = [];
+    const getPointKey = (x: number, y: number) => `${Math.round(x * 100) / 100},${Math.round(y * 100) / 100}`;
+
+    const segments: { p1: Point; p2: Point }[] = [];
+    for (const wire of visibleWires) {
+      for (let i = 0; i < wire.points.length - 1; i++) {
+        segments.push({ p1: wire.points[i], p2: wire.points[i + 1] });
+      }
+    }
+
+    const allPoints = new Set<string>();
+    for (const wire of visibleWires) {
+      for (const p of wire.points) {
+        allPoints.add(getPointKey(p.x, p.y));
+      }
+    }
+    for (const comp of visibleComponents) {
+      const libComp = ComponentLibrary[comp.type];
+      if (libComp) {
+        const rotRad = (comp.rotation || 0) * Math.PI / 180;
+        const cos = Math.round(Math.cos(rotRad));
+        const sin = Math.round(Math.sin(rotRad));
+        for (const pin of libComp.pins) {
+          const rx = comp.mirrored ? -pin.offset.x : pin.offset.x;
+          const ry = pin.offset.y;
+          const x = comp.position.x + (rx * cos - ry * sin);
+          const y = comp.position.y + (rx * sin + ry * cos);
+          allPoints.add(getPointKey(x, y));
+        }
+      }
+    }
+
+    for (const ptStr of Array.from(allPoints)) {
+      const [px, py] = ptStr.split(',').map(Number);
+      let degree = 0;
+      for (const seg of segments) {
+        const l2 = Math.pow(seg.p2.x - seg.p1.x, 2) + Math.pow(seg.p2.y - seg.p1.y, 2);
+        let dist = 0;
+        if (l2 === 0) {
+          dist = Math.hypot(px - seg.p1.x, py - seg.p1.y);
+        } else {
+          let t = ((px - seg.p1.x) * (seg.p2.x - seg.p1.x) + (py - seg.p1.y) * (seg.p2.y - seg.p1.y)) / l2;
+          t = Math.max(0, Math.min(1, t));
+          const projX = seg.p1.x + t * (seg.p2.x - seg.p1.x);
+          const projY = seg.p1.y + t * (seg.p2.y - seg.p1.y);
+          dist = Math.hypot(px - projX, py - projY);
+        }
+
+        if (dist <= 1) {
+          const atEndpoint = Math.hypot(px - seg.p1.x, py - seg.p1.y) <= 1 || Math.hypot(px - seg.p2.x, py - seg.p2.y) <= 1;
+          if (atEndpoint) {
+            degree += 1;
+          } else {
+            degree += 2;
+          }
+        }
+      }
+      if (degree >= 3) {
+        dots.push(
+          <Circle key={`junc-${ptStr}`} x={px} y={py} radius={3.5} fill={theme === 'dark' ? '#EEEAE4' : '#30383E'} listening={false} />
+        );
+      }
+    }
+    return dots;
+  }, [visibleWires, visibleComponents, theme]);
+
+  // Compute node coordinate mapping for voltage badges (only changes when circuit geometry changes)
+  const nodeCoords = useMemo(() => {
+    const coords = new Map<string, { x: number; y: number; dir: string }>();
+    const { components, wires } = resolvedCircuit;
+
+    const nodeSegments = new Map<string, { p1: Point; p2: Point }[]>();
+    for (const wire of visibleWires) {
+      const nodeName = wires.get(wire.id);
+      if (nodeName && wire.points.length > 1) {
+        if (!nodeSegments.has(nodeName)) nodeSegments.set(nodeName, []);
+        const segs = nodeSegments.get(nodeName)!;
+        for (let i = 0; i < wire.points.length - 1; i++) {
+          segs.push({ p1: wire.points[i], p2: wire.points[i + 1] });
+        }
+      } else if (nodeName && wire.points.length === 1) {
+        if (!coords.has(nodeName)) {
+          coords.set(nodeName, { ...wire.points[0], dir: 'down' });
+        }
+      }
+    }
+
+    for (const [nodeName, segs] of Array.from(nodeSegments.entries())) {
+      let longest = segs[0];
+      let maxDist = 0;
+      for (const seg of segs) {
+        const dist = Math.hypot(seg.p2.x - seg.p1.x, seg.p2.y - seg.p1.y);
+        if (dist > maxDist) {
+          maxDist = dist;
+          longest = seg;
+        }
+      }
+      if (longest) {
+        const dx = longest.p2.x - longest.p1.x;
+        const dy = longest.p2.y - longest.p1.y;
+        const dir = Math.abs(dx) < Math.abs(dy) ? 'left' : 'down';
+        coords.set(nodeName, {
+          x: (longest.p1.x + longest.p2.x) / 2,
+          y: (longest.p1.y + longest.p2.y) / 2,
+          dir
+        });
+      }
+    }
+
+    for (const comp of visibleComponents) {
+      const compPinMap = components.get(comp.id);
+      if (compPinMap) {
+        const libComp = ComponentLibrary[comp.type];
+        if (libComp) {
+          for (const pin of libComp.pins) {
+            const nodeName = compPinMap.get(pin.id);
+            if (nodeName && !coords.has(nodeName)) {
+              const rotRad = (comp.rotation || 0) * Math.PI / 180;
+              const cos = Math.round(Math.cos(rotRad));
+              const sin = Math.round(Math.sin(rotRad));
+              const mirroredOffsetX = comp.mirrored ? -pin.offset.x : pin.offset.x;
+              const mirroredOffsetY = pin.offset.y;
+              const rx = mirroredOffsetX * cos - mirroredOffsetY * sin;
+              const ry = mirroredOffsetX * sin + mirroredOffsetY * cos;
+              const dir = Math.abs(rx) > Math.abs(ry) ? (rx > 0 ? 'left' : 'right') : (ry > 0 ? 'up' : 'down');
+              coords.set(nodeName, { x: comp.position.x + rx, y: comp.position.y + ry, dir });
+            }
+          }
+        }
+      }
+    }
+    return coords;
+  }, [visibleWires, visibleComponents, resolvedCircuit]);
+
+  // Compute AC multimeter readings from tranData
+  const acMultimeterReadings = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (!tranData || !tranData.time || tranData.time.length === 0) return map;
+    const vectors = tranData.vectors;
+    for (const comp of visibleComponents) {
+      if (comp.type === 'multimeter' && (comp.params.mode === 'ac_voltage' || comp.params.mode === 'ac_current')) {
+        const pinMap = resolvedCircuit.components.get(comp.id);
+        if (!pinMap) continue;
+        const n1 = pinMap.get('1') || '0';
+        const n2 = pinMap.get('2') || '0';
+        const expectedBranchName = `i(vmm_${comp.id.replace(/-/g, '')})`;
+        const branchKey = Object.keys(vectors).find(k => k.toLowerCase() === expectedBranchName.toLowerCase());
+        let sqSum = 0;
+        let count = 0;
+        for (let i = 0; i < tranData.time.length; i++) {
+          let v1 = 0, v2 = 0;
+          if (comp.params.mode === 'ac_current') {
+            const iVec = branchKey ? vectors[branchKey] : null;
+            v1 = iVec ? iVec[i] : 0;
+          } else {
+            const vec1 = n1 === '0' ? null : (vectors[`v(${n1})`] || vectors[`V(${n1})`]);
+            const vec2 = n2 === '0' ? null : (vectors[`v(${n2})`] || vectors[`V(${n2})`]);
+            v1 = vec1 ? vec1[i] : 0;
+            v2 = vec2 ? vec2[i] : 0;
+          }
+          const diff = v1 - v2;
+          sqSum += diff * diff;
+          count++;
+        }
+        map[comp.id] = count > 0 ? Math.sqrt(sqSum / count) : 0;
+      }
+    }
+    return map;
+  }, [tranData, visibleComponents, resolvedCircuit]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
 
   useEffect(() => {
-    const updateSize = () => {
-      if (containerRef.current) {
-        setDimensions({
-          width: containerRef.current.offsetWidth,
-          height: containerRef.current.offsetHeight
-        });
+    if (!containerRef.current) return;
+
+    const updateSize = (w: number, h: number) => {
+      setDimensions(prev => {
+        if (prev.width === w && prev.height === h) return prev;
+        return { width: w, height: h };
+      });
+    };
+
+    if (typeof ResizeObserver !== 'undefined') {
+      let animationFrameId: number;
+      const observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect;
+          if (width > 0 && height > 0) {
+            const w = Math.floor(width);
+            const h = Math.floor(height);
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = requestAnimationFrame(() => {
+              updateSize(w, h);
+            });
+          }
+        }
+      });
+
+      observer.observe(containerRef.current);
+
+      if (containerRef.current.offsetWidth > 0 && containerRef.current.offsetHeight > 0) {
+        updateSize(containerRef.current.offsetWidth, containerRef.current.offsetHeight);
+      }
+
+      return () => {
+        cancelAnimationFrame(animationFrameId);
+        observer.disconnect();
+      };
+    } else {
+      const fallbackUpdate = () => {
+        if (containerRef.current) {
+          updateSize(containerRef.current.offsetWidth, containerRef.current.offsetHeight);
+        }
+      };
+      fallbackUpdate();
+      window.addEventListener('resize', fallbackUpdate);
+      return () => window.removeEventListener('resize', fallbackUpdate);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        const target = e.target as HTMLElement;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+        e.preventDefault();
+        if (!e.repeat) {
+          setIsSpacePressed(true);
+        }
       }
     };
-    // initial check
-    updateSize();
-    // add resize listener
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpacePressed(false);
+        setIsPanning(false);
+        panStartRef.current = null;
+      }
+    };
+    const handleBlur = () => {
+      setIsSpacePressed(false);
+      setIsPanning(false);
+      panStartRef.current = null;
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
   }, []);
+
+  // Global window tracking while panning (ensures smooth movement even if mouse leaves stage)
+  useEffect(() => {
+    if (!isPanning) return;
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!panStartRef.current) return;
+      const dx = e.clientX - panStartRef.current.mouseX;
+      const dy = e.clientY - panStartRef.current.mouseY;
+      setStageView({
+        x: panStartRef.current.stageX + dx,
+        y: panStartRef.current.stageY + dy
+      }, scale);
+    };
+
+    const handleGlobalMouseUp = () => {
+      setIsPanning(false);
+      panStartRef.current = null;
+      suppressNextClickRef.current = true;
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isPanning, scale, setStageView]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -192,13 +500,16 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
       const boardX = unrotX + BOARD_WIDTH / 2;
       const boardY = unrotY + BOARD_HEIGHT / 2;
 
+      const currentScale = Math.max(0.1, scale || 1);
+      const bbSnapThreshold = Math.min(10, Math.max(3.5, 12 / currentScale));
+
       for (const hole of HOLES) {
         const pos = getHolePosition(hole.id);
         if (!pos) continue;
         const hdx = boardX - pos.x;
         const hdy = boardY - pos.y;
         const dist = Math.sqrt(hdx * hdx + hdy * hdy);
-        if (dist < 15 && dist < bestDist) {
+        if (dist < bbSnapThreshold && dist < bestDist) {
           bestDist = dist;
           // Rotate the hole position back to absolute space
           const rx = (pos.x - BOARD_WIDTH / 2) * cos - (pos.y - BOARD_HEIGHT / 2) * sin;
@@ -248,6 +559,9 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
       const boardX = unrotX + BOARD_WIDTH / 2;
       const boardY = unrotY + BOARD_HEIGHT / 2;
 
+      const currentScale = Math.max(0.1, scale || 1);
+      const compBbSnapThreshold = Math.min(15, Math.max(4, 15 / currentScale));
+
       for (const hole of HOLES) {
         const hPos = getHolePosition(hole.id);
         if (!hPos) continue;
@@ -255,7 +569,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
         const hdy = boardY - hPos.y;
         const dist = Math.sqrt(hdx * hdx + hdy * hdy);
         
-        if (dist < 20 && dist < bestDist) {
+        if (dist < compBbSnapThreshold && dist < bestDist) {
           bestDist = dist;
           const rx = (hPos.x - BOARD_WIDTH / 2) * bbCos - (hPos.y - BOARD_HEIGHT / 2) * bbSin;
           const ry = (hPos.x - BOARD_WIDTH / 2) * bbSin + (hPos.y - BOARD_HEIGHT / 2) * bbCos;
@@ -272,75 +586,23 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
     return bestSnapPos;
   };
 
-  const getMagneticSnap = (rawPos: {x: number, y: number}, maxDist = 30, ignorePoint?: { wireId: string, index: number }) => {
-    let closestDist = maxDist; // Use provided maxDist for snap radius
-    let snapPos = null;
-
-    for (const comp of circuit.components) {
-      const libComp = ComponentLibrary[comp.type];
-      if (!libComp) continue;
-
-      const renderRot = comp.rotation;
-      const rotRad = (renderRot || 0) * Math.PI / 180;
-      const cos = Math.round(Math.cos(rotRad));
-      const sin = Math.round(Math.sin(rotRad));
-
-      for (const pin of libComp.pins) {
-        const baseOffset = pin.offset;
-        const mirroredOffsetX = comp.mirrored ? -baseOffset.x : baseOffset.x;
-        const mirroredOffsetY = baseOffset.y;
-        
-        const rotatedOffsetX = mirroredOffsetX * cos - mirroredOffsetY * sin;
-        const rotatedOffsetY = mirroredOffsetX * sin + mirroredOffsetY * cos;
-        
-        const renderPos = comp.position;
-        const pinAbsX = renderPos.x + rotatedOffsetX;
-        const pinAbsY = renderPos.y + rotatedOffsetY;
-
-        const dist = Math.sqrt(Math.pow(rawPos.x - pinAbsX, 2) + Math.pow(rawPos.y - pinAbsY, 2));
-        if (dist < closestDist) {
-          closestDist = dist;
-          snapPos = { x: pinAbsX, y: pinAbsY };
-        }
-      }
-    }
-
-    // Also check wire vertices and segments for T-junctions
-    for (const wire of circuit.wires) {
-      for (let i = 0; i < wire.points.length; i++) {
-        if (ignorePoint && ignorePoint.wireId === wire.id && ignorePoint.index === i) continue;
-        
-        const wp = wire.points[i];
-        const dist = Math.hypot(rawPos.x - wp.x, rawPos.y - wp.y);
-        if (dist < closestDist) {
-          closestDist = dist;
-          snapPos = { x: wp.x, y: wp.y };
-        }
-        if (i > 0) {
-          if (ignorePoint && ignorePoint.wireId === wire.id && (ignorePoint.index === i || ignorePoint.index === i - 1)) continue;
-          
-          const a = wire.points[i - 1];
-          const b = wire.points[i];
-          const l2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
-          if (l2 > 0) {
-            let t = ((rawPos.x - a.x) * (b.x - a.x) + (rawPos.y - a.y) * (b.y - a.y)) / l2;
-            t = Math.max(0, Math.min(1, t));
-            const projX = a.x + t * (b.x - a.x);
-            const projY = a.y + t * (b.y - a.y);
-            const distSeg = Math.hypot(rawPos.x - projX, rawPos.y - projY);
-            if (distSeg < closestDist) {
-              closestDist = distSeg;
-              snapPos = { x: projX, y: projY };
-            }
-          }
-        }
-      }
-    }
-
-    return snapPos;
+  const getMagneticSnap = (rawPos: {x: number, y: number}, screenDist?: number, ignorePoint?: { wireId: string, index: number }) => {
+    return getMagneticSnapPosition({
+      circuit,
+      rawPos,
+      scale,
+      mode,
+      screenDist,
+      ignorePoint
+    });
   };
 
   const handleStageClick = (e: any) => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
+
     const stage = e.target.getStage();
     const pos = getRelativePointerPosition(stage);
     
@@ -362,9 +624,9 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
     if (mode === 'place' && componentToPlace) {
       addComponent(componentToPlace, snappedPos);
     } else {
-      const isWireStart = mode === 'select' && (getMagneticSnap(pos, 12) || (activeView === 'breadboard' && getBreadboardSnap(pos)));
+      const isWireStart = mode === 'select' && (getMagneticSnap(pos, 9) || (activeView === 'breadboard' && getBreadboardSnap(pos)));
       if (mode === 'wire' || isWireStart) {
-        let pinSnap = getMagneticSnap(pos, mode === 'select' ? 12 : 30);
+        let pinSnap = getMagneticSnap(pos, mode === 'select' ? 9 : 12);
         if (!pinSnap && activeView === 'breadboard') {
            pinSnap = getBreadboardSnap(pos);
         }
@@ -394,7 +656,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
       } else if (mode === 'probe') {
         // In probe mode, try to resolve the node clicked. 
         // Wires and components have their own onClick handlers, but if we click a pin directly...
-        const pinSnap = getMagneticSnap(pos, 12);
+        const pinSnap = getMagneticSnap(pos, 9);
         if (pinSnap) {
           // We don't easily know WHICH component this pin belongs to from getMagneticSnap.
           // Let's just let the WireNode or ComponentNode click handlers do the probing.
@@ -408,9 +670,205 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
     }
   };
 
+  const handleStageMouseDown = (e: any) => {
+    const stage = e.target.getStage();
+    if (!stage) return;
+
+    // Middle click or Spacebar held + left click -> start panning
+    if (e.evt.button === 1 || (isSpacePressed && e.evt.button === 0)) {
+      setIsPanning(true);
+      panStartRef.current = {
+        mouseX: e.evt.clientX,
+        mouseY: e.evt.clientY,
+        stageX: stagePos.x,
+        stageY: stagePos.y
+      };
+      return;
+    }
+
+    if (isSpacePressed) {
+      return;
+    }
+
+    // Left click on empty stage in 'select' mode
+    if (e.evt.button === 0 && mode === 'select' && e.target === stage) {
+      const pos = getRelativePointerPosition(stage);
+      const pinSnap = getMagneticSnap(pos, 9);
+      if (!pinSnap) {
+        setSelectionBox({ start: pos, current: pos });
+      }
+    }
+  };
+
+  const handleStageMouseUp = (e: any) => {
+    if (draggingSegmentRef.current) {
+      const stage = e.target?.getStage();
+      const currentPos = stage ? getRelativePointerPosition(stage) : draggingSegmentRef.current.startPos;
+      const { wireId, segIndex, startPos, initialPoints } = draggingSegmentRef.current;
+      const p1 = initialPoints[segIndex];
+      const p2 = initialPoints[segIndex + 1];
+      const isH = Math.abs(p2.y - p1.y) <= Math.abs(p2.x - p1.x);
+
+      let dx = 0;
+      let dy = 0;
+      if (isH) {
+        const rawY = p1.y + (currentPos.y - startPos.y);
+        const snappedY = Math.round(rawY / 10) * 10;
+        dy = snappedY - p1.y;
+      } else {
+        const rawX = p1.x + (currentPos.x - startPos.x);
+        const snappedX = Math.round(rawX / 10) * 10;
+        dx = snappedX - p1.x;
+      }
+
+      const finalPoints = moveWireSegment(initialPoints, segIndex, { dx, dy }, true);
+      useEditorStore.temporal.getState().resume();
+      updateWirePoints(wireId, finalPoints);
+      draggingSegmentRef.current = null;
+      suppressNextClickRef.current = true;
+      if (stage) stage.container().style.cursor = '';
+      return;
+    }
+
+    if (isPanning) {
+      setIsPanning(false);
+      panStartRef.current = null;
+      suppressNextClickRef.current = true;
+      return;
+    }
+
+    if (selectionBox) {
+      const boxX1 = Math.min(selectionBox.start.x, selectionBox.current.x);
+      const boxX2 = Math.max(selectionBox.start.x, selectionBox.current.x);
+      const boxY1 = Math.min(selectionBox.start.y, selectionBox.current.y);
+      const boxY2 = Math.max(selectionBox.start.y, selectionBox.current.y);
+
+      const width = boxX2 - boxX1;
+      const height = boxY2 - boxY1;
+
+      if (width >= 4 || height >= 4) {
+        suppressNextClickRef.current = true;
+        const selected: string[] = [];
+
+        // Check components
+        for (const comp of circuit.components) {
+          let intersects = false;
+          if (comp.position.x >= boxX1 && comp.position.x <= boxX2 &&
+              comp.position.y >= boxY1 && comp.position.y <= boxY2) {
+            intersects = true;
+          }
+          if (!intersects) {
+            const pinCoords = getComponentPinCoords(comp, circuit.customComponents);
+            for (const pt of pinCoords) {
+              const [px, py] = pt.split(',').map(Number);
+              if (px >= boxX1 && px <= boxX2 && py >= boxY1 && py <= boxY2) {
+                intersects = true;
+                break;
+              }
+            }
+          }
+          if (!intersects) {
+            const cMinX = comp.position.x - 25;
+            const cMaxX = comp.position.x + 25;
+            const cMinY = comp.position.y - 25;
+            const cMaxY = comp.position.y + 25;
+            if (boxX1 <= cMaxX && boxX2 >= cMinX && boxY1 <= cMaxY && boxY2 >= cMinY) {
+              intersects = true;
+            }
+          }
+
+          if (intersects) {
+            selected.push(comp.id);
+          }
+        }
+
+        // Check wires
+        for (const wire of circuit.wires) {
+          let intersects = false;
+          for (const p of wire.points) {
+            if (p.x >= boxX1 && p.x <= boxX2 && p.y >= boxY1 && p.y <= boxY2) {
+              intersects = true;
+              break;
+            }
+          }
+          if (!intersects) {
+            for (let i = 0; i < wire.points.length - 1; i++) {
+              const p1 = wire.points[i];
+              const p2 = wire.points[i + 1];
+              const segMinX = Math.min(p1.x, p2.x);
+              const segMaxX = Math.max(p1.x, p2.x);
+              const segMinY = Math.min(p1.y, p2.y);
+              const segMaxY = Math.max(p1.y, p2.y);
+              if (segMinX <= boxX2 && segMaxX >= boxX1 && segMinY <= boxY2 && segMaxY >= boxY1) {
+                intersects = true;
+                break;
+              }
+            }
+          }
+
+          if (intersects) {
+            selected.push(wire.id);
+          }
+        }
+
+        if (e.evt.shiftKey) {
+          const merged = Array.from(new Set([...selectedIds, ...selected]));
+          setSelection(merged);
+        } else {
+          setSelection(selected);
+        }
+      }
+      setSelectionBox(null);
+    }
+  };
+
   const handleMouseMove = (e: any) => {
+    const stage = e.target.getStage();
+    if (stage) {
+      lastCanvasPointerPos = getRelativePointerPosition(stage);
+    }
+
+    if (draggingSegmentRef.current && stage) {
+      const currentPos = getRelativePointerPosition(stage);
+      const { wireId, segIndex, startPos, initialPoints } = draggingSegmentRef.current;
+      const p1 = initialPoints[segIndex];
+      const p2 = initialPoints[segIndex + 1];
+      const isH = Math.abs(p2.y - p1.y) <= Math.abs(p2.x - p1.x);
+
+      let dx = 0;
+      let dy = 0;
+      if (isH) {
+        const rawY = p1.y + (currentPos.y - startPos.y);
+        const snappedY = Math.round(rawY / 10) * 10;
+        dy = snappedY - p1.y;
+      } else {
+        const rawX = p1.x + (currentPos.x - startPos.x);
+        const snappedX = Math.round(rawX / 10) * 10;
+        dx = snappedX - p1.x;
+      }
+
+      const newPoints = moveWireSegment(initialPoints, segIndex, { dx, dy }, false);
+      updateWirePoints(wireId, newPoints);
+      return;
+    }
+
+    if (isPanning && panStartRef.current) {
+      const dx = e.evt.clientX - panStartRef.current.mouseX;
+      const dy = e.evt.clientY - panStartRef.current.mouseY;
+      setStageView({
+        x: panStartRef.current.stageX + dx,
+        y: panStartRef.current.stageY + dy
+      }, scale);
+      return;
+    }
+
+    if (selectionBox && stage) {
+      const pos = getRelativePointerPosition(stage);
+      setSelectionBox(prev => prev ? { ...prev, current: pos } : null);
+      return;
+    }
+
     if (mode === 'place' || (mode === 'wire' && drawingWirePoints.length > 0)) {
-      const stage = e.target.getStage();
       const pos = getRelativePointerPosition(stage);
       
       let snap = getMagneticSnap(pos);
@@ -434,6 +892,8 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
   };
 
   const getCursor = () => {
+    if (isPanning) return 'grabbing';
+    if (isSpacePressed) return 'grab';
     if (mode === 'probe') {
       // Realistic multimeter probe cursor
       return getProbeCursorSvgUrl();
@@ -441,6 +901,15 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
     if (mode === 'wire' || mode === 'place') return 'crosshair';
     return '';
   };
+
+  useEffect(() => {
+    if (containerRef.current) {
+      const stageContent = containerRef.current.querySelector('.konvajs-content') as HTMLElement | null;
+      if (stageContent) {
+        stageContent.style.cursor = getCursor() || '';
+      }
+    }
+  }, [isPanning, isSpacePressed, mode]);
 
   return (
     <div 
@@ -480,14 +949,22 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
         scaleY={scale}
         x={stagePos.x}
         y={stagePos.y}
-        onDragEnd={(e) => {
-          if (mode === 'select' && e.target === e.target.getStage()) {
-            setStageView({ x: e.target.x(), y: e.target.y() }, scale);
+        onMouseDown={handleStageMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleStageMouseUp}
+        onClick={handleStageClick}
+        onMouseLeave={() => {
+          lastCanvasPointerPos = null;
+          if (selectionBox) setSelectionBox(null);
+          if (isPanning) {
+            setIsPanning(false);
+            panStartRef.current = null;
+          }
+          if (draggingSegmentRef.current) {
+            useEditorStore.temporal.getState().resume();
+            draggingSegmentRef.current = null;
           }
         }}
-        draggable={mode === 'select'}
-        onClick={handleStageClick}
-        onMouseMove={handleMouseMove}
       >
         <Layer>
           {/* Breadboard Background is now a component, so no static background here */}
@@ -567,6 +1044,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
                   wire={displayWire} 
                   isSelected={isSelected}
                   theme={theme}
+                  listening={!isSpacePressed && !isPanning}
                   onSelect={(e) => {
                     if (mode === 'probe') {
                       const resolver = new NodeResolver();
@@ -613,7 +1091,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
                     useEditorStore.temporal.getState().pause();
                   }}
                   onPointDragEnd={(index, x, y) => {
-                    const snapped = getMagneticSnap({x, y}, 30, { wireId: wire.id, index }) || {
+                    const snapped = getMagneticSnap({x, y}, 12, { wireId: wire.id, index }) || {
                       x: Math.round(x / 10) * 10,
                       y: Math.round(y / 10) * 10
                     };
@@ -623,86 +1101,38 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
                   }}
                   onPointDragMove={(index, x, y) => {
                     updateWirePoint(wire.id, index, { x, y });
-                    const snap = getMagneticSnap({x, y}, 30, { wireId: wire.id, index });
+                    const snap = getMagneticSnap({x, y}, 12, { wireId: wire.id, index });
                     if (snap) {
                       setPreviewSnapPos(snap);
                     } else {
                       setPreviewSnapPos(null);
                     }
                   }}
+                  onSegmentMouseDown={(segIndex, e) => {
+                    if (mode !== 'select') return;
+                    const stage = e.target.getStage();
+                    if (!stage) return;
+                    if (!selectedIds.includes(wire.id)) {
+                      setSelection([wire.id]);
+                    }
+                    const startPos = getRelativePointerPosition(stage);
+                    draggingSegmentRef.current = {
+                      wireId: wire.id,
+                      segIndex,
+                      startPos,
+                      initialPoints: wire.points.map((p: Point) => ({ ...p }))
+                    };
+                    useEditorStore.temporal.getState().pause();
+                  }}
                   onDblClick={() => setEditingComponent(wire.id)}
                 />
               );
             };
 
-            const junctionDots = [];
-            const getPointKey = (x: number, y: number) => `${Math.round(x * 100) / 100},${Math.round(y * 100) / 100}`;
-            
-            const segments = [];
-            for (const wire of visibleWires) {
-               for (let i = 0; i < wire.points.length - 1; i++) {
-                 segments.push({ p1: wire.points[i], p2: wire.points[i+1] });
-               }
-            }
-
-            const allPoints = new Set<string>();
-            for (const wire of visibleWires) {
-               for (const p of wire.points) {
-                 allPoints.add(getPointKey(p.x, p.y));
-               }
-            }
-            for (const comp of visibleComponents) {
-               const libComp = ComponentLibrary[comp.type];
-               if (libComp) {
-                 const rotRad = (comp.rotation || 0) * Math.PI / 180;
-                 const cos = Math.round(Math.cos(rotRad));
-                 const sin = Math.round(Math.sin(rotRad));
-                 for (const pin of libComp.pins) {
-                   const rx = comp.mirrored ? -pin.offset.x : pin.offset.x;
-                   const ry = pin.offset.y;
-                   const x = comp.position.x + (rx * cos - ry * sin);
-                   const y = comp.position.y + (rx * sin + ry * cos);
-                   allPoints.add(getPointKey(x, y));
-                 }
-               }
-            }
-
-            for (const ptStr of Array.from(allPoints)) {
-              const [px, py] = ptStr.split(',').map(Number);
-              let degree = 0;
-              for (const seg of segments) {
-                const l2 = Math.pow(seg.p2.x - seg.p1.x, 2) + Math.pow(seg.p2.y - seg.p1.y, 2);
-                let dist = 0;
-                if (l2 === 0) {
-                  dist = Math.hypot(px - seg.p1.x, py - seg.p1.y);
-                } else {
-                  let t = ((px - seg.p1.x) * (seg.p2.x - seg.p1.x) + (py - seg.p1.y) * (seg.p2.y - seg.p1.y)) / l2;
-                  t = Math.max(0, Math.min(1, t));
-                  const projX = seg.p1.x + t * (seg.p2.x - seg.p1.x);
-                  const projY = seg.p1.y + t * (seg.p2.y - seg.p1.y);
-                  dist = Math.hypot(px - projX, py - projY);
-                }
-                
-                if (dist <= 1) {
-                  const atEndpoint = Math.hypot(px - seg.p1.x, py - seg.p1.y) <= 1 || Math.hypot(px - seg.p2.x, py - seg.p2.y) <= 1;
-                  if (atEndpoint) {
-                     degree += 1;
-                  } else {
-                     degree += 2;
-                  }
-                }
-              }
-              if (degree >= 3) {
-                 junctionDots.push(
-                    <Circle key={`junc-${ptStr}`} x={px} y={py} radius={3.5} fill={theme === 'dark' ? '#EEEAE4' : '#30383E'} listening={false} />
-                 );
-              }
-            }
-
             const readings: Record<string, string> = {};
             const powers: Record<string, number> = {};
-            const resolver = new NodeResolver();
-            const { components } = resolver.resolve(circuit);
+            const activeLedStates: Record<string, { isOn: boolean; intensity: number }> = { ...storeLedStates };
+            const components = resolvedCircuit.components;
             
             for (const comp of visibleComponents) {
               const pinMap = components.get(comp.id);
@@ -713,30 +1143,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
                   let reading = 0;
                   
                   if (comp.params.mode === 'ac_voltage' || comp.params.mode === 'ac_current') {
-                     if (tranData && tranData.time && tranData.time.length > 0) {
-                        const vectors = tranData.vectors;
-                        const expectedBranchName = `i(vmm_${comp.id.replace(/-/g, '')})`;
-                        const branchKey = Object.keys(vectors).find(k => k.toLowerCase() === expectedBranchName.toLowerCase());
-                        
-                        let sqSum = 0;
-                        let count = 0;
-                        for (let i = 0; i < tranData.time.length; i++) {
-                          let v1 = 0, v2 = 0;
-                          if (comp.params.mode === 'ac_current') {
-                            const iVec = branchKey ? vectors[branchKey] : null;
-                            v1 = iVec ? iVec[i] : 0;
-                          } else {
-                            const vec1 = n1 === '0' ? null : (vectors[`v(${n1})`] || vectors[`V(${n1})`]);
-                            const vec2 = n2 === '0' ? null : (vectors[`v(${n2})`] || vectors[`V(${n2})`]);
-                            v1 = vec1 ? vec1[i] : 0;
-                            v2 = vec2 ? vec2[i] : 0;
-                          }
-                          const diff = v1 - v2;
-                          sqSum += diff * diff;
-                          count++;
-                        }
-                        reading = count > 0 ? Math.sqrt(sqSum / count) : 0;
-                     }
+                     reading = acMultimeterReadings[comp.id] || 0;
                   } else {
                     if (nodeVoltages && Object.keys(nodeVoltages).length > 0) {
                       if (comp.params.mode === 'current') {
@@ -762,9 +1169,8 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
                      else if (abs >= 1e-6) formatted = `${parseFloat((reading * 1e6).toFixed(3))} µA`;
                      else formatted = `${reading.toExponential(2)} A`;
                   } else if (comp.params.mode === 'resistance') {
-                     // R = V / I, where I = 1mA (0.001A)
                      const resistance = abs / 0.001; 
-                     if (resistance >= 1e9) formatted = 'O.L (Open)'; // Effectively open circuit
+                     if (resistance >= 1e9) formatted = 'O.L (Open)';
                      else if (resistance >= 1e6) formatted = `${parseFloat((resistance / 1e6).toFixed(3))} MΩ`;
                      else if (resistance >= 1e3) formatted = `${parseFloat((resistance / 1e3).toFixed(3))} kΩ`;
                      else formatted = `${parseFloat(resistance.toFixed(2))} Ω`;
@@ -791,21 +1197,33 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
                     const rLower = rStr.toLowerCase();
                     if (rLower.includes('k')) r *= 1e3;
                     else if (rLower.includes('meg')) r *= 1e6;
-                    else if (rLower.includes('m')) r *= 1e-3; // standard SPICE m is milli
+                    else if (rLower.includes('m')) r *= 1e-3;
                     if (r > 0) {
                       powers[comp.id] = Math.pow(v1 - v2, 2) / r;
                     }
-                 } else if (comp.type === 'led' || comp.type === 'diode' || comp.type === 'zener') {
+                 } else if (comp.type === 'led') {
                     const n1 = pinMap.get('1') || '0';
                     const n2 = pinMap.get('2') || '0';
                     const v1 = n1 === '0' ? 0 : (nodeVoltages[`v(${n1})`] || 0);
                     const v2 = n2 === '0' ? 0 : (nodeVoltages[`v(${n2})`] || 0);
                     const vDrop = v1 - v2;
-                    let maxDrop = comp.type === 'led' ? 3.0 : 1.2;
+                    if (vDrop > 3.2) {
+                       powers[comp.id] = 100;
+                    } else if (vDrop > 1.4) {
+                       const intensity = Math.min(1, Math.max(0, (vDrop - 1.4) / 0.8));
+                       activeLedStates[comp.id] = { isOn: true, intensity };
+                    }
+                 } else if (comp.type === 'diode' || comp.type === 'zener') {
+                    const n1 = pinMap.get('1') || '0';
+                    const n2 = pinMap.get('2') || '0';
+                    const v1 = n1 === '0' ? 0 : (nodeVoltages[`v(${n1})`] || 0);
+                    const v2 = n2 === '0' ? 0 : (nodeVoltages[`v(${n2})`] || 0);
+                    const vDrop = v1 - v2;
+                    let maxDrop = 1.2;
                     if (vDrop > maxDrop) {
-                       powers[comp.id] = 100; // Fake huge power to trigger burning
-                    } else if (vDrop > 1.5) {
-                       powers[comp.id] = 0.02 * vDrop; // Approx normal usage
+                       powers[comp.id] = 100;
+                    } else if (vDrop > 0.6) {
+                       powers[comp.id] = 0.02 * vDrop;
                     }
                  }
               }
@@ -822,13 +1240,14 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
                   isSelected={isSelected}
                   theme={theme}
                   activeView={activeView}
+                  listening={!isSpacePressed && !isPanning}
                   multimeterReading={readings[comp.id]}
                   powerDissipation={powers[comp.id]}
+                  isLedLit={activeLedStates[comp.id]?.isOn}
+                  ledIntensity={activeLedStates[comp.id]?.intensity}
                   onSelect={(e) => {
                     if (mode === 'probe') {
-                      const resolver = new NodeResolver();
-                      const resolved = resolver.resolve(circuit);
-                      const pins = resolved.components.get(comp.id);
+                      const pins = resolvedCircuit.components.get(comp.id);
                       if (pins && typeof pins !== 'string') {
                          const node = pins.get("1");
                          if (node && node !== '0') {
@@ -851,7 +1270,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
                     } else if (mode === 'select') {
                       const stage = e.target.getStage();
                       const pos = getRelativePointerPosition(stage);
-                      const pinSnap = getMagneticSnap(pos, 12);
+                      const pinSnap = getMagneticSnap(pos, 9);
                       if (!pinSnap) {
                         if (!e.evt.shiftKey && !selectedIds.includes(comp.id)) {
                           setSelection([comp.id]);
@@ -861,7 +1280,12 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
                       }
                     }
                   }}
-                  onDblClick={() => setEditingComponent(comp.id)}
+                  onDblClick={() => {
+                    if (comp.type === 'switch' || comp.type === 'pushbutton') {
+                      return;
+                    }
+                    setEditingComponent(comp.id);
+                  }}
                   onDragStart={(e) => {
                     if (!selectedIds.includes(comp.id)) {
                       setSelection([comp.id]);
@@ -948,6 +1372,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
               onDragEnd={() => {}}
               onDragMove={() => {}}
               opacity={0.5}
+              listening={false}
             />
           )}
           
@@ -986,137 +1411,50 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
           })}
 
         {/* Render node voltages if available */}
-        {activeView === 'schematic' && nodeVoltages && Object.keys(nodeVoltages).length > 0 && selectedIds.length === 0 && (
-          (() => {
-            const resolver = new NodeResolver();
-            const { components, wires } = resolver.resolve(circuit);
-            
-            // To render the node voltage, we can find the first coordinate associated with each node
-            const nodeCoords = new Map<string, {x: number, y: number, dir: string}>();
-            
-            // For each node, collect all wire segments
-            const nodeSegments = new Map<string, {p1: {x:number, y:number}, p2: {x:number, y:number}}[]>();
-            
-            // Map from wire points
-            for (const wire of visibleWires) {
-              const nodeName = wires.get(wire.id);
-              if (nodeName && wire.points.length > 1) {
-                if (!nodeSegments.has(nodeName)) nodeSegments.set(nodeName, []);
-                const segs = nodeSegments.get(nodeName)!;
-                for (let i = 0; i < wire.points.length - 1; i++) {
-                  segs.push({ p1: wire.points[i], p2: wire.points[i+1] });
-                }
-              } else if (nodeName && wire.points.length === 1) {
-                if (!nodeCoords.has(nodeName)) {
-                  nodeCoords.set(nodeName, { ...wire.points[0], dir: 'down' });
-                }
-              }
-            }
-            
-            // For each node, find the longest segment and place the label in its center
-            for (const [nodeName, segs] of Array.from(nodeSegments.entries())) {
-              let longest = segs[0];
-              let maxDist = 0;
-              for (const seg of segs) {
-                const dist = Math.hypot(seg.p2.x - seg.p1.x, seg.p2.y - seg.p1.y);
-                if (dist > maxDist) {
-                  maxDist = dist;
-                  longest = seg;
-                }
-              }
-              if (longest) {
-                const dx = longest.p2.x - longest.p1.x;
-                const dy = longest.p2.y - longest.p1.y;
-                let dir = 'down';
-                if (Math.abs(dx) < Math.abs(dy)) {
-                  dir = 'left';
-                } else {
-                  dir = 'down';
-                }
-                nodeCoords.set(nodeName, { 
-                  x: (longest.p1.x + longest.p2.x) / 2, 
-                  y: (longest.p1.y + longest.p2.y) / 2,
-                  dir
-                });
-              }
-            }
-            
-            // Map from component pins (as a fallback if no wire segments exist)
-            for (const comp of visibleComponents) {
-              const compPinMap = components.get(comp.id);
-              if (compPinMap) {
-                const libComp = ComponentLibrary[comp.type];
-                if (libComp) {
-                  for (const pin of libComp.pins) {
-                    const nodeName = compPinMap.get(pin.id);
-                    if (nodeName && !nodeCoords.has(nodeName)) {
-                      const rotRad = (comp.rotation || 0) * Math.PI / 180;
-                      const cos = Math.round(Math.cos(rotRad));
-                      const sin = Math.round(Math.sin(rotRad));
-                      const mirroredOffsetX = comp.mirrored ? -pin.offset.x : pin.offset.x;
-                      const mirroredOffsetY = pin.offset.y;
-                      const rx = mirroredOffsetX * cos - mirroredOffsetY * sin;
-                      const ry = mirroredOffsetX * sin + mirroredOffsetY * cos;
-                      
-                      let dir = 'down';
-                      if (Math.abs(rx) > Math.abs(ry)) {
-                        dir = rx > 0 ? 'left' : 'right';
-                      } else {
-                        dir = ry > 0 ? 'up' : 'down';
-                      }
-                      
-                      nodeCoords.set(nodeName, { x: comp.position.x + rx, y: comp.position.y + ry, dir });
-                    }
-                  }
-                }
-              }
-            }
+        {activeView === 'schematic' && (activeAnalysis === 'op' || activeAnalysis === 'interactive') && nodeVoltages && Object.keys(nodeVoltages).length > 0 && selectedIds.length === 0 && (
+          Array.from(nodeCoords.entries()).map(([nodeName, coord]) => {
+            if (!coord || isNaN(coord.x) || isNaN(coord.y)) return null;
+            const vStr = `v(${nodeName})`;
+            const vVal = nodeVoltages[vStr];
+            if (vVal === undefined) return null;
 
-            return Array.from(nodeCoords.entries()).map(([nodeName, coord]) => {
-              if (!coord || isNaN(coord.x) || isNaN(coord.y)) return null;
-              const vStr = `v(${nodeName})`;
-              const vVal = nodeVoltages[vStr];
-              if (vVal !== undefined) {
-                const abs = Math.abs(vVal);
-                let formatted = '0V';
-                if (abs === 0) formatted = '0V';
-                else if (abs >= 1e3) formatted = `${parseFloat((vVal / 1e3).toFixed(3))}kV`;
-                else if (abs >= 1) formatted = `${parseFloat(vVal.toFixed(3))}V`;
-                else if (abs >= 1e-3) formatted = `${parseFloat((vVal * 1e3).toFixed(3))}mV`;
-                else if (abs >= 1e-6) formatted = `${parseFloat((vVal * 1e6).toFixed(3))}µV`;
-                else formatted = `${vVal.toExponential(2)}V`;
+            const abs = Math.abs(vVal);
+            let formatted = '0V';
+            if (abs === 0) formatted = '0V';
+            else if (abs >= 1e3) formatted = `${parseFloat((vVal / 1e3).toFixed(3))}kV`;
+            else if (abs >= 1) formatted = `${parseFloat(vVal.toFixed(3))}V`;
+            else if (abs >= 1e-3) formatted = `${parseFloat((vVal * 1e3).toFixed(3))}mV`;
+            else if (abs >= 1e-6) formatted = `${parseFloat((vVal * 1e6).toFixed(3))}µV`;
+            else formatted = `${vVal.toExponential(2)}V`;
 
-                return (
-                  <Label
-                    key={`v-${nodeName}`}
-                    x={coord.x}
-                    y={coord.y}
-                    listening={false}
-                  >
-                    <Tag 
-                      fill={theme === 'dark' ? '#323A3F' : '#E2DCD3'} 
-                      stroke={theme === 'dark' ? '#367985' : '#367985'} 
-                      strokeWidth={1} 
-                      cornerRadius={3}
-                      pointerDirection={coord.dir}
-                      pointerWidth={8}
-                      pointerHeight={8}
-                      shadowColor="rgba(0,0,0,0.15)"
-                      shadowBlur={3}
-                    />
-                    <Text
-                      text={formatted}
-                      fontSize={9}
-                      padding={4}
-                      fill={theme === 'dark' ? '#367985' : '#367985'}
-                      fontStyle="bold"
-                    />
-                  </Label>
-                );
-              }
-              return null;
-            });
-          })()
+            return (
+              <Label
+                key={`v-${nodeName}`}
+                x={coord.x}
+                y={coord.y}
+                listening={false}
+                scaleX={textScale}
+                scaleY={textScale}
+              >
+                <Tag 
+                  fill={theme === 'dark' ? '#323A3F' : '#E2DCD3'} 
+                  stroke={theme === 'dark' ? '#367985' : '#367985'} 
+                  strokeWidth={1} 
+                  cornerRadius={3}
+                  pointerDirection={coord.dir}
+                  pointerWidth={8}
+                  pointerHeight={8}
+                />
+                <Text
+                  text={formatted}
+                  fontSize={9}
+                  padding={4}
+                  fill={theme === 'dark' ? '#367985' : '#367985'}
+                  fontStyle="bold"
+                />
+              </Label>
+            );
+          })
         )}
         
         {/* Render SPICE Error Box if applicable */}
@@ -1126,8 +1464,7 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
             if (!match) return null;
             const errorNodeName = match[1];
             
-            const resolver = new NodeResolver();
-            const { components, wires } = resolver.resolve(circuit);
+            const { components, wires } = resolvedCircuit;
             
             let coord: { x: number, y: number, dir: string } | null = null;
             
@@ -1172,7 +1509,13 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
             if (simError.toLowerCase().includes('unknown parameter')) reason = 'Unknown Parameter';
             
             return (
-              <Label x={coord.x} y={coord.y} listening={false}>
+              <Label
+                x={coord.x}
+                y={coord.y}
+                listening={false}
+                scaleX={textScale}
+                scaleY={textScale}
+              >
                 <Tag 
                   fill="#e74c3c"
                   cornerRadius={4}
@@ -1196,9 +1539,41 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
         )}
 
           {/* Render visual probes */}
-          {visibleProbes.map(probe => (
-            <ProbeKonvaNode key={`probe-${probe.nodeId}`} probe={probe} />
-          ))}
+          {visibleProbes.map(probe => {
+            const probeId = `probe-${probe.nodeId}`;
+            const isSelected = selectedIds.includes(probeId) || selectedIds.includes(probe.nodeId);
+            return (
+              <ProbeKonvaNode 
+                key={probeId} 
+                probe={probe} 
+                theme={theme}
+                isSelected={isSelected}
+                mode={mode}
+                listening={!isSpacePressed && !isPanning}
+                onSelect={(e) => {
+                  if (mode === 'probe') {
+                    removeProbe(probe.nodeId);
+                  } else if (mode === 'select') {
+                    if (!e.evt.shiftKey && !selectedIds.includes(probeId)) {
+                      setSelection([probeId]);
+                    } else if (e.evt.shiftKey) {
+                      if (selectedIds.includes(probeId)) {
+                        setSelection(selectedIds.filter(id => id !== probeId && id !== probe.nodeId));
+                      } else {
+                        setSelection([...selectedIds, probeId]);
+                      }
+                    }
+                  }
+                }}
+                onRemove={() => {
+                  removeProbe(probe.nodeId);
+                  if (selectedIds.includes(probeId) || selectedIds.includes(probe.nodeId)) {
+                    setSelection(selectedIds.filter(id => id !== probeId && id !== probe.nodeId));
+                  }
+                }}
+              />
+            );
+          })}
         
           {/* Approach A: Hollow preview dot (Moved here to ensure it renders ON TOP of everything, including pin indicators) */}
           {mode === 'wire' && drawingWirePoints.length > 0 && mousePos && (() => {
@@ -1245,14 +1620,47 @@ export const Canvas: React.FC<CanvasProps> = ({ nodeVoltages, tranData, theme, s
                }
              }
              if (onWire) {
-               return <Circle x={mousePos.x} y={mousePos.y} radius={8} stroke={theme === 'dark' ? '#B9924D' : '#B9924D'} strokeWidth={3} fill="transparent" listening={false} />;
+               return (
+                 <Circle
+                   x={mousePos.x}
+                   y={mousePos.y}
+                   radius={Math.max(4, 6 / (scale || 1))}
+                   stroke="#B9924D"
+                   strokeWidth={Math.max(1, 2 / (scale || 1))}
+                   fill="transparent"
+                   listening={false}
+                 />
+               );
              }
              return null;
           })()}
 
           {/* Preview dot for DRAGGING existing wire points */}
           {previewSnapPos && (
-             <Circle x={previewSnapPos.x} y={previewSnapPos.y} radius={8} stroke={theme === 'dark' ? '#B9924D' : '#B9924D'} strokeWidth={3} fill="transparent" listening={false} />
+             <Circle
+               x={previewSnapPos.x}
+               y={previewSnapPos.y}
+               radius={Math.max(4, 6 / (scale || 1))}
+               stroke="#B9924D"
+               strokeWidth={Math.max(1, 2 / (scale || 1))}
+               fill="transparent"
+               listening={false}
+             />
+          )}
+
+          {/* Marquee Selection Rectangle */}
+          {selectionBox && (
+            <Rect
+              x={Math.min(selectionBox.start.x, selectionBox.current.x)}
+              y={Math.min(selectionBox.start.y, selectionBox.current.y)}
+              width={Math.abs(selectionBox.current.x - selectionBox.start.x)}
+              height={Math.abs(selectionBox.current.y - selectionBox.start.y)}
+              fill="rgba(52, 152, 219, 0.15)"
+              stroke="#3498db"
+              strokeWidth={1 / scale}
+              dash={[4 / scale, 4 / scale]}
+              listening={false}
+            />
           )}
 </Layer>
       </Stage>

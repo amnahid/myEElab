@@ -244,4 +244,157 @@ describe("Node Resolver and Netlist Generator", () => {
     const vSig = results.data.find(d => d.name !== "time" && d.values.some(v => v > 4.5) && d.values.some(v => v < 0.5));
     expect(vSig).toBeDefined();
   });
+
+  it("should generate correct netlist and simulate switch in open vs closed states", async () => {
+    // Circuit with 5V DC source, switch, and 1k load resistor to ground
+    const buildSwitchCircuit = (state: "open" | "closed"): Circuit => ({
+      id: `test-switch-${state}`,
+      name: `Switch Test (${state})`,
+      components: [
+        { id: "v1", type: "vsource", position: { x: 0, y: 0 }, rotation: 0, mirrored: false, params: { type: "dc", value: 5 } },
+        { id: "sw1", type: "switch", position: { x: 50, y: 0 }, rotation: 0, mirrored: false, params: { state } },
+        { id: "r1", type: "resistor", position: { x: 100, y: 0 }, rotation: 0, mirrored: false, params: { resistance: "1k" } },
+        { id: "gnd", type: "ground", position: { x: 0, y: 100 }, rotation: 0, mirrored: false, params: {} }
+      ],
+      wires: [
+        // v1 (+) to sw1 pin 1 (-20, 0)
+        { id: "w1", points: [{ x: 0, y: -20 }, { x: 30, y: 0 }] },
+        // sw1 pin 2 (70, 0) to r1 pin 1 (100, -20)
+        { id: "w2", points: [{ x: 70, y: 0 }, { x: 100, y: -20 }] },
+        // v1 (-), r1 pin 2, gnd
+        { id: "w_gnd1", points: [{ x: 0, y: 20 }, { x: 100, y: 20 }] },
+        { id: "w_gnd2", points: [{ x: 0, y: 20 }, { x: 0, y: 100 }] },
+      ],
+      analyses: [{ kind: "op", params: {} }]
+    });
+
+    const generator = new NetlistGenerator();
+
+    // 1. OPEN STATE
+    const openCircuit = buildSwitchCircuit("open");
+    const openNetlist = generator.generate(openCircuit);
+    expect(openNetlist).toContain("R_SW1");
+    expect(openNetlist).toContain("1G");
+
+    const simOpen = new Simulation();
+    await simOpen.start();
+    simOpen.setNetList(openNetlist);
+    const openResults = await simOpen.runSim();
+    expect(openResults).toBeDefined();
+
+    // In open state, voltage across r1 (pin 1) should be virtually 0V (< 1e-4 V)
+    const openLoadVoltages = openResults.data.filter(d => d.name !== "time" && !d.name.includes("#"));
+    expect(openLoadVoltages.some(v => v.values.some(val => Math.abs(val) < 1e-4))).toBe(true);
+
+    // 2. CLOSED STATE
+    const closedCircuit = buildSwitchCircuit("closed");
+    const closedNetlist = generator.generate(closedCircuit);
+    expect(closedNetlist).toContain("R_SW1");
+    expect(closedNetlist).toContain("1m");
+
+    const simClosed = new Simulation();
+    await simClosed.start();
+    simClosed.setNetList(closedNetlist);
+    const closedResults = await simClosed.runSim();
+    expect(closedResults).toBeDefined();
+
+    // In closed state, voltage across r1 is ~5V
+    const closedLoadVoltages = closedResults.data.filter(d => d.name !== "time" && !d.name.includes("#"));
+    expect(closedLoadVoltages.some(v => v.values.some(val => Math.abs(val - 5.0) < 0.05))).toBe(true);
+  });
+
+  it("should simulate 74HC164 8-bit shift register sequentially in transient analysis", async () => {
+    // Direct netlist test with the 74HC164 subcircuit from library
+    const { ComponentLibrary } = await import("../src/engine/library");
+    const subcircuit = ComponentLibrary["74hc164"].spice?.subcircuitBody;
+    expect(subcircuit).toBeDefined();
+
+    const netlist = `
+* 74HC164 Shift Register Verification
+Vcc 14 0 5
+Vgnd 7 0 0
+Vclk 8 0 PULSE(0 5 10u 10n 10n 45u 100u)
+Vdsa 1 0 5
+Vdsb 2 0 PULSE(0 5 20u 10n 10n 150u 1000u)
+Vmr 9 0 5
+
+${subcircuit}
+
+X1 1 2 3 4 5 6 7 8 9 10 11 12 13 14 74HC164
+
+.tran 2u 400u
+.end
+`;
+
+    const sim = new Simulation();
+    await sim.start();
+    sim.setNetList(netlist);
+    const results = await sim.runSim();
+    expect(results).toBeDefined();
+    expect(results.numPoints).toBeGreaterThan(50);
+
+    const timeVec = results.data.find(d => d.name === "time")?.values || [];
+    const q0Vec = results.data.find(d => d.name === "v(3)")?.values || [];
+    const q1Vec = results.data.find(d => d.name === "v(4)")?.values || [];
+    const q2Vec = results.data.find(d => d.name === "v(5)")?.values || [];
+
+    // Around t = 120us (after 1st clock edge while dsb is HIGH): Q0 must be HIGH, Q1 must be LOW
+    const idx1 = timeVec.findIndex(t => t >= 120e-6);
+    expect(idx1).toBeGreaterThan(-1);
+    expect(q0Vec[idx1]).toBeGreaterThan(3.0);
+    expect(q1Vec[idx1]).toBeLessThan(1.0);
+
+    // Around t = 220us (after 2nd clock edge): Q0 shifts to Q1 (Q1 HIGH), and since DSB fell to 0 at 170us, Q0 becomes LOW
+    const idx2 = timeVec.findIndex(t => t >= 220e-6);
+    expect(idx2).toBeGreaterThan(-1);
+    expect(q0Vec[idx2]).toBeLessThan(1.0);
+    expect(q1Vec[idx2]).toBeGreaterThan(3.0);
+    expect(q2Vec[idx2]).toBeLessThan(1.0);
+
+    // Around t = 320us (after 3rd clock edge): Q1 shifts to Q2 (Q2 HIGH, Q1 LOW, Q0 LOW)
+    const idx3 = timeVec.findIndex(t => t >= 320e-6);
+    expect(idx3).toBeGreaterThan(-1);
+    expect(q0Vec[idx3]).toBeLessThan(1.0);
+    expect(q1Vec[idx3]).toBeLessThan(1.0);
+    expect(q2Vec[idx3]).toBeGreaterThan(3.0);
+  }, 15000);
+
+  it("should emit .ic and uic to preserve state across interactive switch toggles", async () => {
+    const { ComponentLibrary } = await import("../src/engine/library");
+    const subcircuit = ComponentLibrary["74hc164"].spice?.subcircuitBody;
+
+    const circuit: Circuit = {
+      id: "interactive-shift-test",
+      name: "Interactive Shift Test",
+      components: [
+        { id: "v1", type: "vsource", position: { x: 0, y: 0 }, rotation: 0, mirrored: false, params: { type: "dc", value: 5 } },
+        { id: "u1", type: "74hc164", position: { x: 50, y: 0 }, rotation: 0, mirrored: false, params: { model: "74HC164" } },
+        { id: "sw2", type: "switch", position: { x: 100, y: 0 }, rotation: 0, mirrored: false, params: { state: "open" } },
+        { id: "gnd", type: "ground", position: { x: 0, y: 100 }, rotation: 0, mirrored: false, params: {} }
+      ],
+      wires: [],
+      analyses: [{ kind: "interactive", params: { step: "1m", stop: "0.4s" } }]
+    };
+
+    const generator = new NetlistGenerator();
+    const initialConditions = {
+      "v(x_u1.s0)": 4.94,
+      "v(x_u1.s1)": 4.94,
+      "v(x_u1.m0)": 4.95,
+      "v(x_u1.m1)": 4.95,
+      "v(4)": 5.0, // VSource node
+      "v(0)": 0,   // Ground
+      "i(v1)": 0.05
+    };
+
+    const netlist = generator.generate(circuit, "interactive", initialConditions);
+    expect(netlist).toContain(".ic");
+    expect(netlist).toContain("V(x_u1.s0)=4.9400");
+    expect(netlist).toContain("V(x_u1.m0)=4.9500");
+    expect(netlist).not.toContain("V(4)=5.0000"); // Forced source node must be excluded
+    expect(netlist).not.toContain("V(0)=0.0000"); // Ground must be excluded
+    expect(netlist).not.toContain("i("); // Current branches must be excluded
+    expect(netlist).toContain(".tran");
+    expect(netlist).toContain("uic");
+  });
 });

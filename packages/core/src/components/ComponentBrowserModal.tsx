@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   X, Search, Cpu, Box, CheckCircle2, Layers, 
   Code, Plus, Sliders, Zap, Clock, 
-  Activity, FileCode
+  Activity, FileCode, ToggleLeft
 } from 'lucide-react';
 import { ComponentDefinition } from '../models/circuit';
 import { ComponentLibrary } from '../engine/library';
@@ -48,6 +48,7 @@ export const ComponentBrowserModal: React.FC<Props> = ({ isOpen, onClose, onSele
     { key: 'power', label: 'Power & Regulators', icon: <Sliders size={16} /> },
     { key: 'semiconductors', label: 'Semiconductors & Diodes', icon: <Cpu size={16} /> },
     { key: 'passives', label: 'Passives (R, L, C)', icon: <Box size={16} /> },
+    { key: 'inputs', label: 'Inputs & Switches', icon: <ToggleLeft size={16} /> },
     { key: 'instruments', label: 'Virtual Instruments', icon: <Clock size={16} /> },
     { key: 'custom', label: 'User / Custom Parts', icon: <FileCode size={16} /> },
   ];
@@ -753,6 +754,56 @@ const SymbolPreview: React.FC<{ definition: ComponentDefinition; isDark: boolean
   const pinNameColor = isDark ? '#81E6D9' : '#2B6CB0';
 
   if (!isIC) {
+    if (definition.type === 'switch') {
+      return (
+        <svg width="220" height="150" viewBox="-70 -60 140 120">
+          <line x1="-50" y1="0" x2="-22" y2="0" stroke={strokeColor} strokeWidth="2.5" />
+          <line x1="22" y1="0" x2="50" y2="0" stroke={strokeColor} strokeWidth="2.5" />
+          <circle cx="-22" cy="0" r="5" stroke={strokeColor} strokeWidth="2" fill={boxFill} />
+          <circle cx="22" cy="0" r="5" stroke={strokeColor} strokeWidth="2" fill={boxFill} />
+          <line x1="-22" y1="0" x2="18" y2="-22" stroke={strokeColor} strokeWidth="2.5" />
+          <circle cx="-50" cy="0" r="3" fill={pinNumColor} />
+          <circle cx="50" cy="0" r="3" fill={pinNumColor} />
+          <text x="-50" y="-10" textAnchor="middle" fill={pinNumColor} fontSize="10" fontWeight="bold">1</text>
+          <text x="50" y="-10" textAnchor="middle" fill={pinNumColor} fontSize="10" fontWeight="bold">2</text>
+          <text x="0" y="32" textAnchor="middle" fill={strokeColor} fontSize="11" fontWeight="bold">SPST Switch</text>
+        </svg>
+      );
+    }
+    if (definition.type === 'pushbutton') {
+      return (
+        <svg width="220" height="150" viewBox="-70 -60 140 120">
+          {/* Left Pins: L1 (-20,-20), L2 (-20, 20) */}
+          <line x1="-50" y1="-20" x2="-20" y2="-20" stroke={strokeColor} strokeWidth="2.5" />
+          <line x1="-50" y1="20" x2="-20" y2="20" stroke={strokeColor} strokeWidth="2.5" />
+          <line x1="-20" y1="-20" x2="-20" y2="20" stroke={strokeColor} strokeWidth="2.5" />
+          <circle cx="-20" cy="0" r="4" stroke={strokeColor} strokeWidth="2" fill={boxFill} />
+          
+          {/* Right Pins: R1 (20, -20), R2 (20, 20) */}
+          <line x1="20" y1="-20" x2="50" y2="-20" stroke={strokeColor} strokeWidth="2.5" />
+          <line x1="20" y1="20" x2="50" y2="20" stroke={strokeColor} strokeWidth="2.5" />
+          <line x1="20" y1="-20" x2="20" y2="20" stroke={strokeColor} strokeWidth="2.5" />
+          <circle cx="20" cy="0" r="4" stroke={strokeColor} strokeWidth="2" fill={boxFill} />
+
+          {/* Movable Contact Bar & Push Actuator */}
+          <line x1="-20" y1="-8" x2="20" y2="-8" stroke={strokeColor} strokeWidth="2.5" />
+          <line x1="0" y1="-8" x2="0" y2="-22" stroke={strokeColor} strokeWidth="2" />
+          <rect x="-8" y="-26" width="16" height="5" fill={strokeColor} rx="1" />
+
+          {/* Pin Terminal Dots */}
+          <circle cx="-50" cy="-20" r="3" fill={pinNumColor} />
+          <circle cx="-50" cy="20" r="3" fill={pinNumColor} />
+          <circle cx="50" cy="-20" r="3" fill={pinNumColor} />
+          <circle cx="50" cy="20" r="3" fill={pinNumColor} />
+          
+          <text x="-50" y="-28" textAnchor="middle" fill={pinNumColor} fontSize="9" fontWeight="bold">1</text>
+          <text x="-50" y="34" textAnchor="middle" fill={pinNumColor} fontSize="9" fontWeight="bold">2</text>
+          <text x="50" y="-28" textAnchor="middle" fill={pinNumColor} fontSize="9" fontWeight="bold">3</text>
+          <text x="50" y="34" textAnchor="middle" fill={pinNumColor} fontSize="9" fontWeight="bold">4</text>
+          <text x="0" y="44" textAnchor="middle" fill={strokeColor} fontSize="11" fontWeight="bold">Push Button</text>
+        </svg>
+      );
+    }
     if (definition.type === 'clock') {
       return (
         <svg width="220" height="150" viewBox="-70 -60 140 120">
@@ -949,6 +1000,43 @@ const PhysicalPackagePreview: React.FC<{ definition: ComponentDefinition }> = ({
         <rect x="-18" y="15" width="6" height="35" fill="#CBD0D4" stroke="#8A8F94" strokeWidth="1" />
         <rect x="-3" y="15" width="6" height="35" fill="#CBD0D4" stroke="#8A8F94" strokeWidth="1" />
         <rect x="12" y="15" width="6" height="35" fill="#CBD0D4" stroke="#8A8F94" strokeWidth="1" />
+      </svg>
+    );
+  }
+
+  if (definition.type === 'switch') {
+    return (
+      <svg width="220" height="150" viewBox="-80 -50 160 100">
+        <line x1="-70" y1="0" x2="-35" y2="0" stroke="#CBD0D4" strokeWidth="3" strokeLinecap="round" />
+        <line x1="35" y1="0" x2="70" y2="0" stroke="#CBD0D4" strokeWidth="3" strokeLinecap="round" />
+        <rect x="-35" y="-18" width="70" height="36" fill="#27272A" stroke="#3F3F46" strokeWidth="1.5" rx="4" />
+        <rect x="-30" y="-14" width="60" height="28" fill="#52525B" rx="2" />
+        <rect x="-22" y="-6" width="44" height="12" fill="#18181B" rx="2" />
+        <rect x="-20" y="-10" width="18" height="20" fill="#E4E4E7" stroke="#09090B" strokeWidth="1" rx="2" />
+        <line x1="-14" y1="-5" x2="-14" y2="5" stroke="#71717A" strokeWidth="1.5" />
+        <line x1="-8" y1="-5" x2="-8" y2="5" stroke="#71717A" strokeWidth="1.5" />
+      </svg>
+    );
+  }
+
+  if (definition.type === 'pushbutton') {
+    return (
+      <svg width="220" height="150" viewBox="-80 -50 160 100">
+        {/* Metal Leads (Tactile 6x6mm button) */}
+        <line x1="-40" y1="-20" x2="-22" y2="-20" stroke="#CBD0D4" strokeWidth="3" strokeLinecap="round" />
+        <line x1="-40" y1="20" x2="-22" y2="20" stroke="#CBD0D4" strokeWidth="3" strokeLinecap="round" />
+        <line x1="22" y1="-20" x2="40" y2="-20" stroke="#CBD0D4" strokeWidth="3" strokeLinecap="round" />
+        <line x1="22" y1="20" x2="40" y2="20" stroke="#CBD0D4" strokeWidth="3" strokeLinecap="round" />
+        {/* Square Body */}
+        <rect x="-24" y="-24" width="48" height="48" fill="#2C3E50" stroke="#1A252F" strokeWidth="1.5" rx="4" />
+        {/* Metal Top Bracket */}
+        <rect x="-18" y="-18" width="36" height="36" fill="#7F8C8D" rx="2" />
+        <circle cx="-13" cy="-13" r="2" fill="#52525B" />
+        <circle cx="13" cy="-13" r="2" fill="#52525B" />
+        <circle cx="-13" cy="13" r="2" fill="#52525B" />
+        <circle cx="13" cy="13" r="2" fill="#52525B" />
+        {/* Round Actuator Button */}
+        <circle cx="0" cy="0" r="11" fill="#E74C3C" stroke="#C0392B" strokeWidth="1" />
       </svg>
     );
   }

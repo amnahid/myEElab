@@ -8,9 +8,11 @@ import { ComponentLibrary } from '../engine/library';
 interface Props {
   component: ComponentInstance;
   placement: BreadboardPlacement;
+  isLedLit?: boolean;
+  ledIntensity?: number;
 }
 
-export const PhysicalComponentNode: React.FC<Props> = ({ component, placement }) => {
+export const PhysicalComponentNode: React.FC<Props> = React.memo(({ component, placement, isLedLit, ledIntensity }) => {
   const { type } = component;
   const libComp = component.customDefinition || ComponentLibrary[type];
   const pkg = libComp?.package || 'discrete';
@@ -109,8 +111,18 @@ export const PhysicalComponentNode: React.FC<Props> = ({ component, placement })
         <Group x={pos1.x} y={pos1.y} rotation={angle}>
           {/* Legs */}
           <Line points={[0, 0, distance, 0]} stroke="#bdc3c7" strokeWidth={2} />
+          {/* Glow if lit */}
+          {isLedLit && (
+            <>
+              <Circle x={distance / 2} y={0} radius={16} fill={ledColor} opacity={0.35 * (ledIntensity || 1)} listening={false} />
+              <Circle x={distance / 2} y={0} radius={24} fill={ledColor} opacity={0.15 * (ledIntensity || 1)} listening={false} />
+            </>
+          )}
           {/* Body (LED Dome) */}
-          <Circle x={distance / 2} y={0} radius={8} fill={ledColor} opacity={0.85} shadowColor={ledColor} shadowBlur={5} shadowOpacity={0.5} />
+          <Circle x={distance / 2} y={0} radius={8} fill={isLedLit ? '#ffffff' : ledColor} opacity={isLedLit ? 0.95 : 0.85} />
+          {isLedLit && (
+            <Circle x={distance / 2} y={0} radius={5} fill={ledColor} opacity={0.8} listening={false} />
+          )}
           <Rect x={distance / 2 - 2} y={-8} width={10} height={16} fill={ledColor} opacity={0.85} cornerRadius={[0, 8, 8, 0]} />
           {/* Flat spot for cathode */}
           <Line points={[distance / 2 + 7, -7, distance / 2 + 7, 7]} stroke="#2c3e50" strokeWidth={2} />
@@ -211,15 +223,72 @@ export const PhysicalComponentNode: React.FC<Props> = ({ component, placement })
           {/* Interactive Hitbox */}
           <Rect x={-12} y={-12} width={24} height={24} fill="transparent"
             onMouseDown={(e) => {
+              if (component.id === 'ghost') return;
               e.cancelBubble = true;
               useEditorStore.getState().updateComponentParams(component.id, { state: 'closed' });
             }}
             onMouseUp={(e) => {
+              if (component.id === 'ghost') return;
               e.cancelBubble = true;
               useEditorStore.getState().updateComponentParams(component.id, { state: 'open' });
             }}
             onMouseLeave={() => {
+              if (component.id === 'ghost') return;
               useEditorStore.getState().updateComponentParams(component.id, { state: 'open' });
+            }}
+          />
+        </Group>
+      );
+    }
+  }
+
+  // Render Switch (SPST Slide Switch)
+  if (type === 'switch') {
+    const pos1 = getHolePosition(placement.legHoles['1']);
+    const pos2 = getHolePosition(placement.legHoles['2']);
+    
+    if (pos1 && pos2) {
+      const dx = pos2.x - pos1.x;
+      const dy = pos2.y - pos1.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      const isClosed = component.params?.state === 'closed';
+
+      return (
+        <Group x={pos1.x} y={pos1.y} rotation={angle}>
+          {/* Connecting wire leads */}
+          <Line points={[0, 0, distance, 0]} stroke="#bdc3c7" strokeWidth={2} />
+          {/* Main switch body */}
+          <Rect x={distance / 2 - 14} y={-8} width={28} height={16} fill="#27272a" cornerRadius={2} stroke="#3f3f46" strokeWidth={1} />
+          {/* Metal housing cover */}
+          <Rect x={distance / 2 - 12} y={-6} width={24} height={12} fill="#71717a" cornerRadius={1.5} />
+          {/* Slider track */}
+          <Rect x={distance / 2 - 8} y={-3} width={16} height={6} fill="#18181b" cornerRadius={1} />
+          {/* Actuator handle */}
+          <Rect 
+            x={isClosed ? distance / 2 : distance / 2 - 8} 
+            y={-5} 
+            width={8} 
+            height={10} 
+            fill={isClosed ? '#22c55e' : '#e4e4e7'} 
+            cornerRadius={1}
+            stroke="#09090b"
+            strokeWidth={0.5}
+          />
+          {/* Clickable toggle hit area */}
+          <Rect 
+            x={distance / 2 - 14} y={-8} width={28} height={16} fill="transparent"
+            onClick={(e) => {
+              if (component.id === 'ghost') return;
+              e.cancelBubble = true;
+              const nextState = isClosed ? 'open' : 'closed';
+              useEditorStore.getState().updateComponentParams(component.id, { state: nextState });
+            }}
+            onTap={(e) => {
+              if (component.id === 'ghost') return;
+              e.cancelBubble = true;
+              const nextState = isClosed ? 'open' : 'closed';
+              useEditorStore.getState().updateComponentParams(component.id, { state: nextState });
             }}
           />
         </Group>
@@ -374,4 +443,4 @@ export const PhysicalComponentNode: React.FC<Props> = ({ component, placement })
       {p2 && <Circle x={p2.x} y={p2.y} radius={4} fill="magenta" />}
     </Group>
   );
-};
+});

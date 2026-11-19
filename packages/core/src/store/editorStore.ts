@@ -1,9 +1,241 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { temporal } from 'zundo';
-import { Circuit, ComponentInstance, Wire, Point, Probe, ComponentDefinition } from '../models/circuit';
+import { Circuit, ComponentInstance, Wire, Point, Probe, ComponentDefinition, CircuitClipboardPayload, AnalysisConfig } from '../models/circuit';
 import { ComponentLibrary } from '../engine/library';
+import { generateNextRefDes, reindexRefDes, ensureCircuitRefDes, isUnindexedRefDes, getComponentPrefix } from '../engine/refDes';
 import { v4 as uuidv4 } from 'uuid';
+
+export { generateNextRefDes, reindexRefDes, ensureCircuitRefDes, isUnindexedRefDes, getComponentPrefix };
+
+export function getComponentPinCoords(comp: ComponentInstance, customDefs?: Record<string, ComponentDefinition>): Set<string> {
+  const pinCoords = new Set<string>();
+  const libComp = comp.customDefinition || customDefs?.[comp.type] || ComponentLibrary[comp.type];
+  if (!libComp) return pinCoords;
+  const rotRad = (comp.rotation || 0) * Math.PI / 180;
+  const cos = Math.round(Math.cos(rotRad));
+  const sin = Math.round(Math.sin(rotRad));
+  for (const pin of libComp.pins) {
+    const mirroredOffsetX = comp.mirrored ? -pin.offset.x : pin.offset.x;
+    const mirroredOffsetY = pin.offset.y;
+    const rx = mirroredOffsetX * cos - mirroredOffsetY * sin;
+    const ry = mirroredOffsetX * sin + mirroredOffsetY * cos;
+    const px = Math.round(comp.position.x + rx);
+    const py = Math.round(comp.position.y + ry);
+    pinCoords.add(`${px},${py}`);
+  }
+  return pinCoords;
+}
+
+function performPaste(
+  state: EditorState,
+  payload: CircuitClipboardPayload,
+  cursorPos?: Point
+): Partial<EditorState> {
+  const componentsToPaste = payload?.components || [];
+  const wiresToPaste = payload?.wires || [];
+
+  if (componentsToPaste.length === 0 && wiresToPaste.length === 0) {
+    return {};
+  }
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const c of componentsToPaste) {
+    if (c.position.x < minX) minX = c.position.x;
+    if (c.position.x > maxX) maxX = c.position.x;
+    if (c.position.y < minY) minY = c.position.y;
+    if (c.position.y > maxY) maxY = c.position.y;
+  }
+  if (componentsToPaste.length === 0) {
+    for (const w of wiresToPaste) {
+      for (const p of w.points) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      }
+    }
+  }
+
+  const snap20 = (v: number) => Math.round(v / 20) * 20;
+  const centerX = minX !== Infinity ? (minX + maxX) / 2 : 0;
+  const centerY = minY !== Infinity ? (minY + maxY) / 2 : 0;
+
+  let dx = 20;
+  let dy = 20;
+
+  if (cursorPos) {
+    const targetX = snap20(cursorPos.x);
+    const targetY = snap20(cursorPos.y);
+    dx = snap20(targetX - centerX);
+    dy = snap20(targetY - centerY);
+    if (dx === 0 && dy === 0) {
+      dx = 20;
+      dy = 20;
+    }
+  }
+
+  const usedRefDesInBatch = new Set<string>();
+  const newComponents: ComponentInstance[] = componentsToPaste.map(c => {
+    const newId = uuidv4();
+    const newRefDes = reindexRefDes(c.refDes, c.type, state.circuit.components, usedRefDesInBatch, c.customDefinition || state.circuit.customComponents?.[c.type]);
+    return {
+      ...c,
+      id: newId,
+      position: {
+        x: c.position.x + dx,
+        y: c.position.y + dy
+      },
+      refDes: newRefDes,
+      params: { ...c.params }
+    };
+  });
+
+  const newWires: Wire[] = wiresToPaste.map(w => ({
+    id: uuidv4(),
+    points: w.points.map(p => ({ x: p.x + dx, y: p.y + dy })),
+    ...(w.color ? { color: w.color } : {})
+  }));
+
+  const mergedCustomComponents = {
+    ...(state.circuit.customComponents || {}),
+    ...(payload.customComponents || {})
+  };
+
+  const newCircuit: Circuit = {
+    ...state.circuit,
+    components: [...state.circuit.components, ...newComponents],
+    wires: [...state.circuit.wires, ...newWires],
+    customComponents: mergedCustomComponents
+  };
+
+  const newSelectedIds = [
+    ...newComponents.map(c => c.id),
+    ...newWires.map(w => w.id)
+  ];
+
+  return {
+    circuit: newCircuit,
+    selectedIds: newSelectedIds,
+    editingComponentId: null
+  };
+}
+
+function applyTranslation(
+  circuit: Circuit,
+  movingCompIds: Set<string>,
+  explicitlyMovingWireIds: Set<string>,
+  dx: number,
+  dy: number
+): { components: ComponentInstance[]; wires: Wire[] } {
+  if (dx === 0 && dy === 0) {
+    return { components: circuit.components, wires: circuit.wires };
+  }
+
+  const movingPinCoords = new Set<string>();
+  const allPins: { x: number; y: number }[] = [];
+
+  for (const c of circuit.components) {
+    const isMoving = movingCompIds.has(c.id);
+    const pinCoords = getComponentPinCoords(c, circuit.customComponents);
+    for (const pt of pinCoords) {
+      const [px, py] = pt.split(',').map(Number);
+      allPins.push({ x: px, y: py });
+      if (isMoving) {
+        movingPinCoords.add(pt);
+      }
+    }
+  }
+
+  const newComponents = circuit.components.map(c =>
+    movingCompIds.has(c.id)
+      ? { ...c, position: { x: c.position.x + dx, y: c.position.y + dy } }
+      : c
+  );
+
+  const newWires = circuit.wires.map(w => ({ ...w, points: w.points.map(p => ({ ...p })) }));
+
+  // Identify internal vs external wires
+  const isWireInternal = (w: Wire): boolean => {
+    if (explicitlyMovingWireIds.has(w.id)) return true;
+    if (w.points.length >= 2 && movingCompIds.size > 0) {
+      const pStart = `${Math.round(w.points[0].x)},${Math.round(w.points[0].y)}`;
+      const pEnd = `${Math.round(w.points[w.points.length - 1].x)},${Math.round(w.points[w.points.length - 1].y)}`;
+      return movingPinCoords.has(pStart) && movingPinCoords.has(pEnd);
+    }
+    return false;
+  };
+
+  // Find T-junctions before moving
+  const tJunctions: { cw: number; cp: number; pw: number; ps: number; t: number }[] = [];
+  for (let cw = 0; cw < newWires.length; cw++) {
+    for (let cp = 0; cp < newWires[cw].points.length; cp++) {
+      const J = newWires[cw].points[cp];
+      let isPin = false;
+      for (const pin of allPins) {
+        if (Math.abs(J.x - pin.x) < 1 && Math.abs(J.y - pin.y) < 1) {
+          isPin = true;
+          break;
+        }
+      }
+      if (isPin) continue;
+
+      for (let pw = 0; pw < newWires.length; pw++) {
+        for (let ps = 0; ps < newWires[pw].points.length - 1; ps++) {
+          if (cw === pw && (cp === ps || cp === ps + 1)) continue;
+          const A = newWires[pw].points[ps];
+          const B = newWires[pw].points[ps + 1];
+          const l2 = Math.pow(B.x - A.x, 2) + Math.pow(B.y - A.y, 2);
+          if (l2 === 0) continue;
+          const t = ((J.x - A.x) * (B.x - A.x) + (J.y - A.y) * (B.y - A.y)) / l2;
+          if (t > 0.001 && t < 0.999) {
+            const projX = A.x + t * (B.x - A.x);
+            const projY = A.y + t * (B.y - A.y);
+            if (Math.hypot(J.x - projX, J.y - projY) < 1) {
+              tJunctions.push({ cw, cp, pw, ps, t });
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Translate wires
+  for (let cw = 0; cw < newWires.length; cw++) {
+    const w = newWires[cw];
+    if (isWireInternal(w)) {
+      // Entire wire moves rigidly with the group
+      for (let cp = 0; cp < w.points.length; cp++) {
+        w.points[cp].x += dx;
+        w.points[cp].y += dy;
+      }
+    } else {
+      // External wire: only points touching moving pins move
+      for (let cp = 0; cp < w.points.length; cp++) {
+        const p = w.points[cp];
+        const key = `${Math.round(p.x)},${Math.round(p.y)}`;
+        if (movingPinCoords.has(key)) {
+          p.x += dx;
+          p.y += dy;
+        }
+      }
+    }
+  }
+
+  // Re-project dependent T-junctions
+  for (let iter = 0; iter < 5; iter++) {
+    for (const junc of tJunctions) {
+      const A = newWires[junc.pw].points[junc.ps];
+      const B = newWires[junc.pw].points[junc.ps + 1];
+      const J = newWires[junc.cw].points[junc.cp];
+      J.x = Math.round((A.x + junc.t * (B.x - A.x)) * 100) / 100;
+      J.y = Math.round((A.y + junc.t * (B.y - A.y)) * 100) / 100;
+    }
+  }
+
+  return { components: newComponents, wires: newWires };
+}
 
 interface EditorState {
   circuit: Circuit;
@@ -14,17 +246,26 @@ interface EditorState {
   stagePos: Point;
   scale: number;
   probes: Probe[];
-  activeAnalysis: 'op' | 'tran' | 'ac' | 'dc';
+  activeAnalysis: 'interactive' | 'op' | 'tran' | 'ac' | 'dc';
   theme: 'light' | 'dark';
   activeView: 'schematic' | 'breadboard';
   autoSimulate: boolean;
   showInstruments: boolean;
   
+  // Clipboard
+  clipboard: CircuitClipboardPayload | null;
+
   // Breadboard Option A Placement State
   placingBreadboardComponentId: string | null;
   placedLegs: Record<string, string>; // pinId -> holeId
   
   // Actions
+  copySelected: () => void;
+  cutSelected: () => void;
+  paste: (cursorPos?: Point) => Promise<void> | void;
+  duplicateSelected: () => void;
+  selectAll: () => void;
+  moveSelected: (delta: Point) => void;
   addCustomComponent: (def: ComponentDefinition) => void;
   setAutoSimulate: (auto: boolean) => void;
   setShowInstruments: (show: boolean) => void;
@@ -47,10 +288,13 @@ interface EditorState {
   setStageView: (pos: Point, scale: number) => void;
   addWire: (points: Point[]) => void;
   updateWirePoint: (wireId: string, pointIndex: number, pos: Point) => void;
+  updateWirePoints: (wireId: string, points: Point[]) => void;
   updateWireColor: (wireId: string, color: string) => void;
   toggleProbe: (nodeId: string, x: number, y: number) => void;
-  setActiveAnalysis: (kind: 'op' | 'tran' | 'ac' | 'dc') => void;
-  updateAnalysis: (kind: 'op' | 'tran' | 'ac' | 'dc', params: Record<string, string>) => void;
+  removeProbe: (nodeId: string) => void;
+  clearProbes: () => void;
+  setActiveAnalysis: (kind: 'interactive' | 'op' | 'tran' | 'ac' | 'dc') => void;
+  updateAnalysis: (kind: 'interactive' | 'op' | 'tran' | 'ac' | 'dc', params: Record<string, string>) => void;
   setCustomModels: (models: string) => void;
   addProbe: (probe: Probe) => void;
   clearAll: () => void;
@@ -60,13 +304,17 @@ interface EditorState {
 export const useEditorStore = create<EditorState>()(
   temporal(
     persist(
-      (set) => ({
+      (set, get) => ({
         circuit: {
           id: uuidv4(),
           name: 'Untitled',
           components: [],
           wires: [],
-          analyses: [{ kind: 'op', params: {} }],
+          analyses: [
+            { kind: 'tran', params: { step: '100u', stop: '10m' } },
+            { kind: 'ac', params: { variation: 'dec', points: '10', fstart: '1', fstop: '1Meg' } },
+            { kind: 'op', params: {} }
+          ] as AnalysisConfig[],
           breadboard: { layout: 'half', placements: [], jumperWires: [] }
         },
         selectedIds: [],
@@ -76,13 +324,124 @@ export const useEditorStore = create<EditorState>()(
         stagePos: { x: 0, y: 0 },
         scale: 1,
         probes: [],
-        activeAnalysis: 'op',
+        activeAnalysis: 'interactive',
         theme: typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
         activeView: 'schematic',
         autoSimulate: true,
         showInstruments: true,
+        clipboard: null,
         placingBreadboardComponentId: null,
         placedLegs: {},
+
+        copySelected: () => {
+          const state = get();
+          const selectedComps = state.circuit.components.filter(c => state.selectedIds.includes(c.id));
+          const explicitlySelectedWires = state.circuit.wires.filter(w => state.selectedIds.includes(w.id));
+
+          if (selectedComps.length === 0 && explicitlySelectedWires.length === 0) return;
+
+          const allSelectedPinCoords = new Set<string>();
+          for (const c of selectedComps) {
+            const coords = getComponentPinCoords(c, state.circuit.customComponents);
+            coords.forEach(pt => allSelectedPinCoords.add(pt));
+          }
+
+          const internalWires = state.circuit.wires.filter(w => {
+            if (state.selectedIds.includes(w.id)) return false;
+            if (w.points.length >= 2) {
+              const pStart = `${Math.round(w.points[0].x)},${Math.round(w.points[0].y)}`;
+              const pEnd = `${Math.round(w.points[w.points.length - 1].x)},${Math.round(w.points[w.points.length - 1].y)}`;
+              return allSelectedPinCoords.has(pStart) && allSelectedPinCoords.has(pEnd);
+            }
+            return false;
+          });
+
+          const allWiresToCopy = [...explicitlySelectedWires, ...internalWires];
+
+          const payload: CircuitClipboardPayload = {
+            source: 'myEElab',
+            version: 1,
+            components: JSON.parse(JSON.stringify(selectedComps)),
+            wires: JSON.parse(JSON.stringify(allWiresToCopy)),
+            customComponents: state.circuit.customComponents ? JSON.parse(JSON.stringify(state.circuit.customComponents)) : undefined
+          };
+
+          set({ clipboard: payload });
+
+          if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).catch(() => {});
+          }
+        },
+
+        cutSelected: () => {
+          get().copySelected();
+          get().deleteSelected();
+        },
+
+        paste: async (cursorPos?: Point) => {
+          const state = get();
+          let payload = state.clipboard;
+
+          if (typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
+            try {
+              const text = await navigator.clipboard.readText();
+              if (text && text.trim().startsWith('{')) {
+                const parsed = JSON.parse(text);
+                if (parsed?.source === 'myEElab' && Array.isArray(parsed?.components)) {
+                  payload = parsed;
+                }
+              }
+            } catch {
+              // Permission denied or unavailable - fallback to in-memory payload
+            }
+          }
+
+          if (!payload) return;
+
+          const updates = performPaste(get(), payload, cursorPos);
+          if (updates.circuit) {
+            set(updates);
+          }
+        },
+
+        duplicateSelected: () => {
+          const state = get();
+          const selectedComps = state.circuit.components.filter(c => state.selectedIds.includes(c.id));
+          const explicitlySelectedWires = state.circuit.wires.filter(w => state.selectedIds.includes(w.id));
+
+          if (selectedComps.length === 0 && explicitlySelectedWires.length === 0) return;
+
+          const allSelectedPinCoords = new Set<string>();
+          for (const c of selectedComps) {
+            const coords = getComponentPinCoords(c, state.circuit.customComponents);
+            coords.forEach(pt => allSelectedPinCoords.add(pt));
+          }
+
+          const internalWires = state.circuit.wires.filter(w => {
+            if (state.selectedIds.includes(w.id)) return false;
+            if (w.points.length >= 2) {
+              const pStart = `${Math.round(w.points[0].x)},${Math.round(w.points[0].y)}`;
+              const pEnd = `${Math.round(w.points[w.points.length - 1].x)},${Math.round(w.points[w.points.length - 1].y)}`;
+              return allSelectedPinCoords.has(pStart) && allSelectedPinCoords.has(pEnd);
+            }
+            return false;
+          });
+
+          const allWiresToCopy = [...explicitlySelectedWires, ...internalWires];
+
+          const payload: CircuitClipboardPayload = {
+            source: 'myEElab',
+            version: 1,
+            components: JSON.parse(JSON.stringify(selectedComps)),
+            wires: JSON.parse(JSON.stringify(allWiresToCopy)),
+            customComponents: state.circuit.customComponents
+          };
+
+          const updates = performPaste(get(), payload, undefined);
+          if (updates.circuit) {
+            set(updates);
+          }
+        },
 
         setAutoSimulate: (auto) => set({ autoSimulate: auto }),
         setShowInstruments: (show) => set({ showInstruments: show }),
@@ -127,13 +486,15 @@ export const useEditorStore = create<EditorState>()(
 
         addComponent: (type, position) => set((state) => {
           const params: Record<string, any> = { ...(ComponentLibrary[type]?.defaultParams || {}) };
+          const refDes = generateNextRefDes(type, state.circuit.components, undefined, state.circuit.customComponents?.[type]);
           const newComp: ComponentInstance = {
             id: uuidv4(),
             type,
             position,
             rotation: 0,
             mirrored: false,
-            params
+            params,
+            ...(refDes ? { refDes } : {})
           };
           const base = {
             circuit: { ...state.circuit, components: [...state.circuit.components, newComp] },
@@ -163,100 +524,34 @@ export const useEditorStore = create<EditorState>()(
           const movingCompIds = new Set(state.selectedIds);
           movingCompIds.add(id);
 
-          const oldPinAbsPos: {x: number, y: number}[] = [];
-          const allPins: {x: number, y: number}[] = [];
-          for (const c of state.circuit.components) {
-            const libComp = ComponentLibrary[c.type];
-            if (libComp) {
-              const rotRad = (c.rotation || 0) * Math.PI / 180;
-              const cos = Math.cos(rotRad);
-              const sin = Math.sin(rotRad);
-              for (const pin of libComp.pins) {
-                const mirroredOffsetX = c.mirrored ? -pin.offset.x : pin.offset.x;
-                const mirroredOffsetY = pin.offset.y;
-                const rx = mirroredOffsetX * cos - mirroredOffsetY * sin;
-                const ry = mirroredOffsetX * sin + mirroredOffsetY * cos;
-                const pinAbs = { x: c.position.x + rx, y: c.position.y + ry };
-                allPins.push(pinAbs);
-                if (movingCompIds.has(c.id)) {
-                  oldPinAbsPos.push(pinAbs);
-                }
-              }
-            }
-          }
-
-          const components = state.circuit.components.map(c => 
-            movingCompIds.has(c.id) ? { ...c, position: { x: c.position.x + dx, y: c.position.y + dy } } : c
+          const explicitlyMovingWireIds = new Set(
+            state.selectedIds.filter(sid => state.circuit.wires.some(w => w.id === sid))
           );
 
-          const newWires = state.circuit.wires.map(w => ({ ...w, points: w.points.map(p => ({ ...p })) }));
-
-          const tJunctions: { cw: number, cp: number, pw: number, ps: number, t: number }[] = [];
-          for (let cw = 0; cw < newWires.length; cw++) {
-             for (let cp = 0; cp < newWires[cw].points.length; cp++) {
-                const J = newWires[cw].points[cp];
-                
-                // If J is connected to ANY component pin, it is a primary node, not a dependent T-junction.
-                let isPin = false;
-                for (const pin of allPins) {
-                   if (Math.abs(J.x - pin.x) < 1 && Math.abs(J.y - pin.y) < 1) {
-                      isPin = true;
-                      break;
-                   }
-                }
-                if (isPin) continue;
-
-                let found = false;
-                for (let pw = 0; pw < newWires.length; pw++) {
-                   for (let ps = 0; ps < newWires[pw].points.length - 1; ps++) {
-                      if (cw === pw && (cp === ps || cp === ps + 1)) continue;
-                      
-                      const A = newWires[pw].points[ps];
-                      const B = newWires[pw].points[ps+1];
-                      const l2 = Math.pow(B.x - A.x, 2) + Math.pow(B.y - A.y, 2);
-                      if (l2 === 0) continue;
-                      
-                      let t = ((J.x - A.x) * (B.x - A.x) + (J.y - A.y) * (B.y - A.y)) / l2;
-                      if (t > 0.001 && t < 0.999) {
-                         const projX = A.x + t * (B.x - A.x);
-                         const projY = A.y + t * (B.y - A.y);
-                         if (Math.hypot(J.x - projX, J.y - projY) < 1) {
-                            tJunctions.push({ cw, cp, pw, ps, t });
-                            found = true;
-                            break;
-                         }
-                      }
-                   }
-                   if (found) break;
-                }
-             }
-          }
-
-          for (let cw = 0; cw < newWires.length; cw++) {
-             for (let cp = 0; cp < newWires[cw].points.length; cp++) {
-                const p = newWires[cw].points[cp];
-                for (const oldPin of oldPinAbsPos) {
-                   if (Math.abs(p.x - oldPin.x) < 1 && Math.abs(p.y - oldPin.y) < 1) {
-                      p.x += dx;
-                      p.y += dy;
-                      break;
-                   }
-                }
-             }
-          }
-
-          for (let iter = 0; iter < 5; iter++) {
-             for (const junc of tJunctions) {
-                const A = newWires[junc.pw].points[junc.ps];
-                const B = newWires[junc.pw].points[junc.ps+1];
-                const J = newWires[junc.cw].points[junc.cp];
-                J.x = Math.round((A.x + junc.t * (B.x - A.x)) * 100) / 100;
-                J.y = Math.round((A.y + junc.t * (B.y - A.y)) * 100) / 100;
-             }
-          }
-
-          return { circuit: { ...state.circuit, components, wires: newWires } };
+          const { components, wires } = applyTranslation(state.circuit, movingCompIds, explicitlyMovingWireIds, dx, dy);
+          return { circuit: { ...state.circuit, components, wires } };
         }),
+
+        moveSelected: (delta) => set((state) => {
+          if (state.selectedIds.length === 0 || (delta.x === 0 && delta.y === 0)) return state;
+
+          const movingCompIds = new Set(
+            state.circuit.components.filter(c => state.selectedIds.includes(c.id)).map(c => c.id)
+          );
+          const explicitlyMovingWireIds = new Set(
+            state.circuit.wires.filter(w => state.selectedIds.includes(w.id)).map(w => w.id)
+          );
+
+          const { components, wires } = applyTranslation(state.circuit, movingCompIds, explicitlyMovingWireIds, delta.x, delta.y);
+          return { circuit: { ...state.circuit, components, wires } };
+        }),
+
+        selectAll: () => set((state) => ({
+          selectedIds: [
+            ...state.circuit.components.map(c => c.id),
+            ...state.circuit.wires.map(w => w.id)
+          ]
+        })),
 
         updateComponentParams: (id, params) => set((state) => {
           const components = state.circuit.components.map(c => {
@@ -336,40 +631,9 @@ export const useEditorStore = create<EditorState>()(
         }),
 
         deleteSelected: () => set((state) => {
-          const componentsToDelete = state.circuit.components.filter(c => state.selectedIds.includes(c.id));
-          
-          const deletedPinCoords = new Set<string>();
-          componentsToDelete.forEach(comp => {
-            const libComp = ComponentLibrary[comp.type];
-            if (!libComp) return;
-            const rotRad = (comp.rotation || 0) * Math.PI / 180;
-            const cos = Math.round(Math.cos(rotRad));
-            const sin = Math.round(Math.sin(rotRad));
-            
-            libComp.pins.forEach(pin => {
-              const baseOffset = pin.offset;
-              const mirroredOffsetX = comp.mirrored ? -baseOffset.x : baseOffset.x;
-              const mirroredOffsetY = baseOffset.y;
-              const rx = mirroredOffsetX * cos - mirroredOffsetY * sin;
-              const ry = mirroredOffsetX * sin + mirroredOffsetY * cos;
-              const px = Math.round(comp.position.x + rx);
-              const py = Math.round(comp.position.y + ry);
-              deletedPinCoords.add(`${px},${py}`);
-            });
-          });
-
           const components = state.circuit.components.filter(c => !state.selectedIds.includes(c.id));
-          
-          const wires = state.circuit.wires.filter(w => {
-            if (state.selectedIds.includes(w.id)) return false;
-            if (w.points.length > 0) {
-               const p1 = w.points[0];
-               const p2 = w.points[w.points.length - 1];
-               if (deletedPinCoords.has(`${Math.round(p1.x)},${Math.round(p1.y)}`)) return false;
-               if (deletedPinCoords.has(`${Math.round(p2.x)},${Math.round(p2.y)}`)) return false;
-            }
-            return true;
-          });
+          const wires = state.circuit.wires.filter(w => !state.selectedIds.includes(w.id));
+          const probes = state.probes.filter(p => !state.selectedIds.includes(`probe-${p.nodeId}`) && !state.selectedIds.includes(p.nodeId));
 
           const breadboard = state.circuit.breadboard;
           let newBreadboard = breadboard;
@@ -381,6 +645,7 @@ export const useEditorStore = create<EditorState>()(
           const newEditingId = state.editingComponentId && state.selectedIds.includes(state.editingComponentId) ? null : state.editingComponentId;
           return {
             circuit: { ...state.circuit, components, wires, breadboard: newBreadboard },
+            probes,
             selectedIds: [],
             editingComponentId: newEditingId
           };
@@ -421,6 +686,16 @@ export const useEditorStore = create<EditorState>()(
           return { circuit: { ...state.circuit, wires } };
         }),
 
+        updateWirePoints: (wireId, points) => set((state) => {
+          const wires = state.circuit.wires.map(w => {
+            if (w.id === wireId) {
+              return { ...w, points };
+            }
+            return w;
+          });
+          return { circuit: { ...state.circuit, wires } };
+        }),
+
         toggleProbe: (nodeId, x, y) => set((state) => {
           const exists = state.probes.find(p => p.nodeId === nodeId);
           if (exists) {
@@ -434,6 +709,14 @@ export const useEditorStore = create<EditorState>()(
             }
             return { probes: [...state.probes, { nodeId, color, x, y }] };
           }
+        }),
+
+        removeProbe: (nodeId) => set((state) => ({
+          probes: state.probes.filter(p => p.nodeId !== nodeId)
+        })),
+
+        clearProbes: () => set({
+          probes: []
         }),
 
         updateAnalysis: (kind, params) => set((state) => {
@@ -463,7 +746,11 @@ export const useEditorStore = create<EditorState>()(
             name: 'Untitled',
             components: [],
             wires: [],
-            analyses: [{ kind: 'op', params: {} }],
+            analyses: [
+              { kind: 'tran', params: { step: '100u', stop: '10m' } },
+              { kind: 'ac', params: { variation: 'dec', points: '10', fstart: '1', fstop: '1Meg' } },
+              { kind: 'op', params: {} }
+            ],
             breadboard: { layout: 'half', placements: [], jumperWires: [] }
           },
           selectedIds: [],
@@ -498,6 +785,13 @@ export const useEditorStore = create<EditorState>()(
           probes: state.probes,
           showInstruments: state.showInstruments
         }),
+        onRehydrateStorage: () => (state) => {
+          if (state?.circuit) {
+            if (ensureCircuitRefDes(state.circuit)) {
+              state.circuit = { ...state.circuit, components: [...state.circuit.components] };
+            }
+          }
+        }
       }
     ),
     {

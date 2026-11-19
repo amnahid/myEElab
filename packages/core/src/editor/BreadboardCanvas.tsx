@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { Stage, Layer, Rect, Group, Line, Text, Circle, Label, Tag } from 'react-konva';
 import { useEditorStore } from '../store/editorStore';
 import { ComponentLibrary } from '../engine/library';
+import { useSimulationStore } from '../store/simulationStore';
 import { PhysicalComponentNode } from './PhysicalComponentNode';
 import { getHolePosition, HOLES, GRID_SIZE, BOARD_WIDTH, BOARD_HEIGHT, START_Y } from './breadboardLayout';
 
@@ -15,6 +16,7 @@ export const BreadboardCanvas: React.FC = () => {
     addPlacedLeg, cancelBreadboardPlacement, placeOnBreadboard,
     addJumperWire, setSelection, addComponent,
   } = useEditorStore();
+  const ledStates = useSimulationStore(state => state.ledStates);
 
   const [hoveredHole, setHoveredHole] = useState<string | null>(null);
   const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
@@ -299,7 +301,12 @@ export const BreadboardCanvas: React.FC = () => {
                   onMouseEnter={() => setHoveredComponentId(comp.id)}
                   onMouseLeave={() => setHoveredComponentId(null)}
                 >
-                  <PhysicalComponentNode component={comp} placement={placement} />
+                  <PhysicalComponentNode 
+                    component={comp} 
+                    placement={placement} 
+                    isLedLit={ledStates[comp.id]?.isOn}
+                    ledIntensity={ledStates[comp.id]?.intensity}
+                  />
                   {isHovered && firstHolePos && (
                     <Label x={firstHolePos.x + 15} y={firstHolePos.y - 15}>
                       <Tag fill={theme === 'dark' ? '#30383E' : '#EEEAE4'} cornerRadius={3} pointerDirection="down" pointerWidth={10} pointerHeight={10} shadowColor="black" shadowBlur={5} shadowOpacity={0.3} />

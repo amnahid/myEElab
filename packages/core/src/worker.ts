@@ -27,6 +27,7 @@ self.onmessage = async (e) => {
       }
       
       const netlist = e.data.netlist;
+      const acNetlist = e.data.acNetlist;
       if (!netlist) return;
       
       lastError = ''; // Reset before run
@@ -36,8 +37,19 @@ self.onmessage = async (e) => {
       if (lastError && (lastError.toLowerCase().includes('error') || lastError.toLowerCase().includes('singular matrix') || lastError.includes('interrupted'))) {
         throw new Error(`SPICE Error: \n${lastError.trim()}`);
       }
+
+      let acResults = null;
+      if (acNetlist) {
+        lastError = '';
+        sim.setNetList(acNetlist);
+        try {
+          acResults = await sim.runSim();
+        } catch (acErr) {
+          console.warn("AC simulation warning/error:", acErr);
+        }
+      }
       
-      self.postMessage({ type: "results", results });
+      self.postMessage({ type: "results", results, acResults, activeAnalysis: e.data.activeAnalysis });
     } catch (err: any) {
       const message = err?.message || (typeof err === 'string' ? err : String(err));
       self.postMessage({ type: "error", error: message });

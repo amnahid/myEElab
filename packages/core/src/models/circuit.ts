@@ -55,7 +55,7 @@ export interface Wire {
 }
 
 export interface AnalysisConfig {
-  kind: "op" | "tran" | "ac" | "dc";
+  kind: "interactive" | "op" | "tran" | "ac" | "dc";
   params: Record<string, number | string>;
 }
 
@@ -100,3 +100,12 @@ export interface Probe {
   x: number;
   y: number;
 }
+
+export interface CircuitClipboardPayload {
+  source: 'myEElab';
+  version: 1;
+  components: ComponentInstance[];
+  wires: Wire[];
+  customComponents?: Record<string, ComponentDefinition>;
+}
+

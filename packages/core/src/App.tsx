@@ -1,10 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
-import { Canvas } from './editor/Canvas';
+import React, { useEffect, useState, useRef } from 'react';
+import { Canvas, getLastCanvasPointerPos } from './editor/Canvas';
 import { useEditorStore } from './store/editorStore';
-import { Undo, Redo, RotateCw, FlipHorizontal, Trash2, Settings, Eye, EyeOff, MoreHorizontal, Cpu, BookOpen } from 'lucide-react';
-import { NetlistGenerator } from './engine/netlist';
+import { useSimulationStore } from './store/simulationStore';
+import { Undo, Redo, RotateCw, FlipHorizontal, Trash2, Eye, EyeOff, MoreHorizontal, Cpu, BookOpen, Copy, Scissors, ClipboardPaste, ChevronUp, ChevronDown } from 'lucide-react';
+import { NetlistGenerator, parseSpiceValue } from './engine/netlist';
 import { WaveformViewer } from './editor/WaveformViewer';
-import { BodePlot } from './components/BodePlot';
 import { PropertyPopup } from './components/PropertyPopup';
 import { ProbeMenuIcon } from './editor/ProbeIcon';
 
@@ -13,6 +13,7 @@ import { NodeResolver } from './engine/nodeResolver';
 import { ComponentLibrary } from './engine/library';
 import { parseProteusNetlist, parsePdsprjExperimental } from './importers/proteus';
 import { ComponentBrowserModal } from './components/ComponentBrowserModal';
+import { AnalysisModeSelector } from './components/AnalysisModeSelector';
 
 const renderGenericIcon = (label: string) => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -226,6 +227,25 @@ const ComponentIcons: Record<string, React.ReactNode> = {
       <circle cx="10" cy="14" r="1" />
       <circle cx="14" cy="14" r="1" />
       <circle cx="18" cy="14" r="1" />
+    </svg>
+  ),
+  switch: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="2" y1="12" x2="7" y2="12" />
+      <circle cx="8.5" cy="12" r="1.5" />
+      <line x1="9" y1="11" x2="15" y2="5" />
+      <circle cx="15.5" cy="12" r="1.5" />
+      <line x1="17" y1="12" x2="22" y2="12" />
+    </svg>
+  ),
+  pushbutton: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="2" y1="12" x2="7" y2="12" />
+      <circle cx="8.5" cy="12" r="1.5" />
+      <circle cx="15.5" cy="12" r="1.5" />
+      <line x1="17" y1="12" x2="22" y2="12" />
+      <line x1="8" y1="8" x2="16" y2="8" strokeWidth="2.5" />
+      <line x1="12" y1="8" x2="12" y2="3" strokeWidth="2" />
     </svg>
   )
 };
@@ -497,8 +517,98 @@ const PhysicalComponentIcons: Record<string, React.ReactNode> = {
       <circle cx="14" cy="14" r="1" fill="var(--ink)" />
       <circle cx="18" cy="14" r="1" fill="var(--ink)" />
     </svg>
+  ),
+  switch: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="1" y1="12" x2="4" y2="12" stroke="var(--foreground)" strokeWidth="2" />
+      <line x1="20" y1="12" x2="23" y2="12" stroke="var(--foreground)" strokeWidth="2" />
+      <rect x="4" y="7" width="16" height="10" rx="2" fill="var(--panel)" stroke="var(--foreground)" strokeWidth="1" />
+      <rect x="7" y="9" width="10" height="6" rx="1" fill="var(--ink)" />
+      <rect x="7" y="8" width="5" height="8" rx="1" fill="#22c55e" stroke="var(--ink)" strokeWidth="0.5" />
+    </svg>
+  ),
+  pushbutton: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="5" width="14" height="14" rx="2" fill="var(--panel)" stroke="var(--foreground)" strokeWidth="1" />
+      <circle cx="12" cy="12" r="4.5" fill="#e74c3c" />
+    </svg>
   )
 };
+
+interface DCOperatingPointPanelProps {
+  isOpen: boolean;
+  onToggle: () => void;
+  colors: any;
+  isDark: boolean;
+  simFlash: boolean;
+}
+
+const DCOperatingPointPanel: React.FC<DCOperatingPointPanelProps> = React.memo(({
+  isOpen,
+  onToggle,
+  colors,
+  isDark,
+  simFlash
+}) => {
+  const nodeVoltages = useSimulationStore(state => 
+    Object.keys(state.operatingPointVoltages).length > 0 ? state.operatingPointVoltages : state.nodeVoltages
+  );
+
+  return (
+    <div style={{ 
+      position: 'absolute', 
+      bottom: '20px', 
+      left: '20px', 
+      background: colors.panelBg, 
+      padding: isOpen ? '10px' : '6px 12px', 
+      borderRadius: '5px', 
+      boxShadow: simFlash ? `0 0 0 2px #2ecc71, 0 4px 12px rgba(0,0,0,0.2)` : '0 2px 4px rgba(0,0,0,0.1)', 
+      transition: 'box-shadow 0.3s', 
+      zIndex: 10,
+      border: `1px solid ${colors.border}`,
+      maxHeight: isOpen ? '250px' : 'auto',
+      overflowY: isOpen ? 'auto' : 'visible'
+    }}>
+      <div 
+        onClick={onToggle}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', gap: '8px', userSelect: 'none' }}
+      >
+        <h4 style={{ margin: 0, fontSize: '0.85rem', color: colors.text }}>DC Operating Point</h4>
+        <div style={{ color: colors.text, opacity: 0.7, display: 'flex', alignItems: 'center' }}>
+          {isOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+        </div>
+      </div>
+      {isOpen && (
+        <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {Object.keys(nodeVoltages).length === 0 ? (
+            <div style={{ fontSize: '0.85rem', color: isDark ? 'var(--ink)' : '#7f8c8d' }}>No nodes available</div>
+          ) : (
+            Object.entries(nodeVoltages)
+              .filter(([node]) => !node.toLowerCase().includes('.'))
+              .map(([node, v]) => (
+              <div key={node} style={{ fontSize: '0.85rem', fontFamily: 'monospace', color: colors.text, display: 'flex', gap: '8px' }}>
+                <span style={{ fontWeight: 'bold', color: 'var(--signal)' }}>Node {node}:</span>
+                <span>
+                  {(() => {
+                    const isCurrent = node.toLowerCase().startsWith('i(');
+                    const unit = isCurrent ? 'A' : 'V';
+                    const abs = Math.abs(v);
+                    if (abs === 0) return `0 ${unit}`;
+                    if (abs >= 1e3) return `${parseFloat((v / 1e3).toFixed(3))} k${unit}`;
+                    if (abs >= 1) return `${parseFloat(v.toFixed(3))} ${unit}`;
+                    if (abs >= 1e-3) return `${parseFloat((v * 1e3).toFixed(3))} m${unit}`;
+                    if (abs >= 1e-6) return `${parseFloat((v * 1e6).toFixed(3))} µ${unit}`;
+                    return `${v.toExponential(2)} ${unit}`;
+                  })()}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
 
 function App() {
   const [importWarnings, setImportWarnings] = useState<string[] | null>(null);
@@ -508,7 +618,9 @@ function App() {
     setCustomModels,
     autoSimulate,
     setAutoSimulate, probes, clearAll, editingComponentId, activeView, setActiveView,
-    showInstruments, setShowInstruments
+    showInstruments, setShowInstruments,
+    copySelected, cutSelected, paste, duplicateSelected, selectedIds,
+    selectAll, moveSelected
   } = useEditorStore();
   const theme = useEditorStore(state => state.theme);
   const setTheme = useEditorStore(state => state.setTheme);
@@ -576,12 +688,24 @@ function App() {
   }, [editingComponentId, circuit.components]);
 
   const workerRef = useRef<Worker | null>(null);
-  const [nodeVoltages, setNodeVoltages] = useState<Record<string, number>>({});
   const [tranData, setTranData] = useState<{ time: number[], vectors: Record<string, number[]> }>({ time: [], vectors: {} });
   const [acData, setAcData] = useState<{ freq: number[], magnitudes: Record<string, number[]>, phases: Record<string, number[]> }>({ freq: [], magnitudes: {}, phases: {} });
   const [simError, setSimError] = useState<string | null>(null);
   const [simFlash, setSimFlash] = useState(false);
   const [customModelsInput, setCustomModelsInput] = useState(circuit.customModels || '');
+  const [isCustomModelsOpen, setIsCustomModelsOpen] = useState(Boolean(circuit.customModels && circuit.customModels.trim().length > 0));
+  const [isDcPanelOpen, setIsDcPanelOpen] = useState(false);
+
+  const lastNodeVoltagesRef = useRef<Record<string, number>>({});
+  const lastStructureSigRef = useRef<string>('');
+  const isSimulatingRef = useRef(false);
+  const runSimulationRef = useRef<(options?: { resetState?: boolean }) => void>(() => {});
+
+  const getStructureSig = (c: typeof circuit) => {
+    const compStr = c.components.map(comp => `${comp.id}:${comp.type}`).sort().join(';');
+    const wireStr = c.wires.map(w => `${w.id}:${w.points.map(p => `${p.x},${p.y}`).join('-')}`).sort().join(';');
+    return `${compStr}|${wireStr}`;
+  };
 
   useEffect(() => {
     setCustomModelsInput(circuit.customModels || '');
@@ -591,9 +715,11 @@ function App() {
     if (workerRef.current) workerRef.current.terminate();
     workerRef.current = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
     workerRef.current.onmessage = (e) => {
+      isSimulatingRef.current = false;
       if (e.data.type === 'results') {
         setSimError(null);
         const results = e.data.results;
+        const acResults = e.data.acResults;
         
         if (activeAnalysis === 'op') {
           const voltages: Record<string, number> = {};
@@ -606,10 +732,13 @@ function App() {
               }
             });
           }
-          setNodeVoltages(voltages);
-        } else if (activeAnalysis === 'tran') {
+          useSimulationStore.getState().setOperatingPointVoltages(voltages);
+          useSimulationStore.getState().setNodeVoltages(voltages);
+          lastNodeVoltagesRef.current = voltages;
+        } else if (activeAnalysis === 'tran' || activeAnalysis === 'interactive') {
           let time: number[] = [];
           const vectors: Record<string, number[]> = {};
+          const voltages: Record<string, number> = {};
           if (results && results.data) {
             results.data.forEach((d: any) => {
               if (d.name === 'time') {
@@ -617,9 +746,35 @@ function App() {
               } else {
                 vectors[d.name] = d.values;
               }
+              const isVoltageOrCurrent = (d.name.startsWith('v(') && !d.name.includes('#branch')) || d.type === 'voltage' || d.type === 'current';
+              if (isVoltageOrCurrent && d.values && d.values.length > 0) {
+                const val = d.values[d.values.length - 1]; // Settled / final operating point
+                voltages[d.name] = typeof val === 'object' ? val.real : Number(val);
+              }
             });
           }
           setTranData({ time, vectors });
+          useSimulationStore.getState().setOperatingPointVoltages(voltages);
+          useSimulationStore.getState().setNodeVoltages(voltages);
+          lastNodeVoltagesRef.current = voltages;
+
+          if (acResults && acResults.data) {
+            let freq: number[] = [];
+            const magnitudes: Record<string, number[]> = {};
+            const phases: Record<string, number[]> = {};
+            
+            acResults.data.forEach((d: any) => {
+              if (d.name === 'frequency') {
+                freq = d.values.map((v: any) => v.real !== undefined ? v.real : Number(v));
+              } else {
+                const mag = d.values.map((v: any) => 20 * Math.log10(Math.max(1e-15, Math.hypot(v.real, v.img))));
+                const phase = d.values.map((v: any) => Math.atan2(v.img, v.real) * 180 / Math.PI);
+                magnitudes[d.name] = mag;
+                phases[d.name] = phase;
+              }
+            });
+            setAcData({ freq, magnitudes, phases });
+          }
         } else if (activeAnalysis === 'ac') {
           let freq: number[] = [];
           const magnitudes: Record<string, number[]> = {};
@@ -647,7 +802,7 @@ function App() {
         setSimError(errorMsg);
         setTranData({ time: [], vectors: {} });
         setAcData({ freq: [], magnitudes: {}, phases: {} });
-        setNodeVoltages({});
+        useSimulationStore.getState().resetSimulation();
         // Force recreation of the worker on fatal error to reset ngspice WASM state
         workerRef.current?.terminate();
         workerRef.current = null;
@@ -663,17 +818,155 @@ function App() {
     };
   }, [activeAnalysis]);
 
-  // Debounced Simulation Trigger
+  // Real-time animated playback of transient simulation on the schematic canvas
+  useEffect(() => {
+    if (!tranData || !tranData.time || tranData.time.length < 2) return;
+    if (activeAnalysis !== 'tran' && activeAnalysis !== 'interactive') return;
+
+    let animId: number;
+    const startWallTime = performance.now();
+    const t0 = tranData.time[0];
+    const tEnd = tranData.time[tranData.time.length - 1];
+    const totalSimDuration = tEnd - t0;
+    if (totalSimDuration <= 0) return;
+
+    // Access latest circuit state without binding useEffect to every circuit reference mutation
+    const currentCircuit = useEditorStore.getState().circuit;
+
+    // Check if circuit is driven by continuous periodic clocks/oscillators vs interactive manual switches
+    const hasPeriodicSource = currentCircuit.components.some(c => 
+      c.type === 'clock' || 
+      (c.type === 'function_generator' && c.params?.frequency && parseFloat(String(c.params.frequency)) > 0)
+    );
+
+    // Determine visual playback duration:
+    // If continuous periodic source: pace playback (1.5s - 3.0s) so human eyes can observe transitions.
+    // If interactive manual switches/buttons without clocks: play at 1:1 real-time speed (up to 0.3s) so it feels instantaneous and responsive!
+    const visualDuration = hasPeriodicSource 
+      ? Math.max(1.5, Math.min(3.0, totalSimDuration))
+      : Math.min(0.3, totalSimDuration);
+    const speedRatio = hasPeriodicSource 
+      ? totalSimDuration / visualDuration
+      : (totalSimDuration <= 0.3 ? 1.0 : totalSimDuration / 0.3);
+
+    // Pre-calculate LED pin connections once per tranData change
+    const resolver = new NodeResolver();
+    const resolved = resolver.resolve(currentCircuit);
+    const ledPinNodes: { id: string; anodeNode: string; cathodeNode: string }[] = [];
+    for (const comp of currentCircuit.components) {
+      if (comp.type === 'led') {
+        const pinMap = resolved.components.get(comp.id);
+        if (pinMap) {
+          const n1 = pinMap.get('1') || '0';
+          const n2 = pinMap.get('2') || '0';
+          ledPinNodes.push({
+            id: comp.id,
+            anodeNode: n1 === '0' ? '' : `v(${n1})`,
+            cathodeNode: n2 === '0' ? '' : `v(${n2})`
+          });
+        }
+      }
+    }
+
+    // In interactive workbench, if the circuit has interactive controls or sequential logic,
+    // settle and hold steady state when totalSimDuration is reached rather than abruptly rewinding to t=0!
+    const hasInteractiveParts = currentCircuit.components.some(c => 
+      c.type === 'switch' || c.type === 'pushbutton' || c.type === 'potentiometer'
+    );
+    const hasSequentialParts = currentCircuit.components.some(c => 
+      c.type.startsWith('74') || c.type === 'd_flip_flop' || c.type === 'jk_flip_flop' || c.type === 'sr_latch'
+    );
+    const isLooping = activeAnalysis === 'tran' || 
+      (activeAnalysis === 'interactive' && !hasInteractiveParts && !hasSequentialParts && hasPeriodicSource);
+
+    let lastIdx = -1;
+
+    const tick = () => {
+      const wallElapsed = (performance.now() - startWallTime) / 1000;
+      const rawElapsed = wallElapsed * speedRatio;
+
+      const simElapsed = isLooping 
+        ? (rawElapsed % totalSimDuration) 
+        : Math.min(totalSimDuration, rawElapsed);
+
+      const targetTime = t0 + simElapsed;
+
+      // Binary search for nearest time index
+      let low = 0;
+      let high = tranData.time.length - 1;
+      while (low <= high) {
+        const mid = (low + high) >> 1;
+        if (tranData.time[mid] < targetTime) low = mid + 1;
+        else high = mid - 1;
+      }
+      const idx = Math.min(tranData.time.length - 1, Math.max(0, low));
+
+      if (idx !== lastIdx) {
+        lastIdx = idx;
+
+        // Extract voltages at this instant
+        const voltages: Record<string, number> = {};
+        for (const [key, values] of Object.entries(tranData.vectors)) {
+          if (values && values.length > idx) {
+            voltages[key] = values[idx];
+          }
+        }
+
+        // Compute LED states
+        const ledStates: Record<string, { isOn: boolean; intensity: number }> = {};
+        for (const led of ledPinNodes) {
+          const vAnode = led.anodeNode ? (voltages[led.anodeNode] || 0) : 0;
+          const vCathode = led.cathodeNode ? (voltages[led.cathodeNode] || 0) : 0;
+          const vDrop = vAnode - vCathode;
+          if (vDrop > 1.4) {
+            const intensity = Math.min(1, Math.max(0, (vDrop - 1.4) / 0.8));
+            ledStates[led.id] = { isOn: true, intensity };
+          } else {
+            ledStates[led.id] = { isOn: false, intensity: 0 };
+          }
+        }
+
+        useSimulationStore.getState().setNodeVoltages(voltages, ledStates);
+        lastNodeVoltagesRef.current = voltages;
+      }
+
+      if (!isLooping && rawElapsed >= totalSimDuration) {
+        if (activeAnalysis === 'interactive' && hasPeriodicSource && autoSimulate) {
+          if (!isSimulatingRef.current) {
+            runSimulationRef.current?.();
+          }
+        }
+        return; // Settle and hold steady state
+      }
+      animId = requestAnimationFrame(tick);
+    };
+
+    animId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animId);
+  }, [tranData, activeAnalysis]);
+
+  // Debounced Simulation Trigger (faster 40ms debounce for snappy switch response)
   useEffect(() => {
     if (autoSimulate) {
-      const timer = setTimeout(() => runSimulation(), 300);
+      const timer = setTimeout(() => runSimulation(), 40);
       return () => clearTimeout(timer);
     }
   }, [circuit, autoSimulate, activeAnalysis]);
 
-  const runSimulation = () => {
+  const runSimulation = (options?: { resetState?: boolean }) => {
+    runSimulationRef.current = runSimulation;
     if (circuit.components.length === 0) return;
     setSimError(null);
+
+    if (options?.resetState) {
+      lastNodeVoltagesRef.current = {};
+    }
+
+    const currentSig = getStructureSig(circuit);
+    if (currentSig !== lastStructureSigRef.current) {
+      lastStructureSigRef.current = currentSig;
+      lastNodeVoltagesRef.current = {};
+    }
 
     // Deep clone circuit to avoid mutating state directly
     const activeCircuit = JSON.parse(JSON.stringify(circuit));
@@ -687,33 +980,153 @@ function App() {
 
     const generator = new NetlistGenerator();
     
-    // Ensure default .tran params exist if running transient
-    if (activeAnalysis === 'tran') {
-      const tranSettings = activeCircuit.analyses.find((a: any) => a.kind === 'tran');
-      if (!tranSettings || !tranSettings.params.step) {
-        updateAnalysis('tran', { step: '100u', stop: '10m' });
-        tranSettings.params = { step: '100u', stop: '10m' };
+    // Ensure default params exist on activeCircuit (without mutating global editorStore)
+    if (activeAnalysis === 'interactive') {
+      let tranSettings = activeCircuit.analyses.find((a: any) => a.kind === 'tran');
+      if (!tranSettings) {
+        tranSettings = { kind: 'tran', params: {} };
+        activeCircuit.analyses.push(tranSettings);
       }
-    } else if (activeAnalysis === 'ac') {
-      const acSettings = activeCircuit.analyses.find((a: any) => a.kind === 'ac');
-      if (!acSettings || !acSettings.params.variation) {
-        updateAnalysis('ac', { variation: 'dec', points: '10', fstart: '1', fstop: '1Meg' });
+      
+      let minFreq = Infinity;
+      for (const c of activeCircuit.components) {
+        if (c.type === "clock") {
+          const f = parseFloat(c.params.frequency?.toString() || "1000");
+          if (f > 0 && f < minFreq) minFreq = f;
+        } else if (c.type === "function_generator" && c.params?.frequency) {
+          const f = parseFloat(c.params.frequency?.toString() || "1000");
+          if (f > 0 && f < minFreq) minFreq = f;
+        }
+      }
+
+      const isDefaultStop = !tranSettings.params.stop || tranSettings.params.stop === '10m';
+      const isDefaultStep = !tranSettings.params.step || tranSettings.params.step === '100u' || tranSettings.params.step === '1m';
+
+      if (isDefaultStop || isDefaultStep) {
+        if (minFreq < Infinity && minFreq > 0) {
+          const period = 1 / minFreq;
+          // In interactive mode, simulate 10 to 20 clock cycles (enough for sequential ICs to transition)
+          // Kept between 20ms and 200ms so ngspice WASM computes in <100ms for instant real-time responsiveness!
+          const interactiveDuration = Math.min(0.25, Math.max(0.02, 10 * period));
+          if (isDefaultStop) {
+            tranSettings.params.stop = `${parseFloat(interactiveDuration.toFixed(4))}s`;
+          }
+          const stepSize = Math.max(1e-5, period / 20);
+          if (isDefaultStep) {
+            tranSettings.params.step = `${stepSize.toExponential(2)}`;
+          }
+        } else {
+          let maxC = 0;
+          for (const c of activeCircuit.components) {
+            if (c.type === "capacitor") {
+              const capStr = c.params.capacitance?.toString() || "1u";
+              const capVal = parseSpiceValue(capStr) || 1e-6;
+              if (capVal > maxC) maxC = capVal;
+            }
+          }
+          const tSettle = maxC > 0 ? Math.min(0.2, Math.max(0.02, 4 * 10000 * maxC)) : 0.01;
+          if (isDefaultStop) {
+            tranSettings.params.stop = `${parseFloat(tSettle.toFixed(4))}s`;
+          }
+          if (isDefaultStep) {
+            tranSettings.params.step = `${Math.max(1e-4, tSettle / 100).toExponential(2)}`;
+          }
+        }
+      }
+    } else if (activeAnalysis === 'tran') {
+      let tranSettings = activeCircuit.analyses.find((a: any) => a.kind === 'tran');
+      if (!tranSettings) {
+        tranSettings = { kind: 'tran', params: {} };
+        activeCircuit.analyses.push(tranSettings);
+      }
+      
+      let minFreq = Infinity;
+      for (const c of activeCircuit.components) {
+        if (c.type === "clock") {
+          const f = parseFloat(c.params.frequency?.toString() || "1000");
+          if (f > 0 && f < minFreq) minFreq = f;
+        } else if (c.type === "function_generator" && c.params?.frequency) {
+          const f = parseFloat(c.params.frequency?.toString() || "1000");
+          if (f > 0 && f < minFreq) minFreq = f;
+        }
+      }
+      let defaultStop = '10m';
+      let defaultStep = '100u';
+      if (minFreq < Infinity && minFreq > 0) {
+        const period = 1 / minFreq;
+        const totalTime = Math.min(2.0, Math.max(10 * period, 0.01));
+        defaultStop = `${parseFloat(totalTime.toFixed(4))}s`;
+        defaultStep = `${Math.max(1e-5, period / 100).toExponential(2)}`;
+      } else {
+        let maxC = 0;
+        for (const c of activeCircuit.components) {
+          if (c.type === "capacitor") {
+            const capStr = c.params.capacitance?.toString() || "1u";
+            const capVal = parseSpiceValue(capStr) || 1e-6;
+            if (capVal > maxC) maxC = capVal;
+          }
+        }
+        if (maxC > 0) {
+          const tSettle = Math.min(1.0, Math.max(0.05, 4 * 10000 * maxC));
+          defaultStop = `${parseFloat(tSettle.toFixed(4))}s`;
+          defaultStep = `${Math.max(1e-4, tSettle / 200).toExponential(2)}`;
+        }
+      }
+
+      if (!tranSettings.params.step) {
+        tranSettings.params.step = defaultStep;
+      }
+      if (!tranSettings.params.stop) {
+        tranSettings.params.stop = defaultStop;
+      }
+    }
+    if (activeAnalysis === 'ac' || activeAnalysis === 'interactive') {
+      let acSettings = activeCircuit.analyses.find((a: any) => a.kind === 'ac');
+      if (!acSettings) {
+        acSettings = { kind: 'ac', params: {} };
+        activeCircuit.analyses.push(acSettings);
+      }
+      if (!acSettings.params.variation) {
         acSettings.params = { variation: 'dec', points: '10', fstart: '1', fstop: '1Meg' };
       }
     }
 
     try {
-      const netlist = generator.generate(activeCircuit, activeAnalysis);
+      const hasAcSource = activeCircuit.components.some((c: any) => 
+        c.type === 'function_generator' || 
+        c.params?.type === 'ac' || 
+        c.params?.type === 'sin' ||
+        (c.params?.ac_mag && parseFloat(c.params.ac_mag) > 0)
+      );
+      const shouldRunAc = activeAnalysis === 'ac' || (activeAnalysis === 'interactive' && hasAcSource);
+
+      const initialConditions = !options?.resetState 
+        ? (Object.keys(lastNodeVoltagesRef.current).length > 0 
+            ? lastNodeVoltagesRef.current 
+            : useSimulationStore.getState().nodeVoltages)
+        : undefined;
+
+      const netlist = generator.generate(activeCircuit, activeAnalysis, initialConditions);
+      const acNetlist = shouldRunAc ? generator.generate(activeCircuit, 'ac') : undefined;
+
       // @ts-ignore
       if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
         console.groupCollapsed(`🛠️ Generated Netlist (${activeAnalysis})`);
         console.log(netlist);
+        if (acNetlist) {
+          console.log("AC Netlist:\n", acNetlist);
+        }
         console.groupEnd();
+      }
+      if (isSimulatingRef.current && workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
       }
       if (!workerRef.current) {
         initWorker();
       }
-      workerRef.current?.postMessage({ type: 'start', netlist });
+      isSimulatingRef.current = true;
+      workerRef.current?.postMessage({ type: 'start', netlist, acNetlist, activeAnalysis });
     } catch (err: any) {
       setSimError(err.message);
     }
@@ -723,7 +1136,11 @@ function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger shortcuts if typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (
+        e.target instanceof HTMLInputElement || 
+        e.target instanceof HTMLTextAreaElement || 
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
         return;
       }
       
@@ -731,11 +1148,35 @@ function App() {
         deleteSelected();
       } else if (e.key === 'Escape') {
         setMode('select');
-      } else if (e.key === 'r') {
+      } else if (e.key === 'r' && !e.ctrlKey && !e.metaKey) {
         rotateSelected();
-      } else if (e.key === 'm') {
+      } else if (e.key === 'm' && !e.ctrlKey && !e.metaKey) {
         mirrorSelected();
-      } else if ((e.key === 'p' || e.key === 'a') && !e.ctrlKey && !e.metaKey && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+      } else if ((e.key === 'c' || e.key === 'C') && (e.ctrlKey || e.metaKey)) {
+        copySelected();
+      } else if ((e.key === 'x' || e.key === 'X') && (e.ctrlKey || e.metaKey)) {
+        cutSelected();
+      } else if ((e.key === 'v' || e.key === 'V') && (e.ctrlKey || e.metaKey)) {
+        paste(getLastCanvasPointerPos() || undefined);
+      } else if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        duplicateSelected();
+      } else if ((e.key === 'a' || e.key === 'A') && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        selectAll();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        moveSelected({ x: e.shiftKey ? -20 : -10, y: 0 });
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        moveSelected({ x: e.shiftKey ? 20 : 10, y: 0 });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        moveSelected({ x: 0, y: e.shiftKey ? -20 : -10 });
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        moveSelected({ x: 0, y: e.shiftKey ? 20 : 10 });
+      } else if ((e.key === 'p' || e.key === 'a') && !e.ctrlKey && !e.metaKey) {
         setIsComponentBrowserOpen(true);
       } else if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
         if (e.shiftKey) {
@@ -749,7 +1190,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [deleteSelected, setMode]);
+  }, [deleteSelected, setMode, rotateSelected, mirrorSelected, copySelected, cutSelected, paste, duplicateSelected, selectAll, moveSelected]);
 
 
 
@@ -786,7 +1227,7 @@ function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <img src={isDark ? '/logo_dark.svg' : '/logo_light.svg'} alt="myEElab logo" style={{ height: '28px' }} />
           <button 
-            onClick={() => runSimulation()}
+            onClick={() => runSimulation({ resetState: true })}
             style={{ padding: '6px 12px', background: 'var(--signal)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
           >
             Run Sim
@@ -895,6 +1336,60 @@ function App() {
             </button>
             <div style={{ width: '1px', background: colors.border, margin: '0 5px' }} />
             <button 
+              style={{
+                padding: '8px',
+                background: 'transparent',
+                color: selectedIds.length > 0 ? colors.text : (isDark ? '#585b70' : '#bdc3c7'),
+                border: 'none',
+                cursor: selectedIds.length > 0 ? 'pointer' : 'default',
+                borderRadius: '5px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              onClick={() => cutSelected()}
+              disabled={selectedIds.length === 0}
+              title="Cut (Ctrl+X)"
+            >
+              <Scissors size={18} />
+            </button>
+            <button 
+              style={{
+                padding: '8px',
+                background: 'transparent',
+                color: selectedIds.length > 0 ? colors.text : (isDark ? '#585b70' : '#bdc3c7'),
+                border: 'none',
+                cursor: selectedIds.length > 0 ? 'pointer' : 'default',
+                borderRadius: '5px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              onClick={() => copySelected()}
+              disabled={selectedIds.length === 0}
+              title="Copy (Ctrl+C)"
+            >
+              <Copy size={18} />
+            </button>
+            <button 
+              style={{
+                padding: '8px',
+                background: 'transparent',
+                color: colors.text,
+                border: 'none',
+                cursor: 'pointer',
+                borderRadius: '5px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              onClick={() => paste(getLastCanvasPointerPos() || undefined)}
+              title="Paste (Ctrl+V)"
+            >
+              <ClipboardPaste size={18} />
+            </button>
+            <div style={{ width: '1px', background: colors.border, margin: '0 5px' }} />
+            <button 
               style={{ padding: '8px', background: 'transparent', color: '#e74c3c', border: 'none', cursor: 'pointer', borderRadius: '5px' }}
               onClick={() => {
                 if (window.confirm("Are you sure you want to clear the entire circuit?")) {
@@ -907,34 +1402,22 @@ function App() {
             </button>
           </div>
           
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginLeft: 'auto', background: colors.toolbarBg, padding: '5px 10px', borderRadius: '5px', position: 'relative' }}>
-            <select 
-              value={activeAnalysis} 
-              onChange={(e) => {
-                setActiveAnalysis(e.target.value as 'op' | 'tran' | 'ac');
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginLeft: 'auto', position: 'relative' }}>
+            <AnalysisModeSelector
+              activeAnalysis={activeAnalysis}
+              onSelectMode={(mode) => {
+                setActiveAnalysis(mode);
                 setShowAnalysisSettings(false);
               }}
-              style={{ padding: '5px', borderRadius: '4px', border: 'none', cursor: 'pointer', backgroundColor: colors.inputBg, color: colors.text }}
-            >
-              <option value="op">DC (.op)</option>
-              <option value="tran">Transient (.tran)</option>
-              <option value="ac">AC Sweep (.ac)</option>
-            </select>
-            
-            {activeAnalysis !== 'op' && (
-              <button
-                onClick={() => setShowAnalysisSettings(!showAnalysisSettings)}
-                style={{ background: 'transparent', color: showAnalysisSettings ? 'var(--highlight)' : colors.text, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                title="Analysis Settings"
-              >
-                <Settings size={18} />
-              </button>
-            )}
+              showSettings={showAnalysisSettings}
+              onToggleSettings={() => setShowAnalysisSettings(!showAnalysisSettings)}
+              theme={theme}
+            />
 
             {showAnalysisSettings && activeAnalysis !== 'op' && (
               <div style={{ 
                 position: 'absolute', 
-                top: '120%', 
+                top: 'calc(100% + 6px)', 
                 right: 0, 
                 background: colors.panelBg, 
                 padding: '15px', 
@@ -944,15 +1427,20 @@ function App() {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '10px',
-                width: '220px',
+                width: '240px',
                 border: `1px solid ${colors.border}`
               }}>
                 <h4 style={{ margin: 0, fontSize: '0.9rem', color: colors.text, borderBottom: `1px solid ${colors.border}`, paddingBottom: '5px' }}>
-                  {activeAnalysis === 'tran' ? 'Transient Settings' : 'AC Sweep Settings'}
+                  {activeAnalysis === 'interactive' ? 'Interactive Simulation Settings' : (activeAnalysis === 'tran' ? 'Transient Settings' : 'AC Sweep Settings')}
                 </h4>
                 
-                {activeAnalysis === 'tran' && (
+                {(activeAnalysis === 'tran' || activeAnalysis === 'interactive') && (
                   <>
+                    {activeAnalysis === 'interactive' && (
+                      <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--signal)', textTransform: 'uppercase' }}>
+                        Time-Domain / Transient
+                      </div>
+                    )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <label style={{ fontSize: '0.8rem', color: colors.text }}>Step Time (e.g. 100u)</label>
                       <input 
@@ -974,8 +1462,13 @@ function App() {
                   </>
                 )}
                 
-                {activeAnalysis === 'ac' && (
+                {(activeAnalysis === 'ac' || activeAnalysis === 'interactive') && (
                   <>
+                    {activeAnalysis === 'interactive' && (
+                      <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--signal)', textTransform: 'uppercase', marginTop: '6px', borderTop: `1px solid ${colors.border}`, paddingTop: '6px' }}>
+                        Frequency-Domain / AC Sweep
+                      </div>
+                    )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <label style={{ fontSize: '0.8rem', color: colors.text }}>Sweep Type</label>
                       <select 
@@ -1269,65 +1762,94 @@ function App() {
           </aside>
 
         <main style={{ flex: 1, position: 'relative', display: 'flex', overflow: 'hidden', backgroundColor: colors.bg }}>
-        <Canvas nodeVoltages={activeAnalysis === 'op' ? nodeVoltages : undefined} tranData={activeAnalysis === 'tran' ? tranData : undefined} theme={theme} simError={simError} />
+        <Canvas tranData={(activeAnalysis === 'tran' || activeAnalysis === 'interactive') ? tranData : undefined} theme={theme} simError={simError} />
         
         {/* Properties Popup */}
         <PropertyPopup theme={theme} />
 
-        {/* Node Voltages Panel (Only in .op mode) */}
-        {activeAnalysis === 'op' && (
-          <div style={{ position: 'absolute', bottom: '20px', left: '20px', background: colors.panelBg, padding: '10px', borderRadius: '5px', boxShadow: simFlash ? `0 0 0 2px #2ecc71, 0 4px 12px rgba(0,0,0,0.2)` : '0 2px 4px rgba(0,0,0,0.1)', transition: 'box-shadow 0.3s', pointerEvents: 'none', zIndex: 10 }}>
-            <h4 style={{ margin: '0 0 5px 0', fontSize: '0.9rem', color: colors.text }}>DC Operating Point</h4>
-            {Object.keys(nodeVoltages).length === 0 ? (
-              <div style={{ fontSize: '0.9rem', color: isDark ? 'var(--ink)' : '#7f8c8d' }}>No nodes available</div>
-            ) : (
-              Object.entries(nodeVoltages).map(([node, v]) => (
-                <div key={node} style={{ fontSize: '0.85rem', fontFamily: 'monospace', color: colors.text, display: 'flex', gap: '8px' }}>
-                  <span style={{ fontWeight: 'bold', color: 'var(--signal)' }}>Node {node}:</span>
-                  <span>
-                    {(() => {
-                      const isCurrent = node.toLowerCase().startsWith('i(');
-                      const unit = isCurrent ? 'A' : 'V';
-                      const abs = Math.abs(v);
-                      if (abs === 0) return `0 ${unit}`;
-                      if (abs >= 1e3) return `${parseFloat((v / 1e3).toFixed(3))} k${unit}`;
-                      if (abs >= 1) return `${parseFloat(v.toFixed(3))} ${unit}`;
-                      if (abs >= 1e-3) return `${parseFloat((v * 1e3).toFixed(3))} m${unit}`;
-                      if (abs >= 1e-6) return `${parseFloat((v * 1e6).toFixed(3))} µ${unit}`;
-                      return `${v.toExponential(2)} ${unit}`;
-                    })()}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
+        {/* Node Voltages Panel (In .op or interactive mode) */}
+        {(activeAnalysis === 'op' || activeAnalysis === 'interactive') && (
+          <DCOperatingPointPanel
+            isOpen={isDcPanelOpen}
+            onToggle={() => setIsDcPanelOpen(!isDcPanelOpen)}
+            colors={colors}
+            isDark={isDark}
+            simFlash={simFlash}
+          />
         )}
+
+        {/* Custom Models Panel */}
+        <div style={{ 
+          position: 'absolute', 
+          bottom: '20px', 
+          right: '20px', 
+          background: colors.panelBg, 
+          padding: isCustomModelsOpen ? '10px' : '6px 12px', 
+          borderRadius: '5px', 
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)', 
+          zIndex: 10, 
+          width: isCustomModelsOpen ? '300px' : 'auto', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '8px',
+          border: `1px solid ${colors.border}`
+        }}>
+          <div 
+            onClick={() => setIsCustomModelsOpen(!isCustomModelsOpen)}
+            style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              cursor: 'pointer',
+              userSelect: 'none',
+              gap: '8px'
+            }}
+          >
+            <h4 style={{ margin: 0, fontSize: '0.85rem', color: colors.text, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>Custom SPICE Directives</span>
+              {customModelsInput.trim().length > 0 && !isCustomModelsOpen && (
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--signal)' }} />
+              )}
+            </h4>
+            <div style={{ color: colors.text, opacity: 0.7, display: 'flex', alignItems: 'center' }}>
+              {isCustomModelsOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+            </div>
+          </div>
+
+          {isCustomModelsOpen && (
+            <>
+              <textarea
+                value={customModelsInput}
+                onChange={(e) => setCustomModelsInput(e.target.value)}
+                placeholder=".model MY_DIODE D(...)"
+                style={{ width: '100%', height: '80px', padding: '5px', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: '0.8rem', border: `1px solid ${colors.border}`, borderRadius: '4px', resize: 'vertical', backgroundColor: colors.inputBg, color: colors.text }}
+              />
+              <button
+                onClick={() => setCustomModels(customModelsInput)}
+                style={{ padding: '6px 10px', background: 'var(--signal)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', alignSelf: 'flex-end', fontWeight: 'bold' }}
+              >
+                Apply
+              </button>
+            </>
+          )}
+        </div>
       </main>
       </div>
             {/* Context Menu for Node */}
       
-      {/* Custom Models Panel */}
-      <div style={{ position: 'absolute', bottom: '20px', right: '20px', background: colors.panelBg, padding: '10px', borderRadius: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', zIndex: 10, width: '300px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <h4 style={{ margin: 0, fontSize: '0.9rem', color: colors.text }}>Custom SPICE Directives</h4>
-        <textarea
-          value={customModelsInput}
-          onChange={(e) => setCustomModelsInput(e.target.value)}
-          placeholder=".model MY_DIODE D(...)"
-          style={{ width: '100%', height: '80px', padding: '5px', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: '0.8rem', border: `1px solid ${colors.border}`, borderRadius: '4px', resize: 'vertical', backgroundColor: colors.inputBg, color: colors.text }}
+      {activeView !== 'breadboard' && (
+        <WaveformViewer 
+          data={tranData} 
+          acData={acData}
+          probes={probes} 
+          activeAnalysis={activeAnalysis}
+          hasAcSource={circuit.components.some((c: any) => 
+            c.type === 'function_generator' || 
+            c.params?.type === 'ac' || 
+            c.params?.type === 'sin' ||
+            (c.params?.ac_mag && parseFloat(c.params.ac_mag) > 0)
+          )}
         />
-        <button
-          onClick={() => setCustomModels(customModelsInput)}
-          style={{ padding: '6px 10px', background: 'var(--signal)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', alignSelf: 'flex-end', fontWeight: 'bold' }}
-        >
-          Apply
-        </button>
-      </div>
-      
-      {activeAnalysis === 'tran' && activeView !== 'breadboard' && (
-        <WaveformViewer data={tranData} probes={probes} />
-      )}
-      {activeAnalysis === 'ac' && activeView !== 'breadboard' && (
-        <BodePlot data={acData} />
       )}
 
       {activeScopeId && (
@@ -1374,7 +1896,7 @@ function App() {
           }}>
             <h3 style={{ margin: '0 0 12px 0', color: '#e67e22' }}>⚠️ Import Warnings</h3>
             <p style={{ margin: '0 0 12px 0', fontSize: '14px', opacity: 0.8 }}>
-              The following items from the Proteus file could not be mapped:
+              The following items from the imported design file could not be mapped:
             </p>
             <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px', fontSize: '13px', lineHeight: '1.6' }}>
               {Array.from(new Set(importWarnings)).map((w, i) => (

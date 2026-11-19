@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Group, Path, Circle, Label, Tag, Text } from 'react-konva';
+import { useEditorStore } from '../store/editorStore';
+import { getTextScale } from './wireUtils';
 
 export interface ProbeProps {
   probe: { nodeId: string; color: string; x: number; y: number };
   theme?: 'light' | 'dark';
+  isSelected?: boolean;
+  mode?: string;
+  listening?: boolean;
+  onSelect?: (e: any) => void;
+  onRemove?: () => void;
 }
 
 // 1. The custom mouse cursor used when the Probe tool is active
@@ -25,11 +32,56 @@ export const ProbeMenuIcon = ({ size = 18, color = "currentColor" }: { size?: nu
 );
 
 // 2. The physical probe rendered on the canvas
-export const ProbeKonvaNode: React.FC<ProbeProps> = ({ probe, theme = 'light' }) => {
-  // To update the canvas icon design, modify these Konva paths
-  // Using scale={0.7} to make the physical probes a bit smaller
+export const ProbeKonvaNode: React.FC<ProbeProps> = ({
+  probe,
+  theme = 'light',
+  isSelected = false,
+  mode = 'select',
+  listening = true,
+  onSelect,
+  onRemove
+}) => {
+  const scale = useEditorStore(state => state.scale);
+  const textScale = getTextScale(scale);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleClick = (e: any) => {
+    e.cancelBubble = true;
+    if (mode === 'probe') {
+      onRemove?.();
+    } else {
+      onSelect?.(e);
+    }
+  };
+
+  const handleContextMenu = (e: any) => {
+    e.evt?.preventDefault?.();
+    e.cancelBubble = true;
+    onRemove?.();
+  };
+
+  const labelText = `V(${probe.nodeId})`;
+  const estWidth = labelText.length * 7.5 + 14;
+
   return (
-    <Group x={probe.x} y={probe.y} listening={false}>
+    <Group
+      x={probe.x}
+      y={probe.y}
+      listening={listening}
+      onClick={handleClick}
+      onTap={handleClick}
+      onContextMenu={handleContextMenu}
+      onMouseEnter={(e) => {
+        setIsHovered(true);
+        const stage = e.target.getStage();
+        if (stage) stage.container().style.cursor = 'pointer';
+      }}
+      onMouseLeave={(e) => {
+        setIsHovered(false);
+        const stage = e.target.getStage();
+        if (stage) stage.container().style.cursor = '';
+      }}
+    >
       <Group scaleX={0.7} scaleY={0.7}>
         {/* Metal Tip */}
         <Path 
@@ -62,28 +114,73 @@ export const ProbeKonvaNode: React.FC<ProbeProps> = ({ probe, theme = 'light' })
         />
         {/* Little anchor dot */}
         <Circle cx={0} cy={0} r={4} fill={probe.color} stroke="white" strokeWidth={1} />
+
+        {/* Selection Halo on Anchor Dot */}
+        {isSelected && (
+          <Circle
+            cx={0}
+            cy={0}
+            r={8}
+            stroke="#3498db"
+            strokeWidth={2}
+            dash={[3, 3]}
+            fill="transparent"
+          />
+        )}
       </Group>
 
-      {/* Node Name Label - not scaled down so it remains legible */}
-      <Label x={8} y={-35}>
-        <Tag
-          fill={theme === 'dark' ? '#323A3F' : '#E2DCD3'}
-          stroke={probe.color}
-          strokeWidth={1}
-          cornerRadius={4}
-          shadowColor="black"
-          shadowBlur={2}
-          shadowOpacity={theme === 'dark' ? 0.4 : 0.2}
-        />
-        <Text
-          text={`V(${probe.nodeId})`}
-          fontFamily="sans-serif"
-          fontSize={11}
-          padding={4}
-          fill={probe.color}
-          fontStyle="bold"
-        />
-      </Label>
+      {/* Node Name Label with interactive dismiss button */}
+      <Group x={8} y={-35} scaleX={textScale} scaleY={textScale}>
+        <Label x={0} y={0}>
+          <Tag
+            fill={theme === 'dark' ? (isHovered ? '#3b444a' : '#323A3F') : (isHovered ? '#ede7df' : '#E2DCD3')}
+            stroke={isSelected ? '#3498db' : probe.color}
+            strokeWidth={isSelected ? 2 : 1}
+            cornerRadius={4}
+            shadowColor="black"
+            shadowBlur={isHovered ? 4 : 2}
+            shadowOpacity={theme === 'dark' ? 0.4 : 0.2}
+          />
+          <Text
+            text={labelText}
+            fontFamily="sans-serif"
+            fontSize={11}
+            padding={4}
+            fill={probe.color}
+            fontStyle="bold"
+          />
+        </Label>
+
+        {/* Dedicated Close '×' Icon on Probe Tag */}
+        <Group
+          x={estWidth}
+          y={10}
+          onClick={(e) => {
+            e.cancelBubble = true;
+            onRemove?.();
+          }}
+          onTap={(e) => {
+            e.cancelBubble = true;
+            onRemove?.();
+          }}
+        >
+          <Circle
+            cx={0}
+            cy={0}
+            r={6}
+            fill={isHovered || isSelected ? '#e74c3c' : (theme === 'dark' ? '#444d56' : '#c8c2b7')}
+          />
+          <Text
+            text="×"
+            fontSize={10}
+            fontStyle="bold"
+            fill="white"
+            align="center"
+            x={-3.5}
+            y={-5.5}
+          />
+        </Group>
+      </Group>
     </Group>
   );
 };

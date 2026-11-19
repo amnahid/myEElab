@@ -340,6 +340,20 @@ export const PropertyPopup: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) 
           </div>
         )}
 
+        {editingComponent && (editingComponent.type === 'switch' || editingComponent.type === 'pushbutton') && (
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Switch State</label>
+            <select
+              value={editingComponent.params.state || 'open'}
+              onChange={e => updateComponentParams(editingComponent.id, { state: e.target.value })}
+              style={{ width: '100%', padding: '6px', border: `1px solid ${colors.border}`, borderRadius: '4px', backgroundColor: colors.inputBg, color: colors.text, boxSizing: 'border-box' }}
+            >
+              <option value="open">Open (Disconnected)</option>
+              <option value="closed">Closed (Connected)</option>
+            </select>
+          </div>
+        )}
+
         {editingComponent && ['diode', 'zener', 'led', 'npn', 'pnp', 'nmos', 'pmos', 'opamp'].includes(editingComponent.type) && (
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: colors.text }}>Spice Model</label>

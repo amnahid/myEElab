@@ -5,6 +5,8 @@ import { useEditorStore } from '../store/editorStore';
 import { Knob } from './Knob';
 import { BOARD_WIDTH, BOARD_HEIGHT, HOLES, getHolePosition } from './breadboardLayout';
 import { ComponentLibrary } from '../engine/library';
+import { getComponentPrefix } from '../engine/refDes';
+import { getTextScale } from './wireUtils';
 
 const UnmirroredText = (props: React.ComponentProps<typeof Text> & { mirrored?: boolean }) => {
   const { mirrored, x = 0, width = 0, ...rest } = props;
@@ -32,10 +34,19 @@ interface Props {
   activeView?: 'schematic' | 'breadboard';
   multimeterReading?: string;
   powerDissipation?: number;
+  isLedLit?: boolean;
+  ledIntensity?: number;
+  listening?: boolean;
+  scale?: number;
 }
 
-export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect, onDblClick, onDragStart, onDragEnd, onDragMove, onMouseEnter, onMouseLeave, opacity = 1, mode, theme = 'light', activeView = 'schematic', multimeterReading, powerDissipation }) => {
+export const ComponentNode: React.FC<Props> = React.memo(({ component, isSelected, onSelect, onDblClick, onDragStart, onDragEnd, onDragMove, onMouseEnter, onMouseLeave, opacity = 1, mode, theme = 'light', activeView = 'schematic', multimeterReading, powerDissipation, isLedLit, ledIntensity, listening, scale: propScale }) => {
+  const storeScale = useEditorStore(state => state.scale);
+  const scale = propScale !== undefined ? propScale : storeScale;
+  const textScale = getTextScale(scale);
   const { type, position, color } = component;
+  const isGhost = component.id === 'ghost';
+  const shouldListen = listening !== undefined ? listening : (!isGhost && mode !== 'place');
   const defaultStroke = theme === 'dark' ? '#EEEAE4' : '#30383E';
   
   const libComp = component.customDefinition || ComponentLibrary[type];
@@ -43,7 +54,8 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
   const power = powerDissipation || 0;
   const isBurnt = power >= maxPower && maxPower < Infinity;
   const heatRatio = maxPower < Infinity ? Math.min(1, Math.max(0, power / maxPower)) : 0;
-  const isHeating = heatRatio > 0.05 && !isBurnt;
+  const isHeating = type !== 'led' && heatRatio > 0.05 && !isBurnt;
+  const defaultLedColor = (component.params?.color as string) || (libComp?.defaultParams?.color as string) || '#ff3b30';
 
   const strokeColor = isBurnt ? '#000000' : (isSelected ? '#3498db' : (color || defaultStroke));
   const textColor = theme === 'dark' ? '#EEEAE4' : '#30383E';
@@ -158,20 +170,29 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Line points={[0, 10, 0, 20]} stroke={strokeColor} strokeWidth={2} />
           </Group>
         );
-      case 'led':
+      case 'led': {
+        const activeLedColor = isLedLit ? defaultLedColor : strokeColor;
+        const arrowColor = isLedLit ? '#ffd166' : strokeColor;
         return (
           <Group>
+            {isLedLit && (
+              <>
+                <Circle x={0} y={0} radius={18} fill={defaultLedColor} opacity={0.35 * (ledIntensity || 1)} listening={false} />
+                <Circle x={0} y={0} radius={26} fill={defaultLedColor} opacity={0.15 * (ledIntensity || 1)} listening={false} />
+              </>
+            )}
             <Line points={[0, -20, 0, -10]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[-10, -10, 10, -10, 0, 10]} closed fill={strokeColor} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[-10, 10, 10, 10]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-10, -10, 10, -10, 0, 10]} closed fill={activeLedColor} stroke={activeLedColor} strokeWidth={2} />
+            <Line points={[-10, 10, 10, 10]} stroke={activeLedColor} strokeWidth={2} />
             <Line points={[0, 10, 0, 20]} stroke={strokeColor} strokeWidth={2} />
             {/* Arrows pointing outward */}
-            <Line points={[12, -2, 20, -10]} stroke={strokeColor} strokeWidth={1.5} />
-            <Line points={[16, -10, 20, -10, 20, -6]} stroke={strokeColor} strokeWidth={1.5} />
-            <Line points={[12, 6, 20, -2]} stroke={strokeColor} strokeWidth={1.5} />
-            <Line points={[16, -2, 20, -2, 20, 2]} stroke={strokeColor} strokeWidth={1.5} />
+            <Line points={[12, -2, 20, -10]} stroke={arrowColor} strokeWidth={1.5} />
+            <Line points={[16, -10, 20, -10, 20, -6]} stroke={arrowColor} strokeWidth={1.5} />
+            <Line points={[12, 6, 20, -2]} stroke={arrowColor} strokeWidth={1.5} />
+            <Line points={[16, -2, 20, -2, 20, 2]} stroke={arrowColor} strokeWidth={1.5} />
           </Group>
         );
+      }
       case 'zener':
         return (
           <Group>
@@ -289,22 +310,74 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
         const isClosed = component.params?.state === 'closed';
         return (
           <Group>
-            <Line points={[-20, 0, -10, 0]} stroke={strokeColor} strokeWidth={2} />
-            <Line points={[20, 0, 10, 0]} stroke={strokeColor} strokeWidth={2} />
+            {/* Left terminals (L1 at -20, -20, L2 at -20, 20) */}
+            <Line points={[-20, -20, -10, -20]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-20, 20, -10, 20]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[-10, -20, -10, 20]} stroke={strokeColor} strokeWidth={2} />
             <Circle x={-10} y={0} radius={2} fill={strokeColor} />
+            
+            {/* Right terminals (R1 at 20, -20, R2 at 20, 20) */}
+            <Line points={[20, -20, 10, -20]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[20, 20, 10, 20]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[10, -20, 10, 20]} stroke={strokeColor} strokeWidth={2} />
             <Circle x={10} y={0} radius={2} fill={strokeColor} />
-            <Line points={[-10, 0, 10, isClosed ? 0 : -10]} stroke={strokeColor} strokeWidth={2} />
-            <Rect x={-15} y={-15} width={30} height={30} fill="transparent" 
+
+            {/* Actuator bar & contact */}
+            <Line points={[-10, isClosed ? 0 : -8, 10, isClosed ? 0 : -8]} stroke={isClosed ? '#22c55e' : strokeColor} strokeWidth={2.5} />
+            <Line points={[0, isClosed ? 0 : -8, 0, isClosed ? -8 : -16]} stroke={strokeColor} strokeWidth={2} />
+            <Rect x={-5} y={isClosed ? -12 : -20} width={10} height={4} fill={strokeColor} cornerRadius={1} />
+
+            <Rect x={-15} y={-20} width={30} height={40} fill="transparent" 
               onMouseDown={(e) => {
+                if (mode !== 'select' || isGhost) return;
                 e.cancelBubble = true;
                 useEditorStore.getState().updateComponentParams(component.id, { state: 'closed' });
               }}
               onMouseUp={(e) => {
+                if (mode !== 'select' || isGhost) return;
                 e.cancelBubble = true;
                 useEditorStore.getState().updateComponentParams(component.id, { state: 'open' });
               }}
               onMouseLeave={() => {
+                if (mode !== 'select' || isGhost) return;
                 useEditorStore.getState().updateComponentParams(component.id, { state: 'open' });
+              }}
+            />
+          </Group>
+        );
+      }
+      case 'switch': {
+        const isClosed = component.params?.state === 'closed';
+        return (
+          <Group>
+            {/* Terminal lead lines */}
+            <Line points={[-20, 0, -10, 0]} stroke={strokeColor} strokeWidth={2} />
+            <Line points={[20, 0, 10, 0]} stroke={strokeColor} strokeWidth={2} />
+            {/* Terminal contact dots */}
+            <Circle x={-10} y={0} radius={3} stroke={strokeColor} strokeWidth={2} fill={theme === 'dark' ? '#1e1e2e' : '#ffffff'} />
+            <Circle x={10} y={0} radius={3} stroke={strokeColor} strokeWidth={2} fill={theme === 'dark' ? '#1e1e2e' : '#ffffff'} />
+            {/* Switch blade / lever */}
+            <Line 
+              points={[-10, 0, isClosed ? 10 : 8, isClosed ? 0 : -13]} 
+              stroke={isClosed ? '#22c55e' : strokeColor} 
+              strokeWidth={2.5} 
+            />
+            {/* Pivot pin dot */}
+            <Circle x={-10} y={0} radius={1.8} fill={strokeColor} />
+            {/* Interactive click/tap target */}
+            <Rect 
+              x={-18} y={-18} width={36} height={36} fill="transparent"
+              onClick={(e) => {
+                if (mode !== 'select' || isGhost) return;
+                e.cancelBubble = true;
+                const nextState = isClosed ? 'open' : 'closed';
+                useEditorStore.getState().updateComponentParams(component.id, { state: nextState });
+              }}
+              onTap={(e) => {
+                if (mode !== 'select' || isGhost) return;
+                e.cancelBubble = true;
+                const nextState = isClosed ? 'open' : 'closed';
+                useEditorStore.getState().updateComponentParams(component.id, { state: nextState });
               }}
             />
           </Group>
@@ -378,7 +451,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
 
               {/* Centered RefDes & Part Name */}
               <UnmirroredText
-                text={component.refDes || 'U?'}
+                text={component.refDes || 'U'}
                 x={boxLeft}
                 y={centerY - 14}
                 width={boxW}
@@ -876,12 +949,21 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
         );
       }
       case 'led': {
-        const ledColor = (component.params?.color as string) || '#ff0000';
+        const ledColor = (component.params?.color as string) || defaultLedColor;
         return (
           <Group>
             <Line points={[-5, -20, -5, 20]} stroke="#bdc3c7" strokeWidth={2} />
             <Line points={[5, -20, 5, 20]} stroke="#bdc3c7" strokeWidth={2} />
-            <Circle x={0} y={0} radius={10} fill={ledColor} opacity={0.8} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={isSelected ? 2 : 1} />
+            {isLedLit && (
+              <>
+                <Circle x={0} y={0} radius={18} fill={ledColor} opacity={0.35 * (ledIntensity || 1)} listening={false} />
+                <Circle x={0} y={0} radius={26} fill={ledColor} opacity={0.15 * (ledIntensity || 1)} listening={false} />
+              </>
+            )}
+            <Circle x={0} y={0} radius={10} fill={isLedLit ? '#ffffff' : ledColor} opacity={isLedLit ? 0.95 : 0.8} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={isSelected ? 2 : 1} />
+            {isLedLit && (
+              <Circle x={0} y={0} radius={7} fill={ledColor} opacity={0.8} listening={false} />
+            )}
             {/* Flat spot for cathode */}
             <Line points={[-9, 4, 9, 4]} stroke={isSelected ? '#3498db' : '#2c3e50'} strokeWidth={1} />
           </Group>
@@ -1075,15 +1157,61 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             <Circle x={0} y={0} radius={isClosed ? 6 : 7} fill={isClosed ? "#c0392b" : "#e74c3c"} />
             <Rect x={-12} y={-12} width={24} height={24} fill="transparent"
               onMouseDown={(e) => {
+                if (mode !== 'select' || isGhost) return;
                 e.cancelBubble = true;
                 useEditorStore.getState().updateComponentParams(component.id, { state: 'closed' });
               }}
               onMouseUp={(e) => {
+                if (mode !== 'select' || isGhost) return;
                 e.cancelBubble = true;
                 useEditorStore.getState().updateComponentParams(component.id, { state: 'open' });
               }}
               onMouseLeave={() => {
+                if (mode !== 'select' || isGhost) return;
                 useEditorStore.getState().updateComponentParams(component.id, { state: 'open' });
+              }}
+            />
+          </Group>
+        );
+      }
+      case 'switch': {
+        const isClosed = component.params?.state === 'closed';
+        return (
+          <Group>
+            {/* Terminal lead lines */}
+            <Line points={[-20, 0, -12, 0]} stroke="#bdc3c7" strokeWidth={2} />
+            <Line points={[20, 0, 12, 0]} stroke="#bdc3c7" strokeWidth={2} />
+            {/* Slide switch body */}
+            <Rect x={-14} y={-8} width={28} height={16} fill="#27272a" cornerRadius={2} stroke={isSelected ? '#38bdf8' : '#3f3f46'} strokeWidth={isSelected ? 1.5 : 1} />
+            {/* Metal casing top plate */}
+            <Rect x={-12} y={-6} width={24} height={12} fill="#52525b" cornerRadius={1.5} />
+            {/* Slot */}
+            <Rect x={-8} y={-3} width={16} height={6} fill="#18181b" cornerRadius={1} />
+            {/* Actuator handle (slider) */}
+            <Rect 
+              x={isClosed ? 0 : -8} 
+              y={-5} 
+              width={8} 
+              height={10} 
+              fill={isClosed ? '#22c55e' : '#e4e4e7'} 
+              cornerRadius={1} 
+              stroke="#09090b" 
+              strokeWidth={0.5} 
+            />
+            {/* Interactive toggle hit area */}
+            <Rect 
+              x={-14} y={-8} width={28} height={16} fill="transparent"
+              onClick={(e) => {
+                if (mode !== 'select' || isGhost) return;
+                e.cancelBubble = true;
+                const nextState = isClosed ? 'open' : 'closed';
+                useEditorStore.getState().updateComponentParams(component.id, { state: nextState });
+              }}
+              onTap={(e) => {
+                if (mode !== 'select' || isGhost) return;
+                e.cancelBubble = true;
+                const nextState = isClosed ? 'open' : 'closed';
+                useEditorStore.getState().updateComponentParams(component.id, { state: nextState });
               }}
             />
           </Group>
@@ -1157,7 +1285,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
 
               {/* Centered RefDes & Part Name */}
               <UnmirroredText
-                text={component.refDes || 'U?'}
+                text={component.refDes || 'U'}
                 x={boxLeft}
                 y={centerY - 14}
                 width={boxW}
@@ -1314,12 +1442,17 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
   };
 
   const renderLabels = () => {
+    // Ground symbols and breadboard do not render reference designators or value labels
+    if (type === 'ground' || type === 'breadboard') {
+      return null;
+    }
+
     // If it's a generic IC, RefDes and Part Title are already cleanly rendered inside the body box!
     const isGenericIC = ![
       'resistor', 'capacitor', 'inductor', 'transformer', 'vsource',
-      'function_generator', 'isource', 'ground', 'diode', 'led', 'zener',
+      'function_generator', 'isource', 'diode', 'led', 'zener',
       'npn', 'pnp', 'nmos', 'pmos', 'opamp', 'oscilloscope', 'multimeter',
-      'pushbutton', 'breadboard'
+      'pushbutton', 'switch'
     ].includes(type);
 
     if (isGenericIC) {
@@ -1327,7 +1460,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
     }
 
     const isHorizontal = (component.rotation === 90 || component.rotation === 270);
-    const isNativeHorizontal = (type === 'opamp' || type === 'multimeter');
+    const isNativeHorizontal = (type === 'opamp' || type === 'multimeter' || type === 'switch' || type === 'pushbutton');
     const isEffectivelyHorizontal = isNativeHorizontal ? !isHorizontal : isHorizontal;
 
     let dx = 0;
@@ -1342,10 +1475,6 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
     }
 
 
-    if (type === 'ground') {
-       dx = 15; dy = -10;
-    }
-
     if (type === 'multimeter') {
        dx = -8;
        dy = activeView === 'breadboard' ? 82 : 55;
@@ -1359,7 +1488,9 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
     const bgFill = theme === 'dark' ? '#20252A' : '#EEEAE4';
 
     let valStr: string | null = null;
-    if (type === 'function_generator' || (type === 'vsource' && component.params?.type === 'sin')) {
+    if (type === 'switch' || type === 'pushbutton') {
+       valStr = component.params?.state ? String(component.params.state).toUpperCase() : 'OPEN';
+    } else if (type === 'function_generator' || (type === 'vsource' && component.params?.type === 'sin')) {
        valStr = `${component.params?.amplitude || 5}V ${component.params?.frequency || '1k'}Hz`;
     } else if (type === 'clock') {
        valStr = `${component.params?.frequency || '1k'}Hz (${component.params?.vhigh || 5}V)`;
@@ -1374,11 +1505,13 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
                    component.params?.model ? String(component.params.model) : null;
     }
 
+    const displayRefDes = component.refDes || getComponentPrefix(type);
+
     return (
-      <Group x={dx} y={dy}>
+      <Group x={dx} y={dy} scaleX={textScale} scaleY={textScale}>
         <Label x={0} y={0}>
           <Tag fill={bgFill} cornerRadius={2} opacity={0.8} />
-          <Text text={component.refDes || type.charAt(0).toUpperCase()} fontSize={12} fill={textColor} padding={2} />
+          <Text text={displayRefDes} fontSize={12} fill={textColor} padding={2} />
         </Label>
         {valStr && (
           <Label x={0} y={15}>
@@ -1395,7 +1528,8 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
       x={position.x}
       y={position.y}
       opacity={opacity}
-      draggable
+      draggable={!isGhost && mode === 'select' && shouldListen}
+      listening={shouldListen}
       onClick={onSelect}
       onTap={onSelect}
       onDblClick={onDblClick}
@@ -1404,23 +1538,28 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
       onDragEnd={onDragEnd}
       onDragMove={onDragMove}
       onMouseEnter={(e) => {
-        if (mode === 'select') {
+        if (shouldListen && mode === 'select') {
           const container = e.target.getStage()?.container();
           if (container) container.style.cursor = 'pointer';
         }
-        if (onMouseEnter) onMouseEnter();
+        if (shouldListen && onMouseEnter) onMouseEnter();
       }}
       onMouseLeave={(e) => {
-        const container = e.target.getStage()?.container();
-        if (container) {
-          container.style.cursor = '';
+        if (shouldListen) {
+          const container = e.target.getStage()?.container();
+          if (container) {
+            container.style.cursor = '';
+          }
         }
-        if (onMouseLeave) onMouseLeave();
+        if (shouldListen && onMouseLeave) onMouseLeave();
       }}
     >
       <Group rotation={component.rotation || 0} scaleX={component.mirrored ? -1 : 1}>
         {isHeating && (
-           <Circle x={0} y={0} radius={25 + heatRatio * 10} fill="red" opacity={heatRatio * 0.4} shadowBlur={20} shadowColor="red" listening={false} />
+           <>
+             <Circle x={0} y={0} radius={20 + heatRatio * 8} fill="#ff4444" opacity={heatRatio * 0.3} listening={false} />
+             <Circle x={0} y={0} radius={28 + heatRatio * 10} fill="#ff2222" opacity={heatRatio * 0.15} listening={false} />
+           </>
         )}
         <Group opacity={isBurnt ? 0.4 : 1}>
           <Rect x={-10} y={-20} width={20} height={40} fill="transparent" />
@@ -1433,7 +1572,7 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
       
       {renderLabels()}
       
-      {power > 0 && maxPower < Infinity && (
+      {power > 0 && maxPower < Infinity && type !== 'led' && (
          <Text
             text={`${(power * 1000).toFixed(1)} mW`}
             x={15}
@@ -1442,8 +1581,10 @@ export const ComponentNode: React.FC<Props> = ({ component, isSelected, onSelect
             fill="#e74c3c"
             fontStyle="bold"
             listening={false}
+            scaleX={textScale}
+            scaleY={textScale}
          />
       )}
     </Group>
   );
-};
+});

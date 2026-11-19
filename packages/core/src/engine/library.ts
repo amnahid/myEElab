@@ -655,7 +655,114 @@ export const ComponentLibrary: Record<string, ComponentDefinition> = {
       modelType: "subcircuit",
       subcircuitName: "74HC164",
       pinOrder: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"],
-      subcircuitBody: `.subckt 74HC164 1 2 3 4 5 6 7 8 9 10 11 12 13 14\n* 1=DSA 2=DSB 3=Q0 4=Q1 5=Q2 6=Q3 7=GND 8=CP 9=~MR 10=Q4 11=Q5 12=Q6 13=Q7 14=VCC\nB_IN in_d 7 V = ((V(1,7) > 2.0 && V(2,7) > 2.0) ? V(14,7) - 0.05 : 0.05)\nB_Q0 3_i 7 V = (V(9,7) < 0.8 ? 0.05 : V(in_d))\nR_Q0 3_i 3 50\nB_Q1 4_i 7 V = (V(9,7) < 0.8 ? 0.05 : V(3,7))\nR_Q1 4_i 4 50\nB_Q2 5_i 7 V = (V(9,7) < 0.8 ? 0.05 : V(4,7))\nR_Q2 5_i 5 50\nB_Q3 6_i 7 V = (V(9,7) < 0.8 ? 0.05 : V(5,7))\nR_Q3 6_i 6 50\nB_Q4 10_i 7 V = (V(9,7) < 0.8 ? 0.05 : V(6,7))\nR_Q4 10_i 10 50\nB_Q5 11_i 7 V = (V(9,7) < 0.8 ? 0.05 : V(10,7))\nR_Q5 11_i 11 50\nB_Q6 12_i 7 V = (V(9,7) < 0.8 ? 0.05 : V(11,7))\nR_Q6 12_i 12 50\nB_Q7 13_i 7 V = (V(9,7) < 0.8 ? 0.05 : V(12,7))\nR_Q7 13_i 13 50\n.ends 74HC164`
+      subcircuitBody: `.subckt 74HC164 1 2 3 4 5 6 7 8 9 10 11 12 13 14
+* 1=DSA 2=DSB 3=Q0 4=Q1 5=Q2 6=Q3 7=GND 8=CP 9=~MR 10=Q4 11=Q5 12=Q6 13=Q7 14=VCC
+.model SW_74HC_HI sw(ron=10 roff=10G vt=2.5 vh=0.1)
+.model SW_74HC_LO sw(ron=10G roff=10 vt=2.5 vh=0.1)
+
+* Input AND Gate & Pin Bias
+R_mr_pullup 9 14 10MEG
+R_dsa_pullup 1 14 10MEG
+R_dsb_pulldown 2 7 10MEG
+R_cp_pulldown 8 7 10MEG
+B_IN in_d 7 V = ((V(1,7) > 2.0 && V(2,7) > 2.0) ? V(14,7) - 0.05 : 0.05)
+
+* Stage 0
+S_m0 in_d m0 8 7 SW_74HC_LO
+C_m0 m0 7 10n
+R_m0 m0 7 10G
+E_mb0 mb0 7 m0 7 1.0
+S_s0 mb0 s0 8 7 SW_74HC_HI
+C_s0 s0 7 10n
+R_s0 s0 7 10G
+S_r0 s0 7 9 7 SW_74HC_LO
+B_Q0 3_i 7 V = (V(9,7) < 0.8 ? 0.05 : (V(s0,7) > 2.0 ? V(14,7) - 0.05 : 0.05))
+R_Q0 3_i 3 50
+
+* Stage 1
+S_m1 3_i m1 8 7 SW_74HC_LO
+C_m1 m1 7 10n
+R_m1 m1 7 10G
+E_mb1 mb1 7 m1 7 1.0
+S_s1 mb1 s1 8 7 SW_74HC_HI
+C_s1 s1 7 10n
+R_s1 s1 7 10G
+S_r1 s1 7 9 7 SW_74HC_LO
+B_Q1 4_i 7 V = (V(9,7) < 0.8 ? 0.05 : (V(s1,7) > 2.0 ? V(14,7) - 0.05 : 0.05))
+R_Q1 4_i 4 50
+
+* Stage 2
+S_m2 4_i m2 8 7 SW_74HC_LO
+C_m2 m2 7 10n
+R_m2 m2 7 10G
+E_mb2 mb2 7 m2 7 1.0
+S_s2 mb2 s2 8 7 SW_74HC_HI
+C_s2 s2 7 10n
+R_s2 s2 7 10G
+S_r2 s2 7 9 7 SW_74HC_LO
+B_Q2 5_i 7 V = (V(9,7) < 0.8 ? 0.05 : (V(s2,7) > 2.0 ? V(14,7) - 0.05 : 0.05))
+R_Q2 5_i 5 50
+
+* Stage 3
+S_m3 5_i m3 8 7 SW_74HC_LO
+C_m3 m3 7 10n
+R_m3 m3 7 10G
+E_mb3 mb3 7 m3 7 1.0
+S_s3 mb3 s3 8 7 SW_74HC_HI
+C_s3 s3 7 10n
+R_s3 s3 7 10G
+S_r3 s3 7 9 7 SW_74HC_LO
+B_Q3 6_i 7 V = (V(9,7) < 0.8 ? 0.05 : (V(s3,7) > 2.0 ? V(14,7) - 0.05 : 0.05))
+R_Q3 6_i 6 50
+
+* Stage 4
+S_m4 6_i m4 8 7 SW_74HC_LO
+C_m4 m4 7 10n
+R_m4 m4 7 10G
+E_mb4 mb4 7 m4 7 1.0
+S_s4 mb4 s4 8 7 SW_74HC_HI
+C_s4 s4 7 10n
+R_s4 s4 7 10G
+S_r4 s4 7 9 7 SW_74HC_LO
+B_Q4 10_i 7 V = (V(9,7) < 0.8 ? 0.05 : (V(s4,7) > 2.0 ? V(14,7) - 0.05 : 0.05))
+R_Q4 10_i 10 50
+
+* Stage 5
+S_m5 10_i m5 8 7 SW_74HC_LO
+C_m5 m5 7 10n
+R_m5 m5 7 10G
+E_mb5 mb5 7 m5 7 1.0
+S_s5 mb5 s5 8 7 SW_74HC_HI
+C_s5 s5 7 10n
+R_s5 s5 7 10G
+S_r5 s5 7 9 7 SW_74HC_LO
+B_Q5 11_i 7 V = (V(9,7) < 0.8 ? 0.05 : (V(s5,7) > 2.0 ? V(14,7) - 0.05 : 0.05))
+R_Q5 11_i 11 50
+
+* Stage 6
+S_m6 11_i m6 8 7 SW_74HC_LO
+C_m6 m6 7 10n
+R_m6 m6 7 10G
+E_mb6 mb6 7 m6 7 1.0
+S_s6 mb6 s6 8 7 SW_74HC_HI
+C_s6 s6 7 10n
+R_s6 s6 7 10G
+S_r6 s6 7 9 7 SW_74HC_LO
+B_Q6 12_i 7 V = (V(9,7) < 0.8 ? 0.05 : (V(s6,7) > 2.0 ? V(14,7) - 0.05 : 0.05))
+R_Q6 12_i 12 50
+
+* Stage 7
+S_m7 12_i m7 8 7 SW_74HC_LO
+C_m7 m7 7 10n
+R_m7 m7 7 10G
+E_mb7 mb7 7 m7 7 1.0
+S_s7 mb7 s7 8 7 SW_74HC_HI
+C_s7 s7 7 10n
+R_s7 s7 7 10G
+S_r7 s7 7 9 7 SW_74HC_LO
+B_Q7 13_i 7 V = (V(9,7) < 0.8 ? 0.05 : (V(s7,7) > 2.0 ? V(14,7) - 0.05 : 0.05))
+R_Q7 13_i 13 50
+.ends 74HC164`
     }
   },
 
@@ -1061,6 +1168,23 @@ export const ComponentLibrary: Record<string, ComponentDefinition> = {
       { id: "4", label: "R2", offset: { x: 20, y: 20 } },
     ],
     defaultParams: { state: "open" }
+  },
+  switch: {
+    type: "switch",
+    name: "SPST Switch",
+    category: "inputs",
+    package: "discrete",
+    description: "Single-Pole Single-Throw toggle switch (click to toggle open/closed)",
+    manufacturer: "Generic Switch",
+    keywords: ["switch", "spst", "toggle", "button", "key", "breaker", "inputs"],
+    pins: [
+      { id: "1", label: "1", offset: { x: -20, y: 0 } },
+      { id: "2", label: "2", offset: { x: 20, y: 0 } },
+    ],
+    defaultParams: { state: "open" },
+    spice: {
+      prefix: "SW"
+    }
   },
   breadboard: {
     type: "breadboard",

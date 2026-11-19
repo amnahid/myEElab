@@ -1,5 +1,6 @@
 import { Circuit, ComponentInstance, Wire, Point } from "../models/circuit";
 import { ComponentLibrary } from "../engine/library";
+import { ensureCircuitRefDes } from "../engine/refDes";
 import JSZip from "jszip";
 
 /**
@@ -167,7 +168,7 @@ export function parseProteusNetlist(netlistContent: string, circuitName: string 
      });
   }
 
-  return {
+  const circuit: Circuit = {
     id: generateId("circuit"),
     name: circuitName,
     components,
@@ -178,6 +179,8 @@ export function parseProteusNetlist(netlistContent: string, circuitName: string 
       { kind: 'ac', params: { variation: 'dec', points: '10', fstart: '1', fstop: '10k' } }
     ] // Will default to whatever the editor sets up
   };
+  ensureCircuitRefDes(circuit);
+  return circuit;
 }
 
 function parseNumericSpice(val: string): number {
@@ -534,7 +537,7 @@ export async function parsePdsprjExperimental(buffer: ArrayBuffer, circuitName: 
       ? Array.from(new Set(unparsedRefs))
       : undefined;
 
-  return {
+  const circuit: Circuit = {
     id: generateId("circuit"),
     warnings,
     name: circuitName,
@@ -546,4 +549,6 @@ export async function parsePdsprjExperimental(buffer: ArrayBuffer, circuitName: 
       { kind: 'ac', params: { variation: 'dec', points: '10', fstart: '1', fstop: '10k' } }
     ]
   };
+  ensureCircuitRefDes(circuit);
+  return circuit;
 }

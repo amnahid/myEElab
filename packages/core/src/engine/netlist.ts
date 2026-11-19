@@ -4,7 +4,7 @@ import { deriveBreadboardWires } from "./breadboardSync";
 import { useEditorStore } from "../store/editorStore";
 import { ComponentLibrary } from "./library";
 
-function parseSpiceValue(val: string | number): number {
+export function parseSpiceValue(val: string | number): number {
   if (typeof val === 'number') return val;
   const match = val.toString().match(/^([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)(.*)$/);
   if (!match) return 0;
@@ -25,7 +25,7 @@ function parseSpiceValue(val: string | number): number {
 }
 
 export class NetlistGenerator {
-  public generate(circuit: Circuit, activeAnalysis: string = 'op'): string {
+  public generate(circuit: Circuit, activeAnalysis: string = 'op', initialConditions?: Record<string, number>): string {
     const lines: string[] = [];
     lines.push(`* ${circuit.name || "LiveSpice Circuit"}`);
 
@@ -84,7 +84,7 @@ export class NetlistGenerator {
         else if (comp.type === "nmos" || comp.type === "pmos") prefix = "M";
         else if (comp.type === "opamp") prefix = "X";
         else if (comp.type === "transformer") prefix = "TX";
-        else if (comp.type === "pushbutton") prefix = "SW";
+        else if (comp.type === "pushbutton" || comp.type === "switch") prefix = "SW";
       }
 
       if (comp.type === "multimeter") {
@@ -102,7 +102,7 @@ export class NetlistGenerator {
         }
       } else {
         // Enforce SPICE prefix on user-provided refDes
-        if (!refDes.toUpperCase().startsWith(prefix) && comp.type !== "transformer" && comp.type !== "pushbutton") {
+        if (!refDes.toUpperCase().startsWith(prefix) && comp.type !== "transformer" && comp.type !== "pushbutton" && comp.type !== "switch") {
             refDes = `${prefix}_${refDes}`;
         }
         let baseRef = refDes;
@@ -122,9 +122,11 @@ export class NetlistGenerator {
       else if (comp.type === "inductor") value = sanitizeVal(comp.params.inductance, "1m");
       else if (comp.type === "vsource" || comp.type === "function_generator" || comp.type === "isource") {
         if (comp.params.type === "dc" || (!comp.params.type && comp.type !== "function_generator")) {
-           value = `DC ${sanitizeVal(comp.params.dc || comp.params.value, "0")}`;
+           value = `DC ${sanitizeVal(comp.params.dc || comp.params.value, "0")} AC 0 0`;
         } else if (comp.params.type === "ac") {
-           value = `AC ${sanitizeVal(comp.params.ac_mag, "1")} ${sanitizeVal(comp.params.ac_phase, "0")}`;
+           const acMag = sanitizeVal(comp.params.ac_mag, "1");
+           const acPhase = sanitizeVal(comp.params.ac_phase, "0");
+           value = `DC 0 AC ${acMag} ${acPhase} SINE(0 ${acMag} 1k)`;
         } else if (comp.params.type === "sin" || (!comp.params.type && comp.type === "function_generator")) {
            const offset = sanitizeVal(comp.params.offset, "0");
            let amplitudeStr = comp.params.amplitude?.toString() || "5";
@@ -142,7 +144,7 @@ export class NetlistGenerator {
              amplitudeStr = sanitizeVal(amplitudeStr, "5");
            }
            
-           value = `SINE(${offset} ${amplitudeStr} ${freq} 0 0 ${phase})`;
+           value = `DC ${offset} AC 1 0 SINE(${offset} ${amplitudeStr} ${freq} 0 0 ${phase})`;
         } else if (comp.params.type === "square") {
            const offsetNum = parseSpiceValue(comp.params.offset || "0");
            let amplitudeNum = parseSpiceValue(comp.params.amplitude || "5");
@@ -156,7 +158,7 @@ export class NetlistGenerator {
            const trise = "1n";
            const tfall = "1n";
            const twidth = Math.max(1e-12, period / 2 - 1e-9).toExponential(4);
-           value = `PULSE(${vlow} ${vhigh} 0 ${trise} ${tfall} ${twidth} ${period.toExponential(4)})`;
+           value = `DC ${offsetNum} AC 1 0 PULSE(${vlow} ${vhigh} 0 ${trise} ${tfall} ${twidth} ${period.toExponential(4)})`;
         } else {
            value = sanitizeVal(comp.params.value, "DC 0");
         }
@@ -239,6 +241,10 @@ export class NetlistGenerator {
         lines.push(`R_${idSafe}_L ${l1} ${l2} 1m`);
         lines.push(`R_${idSafe}_R ${r1} ${r2} 1m`);
         lines.push(`R_${refDes} ${l1} ${r1} ${comp.params.state === 'closed' ? '1m' : '1G'}`);
+      } else if (comp.type === "switch") {
+        const p1 = pins.get("1") || "0";
+        const p2 = pins.get("2") || "0";
+        lines.push(`R_${refDes} ${p1} ${p2} ${comp.params.state === 'closed' ? '1m' : '1G'}`);
       } else {
         const n1 = pins.get("1") || "0";
         const n2 = pins.get("2") || "0";
@@ -273,17 +279,121 @@ export class NetlistGenerator {
       lines.push(circuit.customModels);
     }
 
+    // Track nodes connected directly to independent sources and capacitors
+    const forcedSourceNodes = new Set<string>();
+    const capacitorNodes = new Set<string>();
+
+    for (const comp of circuit.components) {
+      if (comp.type === "vsource" || comp.type === "clock" || comp.type === "function_generator") {
+        const pins = nodeMap.get(comp.id);
+        if (pins) {
+          for (const n of pins.values()) {
+            if (n && n !== "0" && n.toLowerCase() !== "gnd") {
+              forcedSourceNodes.add(n);
+            }
+          }
+        }
+      } else if (comp.type === "capacitor") {
+        const pins = nodeMap.get(comp.id);
+        if (pins) {
+          for (const n of pins.values()) {
+            if (n && n !== "0" && n.toLowerCase() !== "gnd") {
+              capacitorNodes.add(n);
+            }
+          }
+        }
+      }
+    }
+
+    // Process initial conditions if provided (preserves circuit state across interactive switch toggles)
+    let hasIc = false;
+    if (initialConditions && Object.keys(initialConditions).length > 0) {
+      const icEntries: string[] = [];
+      for (const [rawKey, val] of Object.entries(initialConditions)) {
+        if (typeof val !== "number" || !isFinite(val)) continue;
+        if (rawKey.toLowerCase().startsWith("i(")) continue;
+        let node = rawKey.trim();
+        if (node.toLowerCase().startsWith("v(") && node.endsWith(")")) {
+          node = node.slice(2, -1).trim();
+        }
+        if (node === "0" || node.toLowerCase() === "gnd") continue;
+        if (forcedSourceNodes.has(node)) continue;
+
+        // State is held by:
+        // 1. Subcircuit internal latches/capacitors (e.g. x_u1.s0..s7, x_u1.m0..m7)
+        // 2. Discrete capacitor nodes
+        const isSubcircuitStateNode = node.includes(".") && /\.(s|m|sb|q|state|cap)\w*$/i.test(node);
+        const isCapacitorNode = capacitorNodes.has(node);
+
+        if (isSubcircuitStateNode || isCapacitorNode) {
+          if (/^[a-zA-Z0-9_\.]+$/.test(node)) {
+            icEntries.push(`V(${node})=${val.toFixed(4)}`);
+          }
+        }
+      }
+      if (icEntries.length > 0) {
+        hasIc = true;
+        for (let i = 0; i < icEntries.length; i += 8) {
+          lines.push(`.ic ${icEntries.slice(i, i + 8).join(" ")}`);
+        }
+      }
+    }
+
     // Append active analysis at the end, right before .end
-    const analysis = circuit.analyses.find(a => a.kind === activeAnalysis);
-    if (analysis) {
-      if (analysis.kind === "op") {
-        lines.push(`.op`);
-      } else if (analysis.kind === "tran") {
-        lines.push(`.tran ${analysis.params.step} ${analysis.params.stop}`);
-      } else if (analysis.kind === "ac") {
-        lines.push(`.ac ${analysis.params.variation} ${analysis.params.points} ${analysis.params.fstart} ${analysis.params.fstop}`);
-      } else if (analysis.kind === "dc") {
-        lines.push(`.dc ${analysis.params.source} ${analysis.params.start} ${analysis.params.stop} ${analysis.params.step}`);
+    if (activeAnalysis === "interactive") {
+      const tran = circuit.analyses.find(a => a.kind === "tran");
+      let step = tran?.params.step;
+      let stop = tran?.params.stop;
+
+      if (!step || !stop) {
+        let minFreq = Infinity;
+        for (const c of circuit.components) {
+          if (c.type === "clock") {
+            const f = parseSpiceValue(c.params.frequency?.toString() || "1k") || 1000;
+            if (f > 0 && f < minFreq) minFreq = f;
+          } else if (c.type === "function_generator" && c.params.frequency) {
+            const f = parseSpiceValue(c.params.frequency?.toString() || "1k") || 1000;
+            if (f > 0 && f < minFreq) minFreq = f;
+          }
+        }
+
+        if (minFreq < Infinity && minFreq > 0) {
+          const period = 1 / minFreq;
+          // Simulate 16-20 clock cycles for snappy real-time interactive response (<100ms in WASM)
+          const interactiveDuration = Math.min(0.25, Math.max(0.02, 20 * period));
+          if (!stop) stop = `${parseFloat(interactiveDuration.toFixed(4))}s`;
+          const stepSize = Math.max(1e-5, period / 10);
+          if (!step) step = `${stepSize.toExponential(2)}`;
+        } else {
+          // If no periodic clocks exist, check for capacitors (e.g. debouncing RC filters) to allow RC network to settle
+          let maxC = 0;
+          for (const c of circuit.components) {
+            if (c.type === "capacitor") {
+              const cap = parseSpiceValue(c.params?.capacitance?.toString() || "1u") || 1e-6;
+              if (cap > maxC) maxC = cap;
+            }
+          }
+          const tSettle = maxC > 0 ? Math.min(0.2, Math.max(0.02, 4 * 10000 * maxC)) : 0.01;
+          if (!stop) stop = `${parseFloat(tSettle.toFixed(4))}s`;
+          if (!step) step = `${Math.max(1e-4, tSettle / 100).toExponential(2)}`;
+        }
+      }
+
+      lines.push(".save all");
+      lines.push(`.tran ${step} ${stop}${hasIc ? " uic" : ""}`);
+    } else {
+      const analysis = circuit.analyses.find(a => a.kind === activeAnalysis);
+      if (analysis) {
+        if (analysis.kind === "op") {
+          lines.push(`.op`);
+        } else if (analysis.kind === "tran") {
+          lines.push(".save all");
+          lines.push(`.tran ${analysis.params.step} ${analysis.params.stop}${hasIc ? " uic" : ""}`);
+        } else if (analysis.kind === "ac") {
+          lines.push(`.ac ${analysis.params.variation} ${analysis.params.points} ${analysis.params.fstart} ${analysis.params.fstop}`);
+        } else if (analysis.kind === "dc") {
+          lines.push(`.dc ${analysis.params.source} ${analysis.params.start} ${analysis.params.stop} ${analysis.params.step}`);
+        }
       }
     }
 

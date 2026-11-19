@@ -9,19 +9,32 @@ interface Props {
   onPointDragEnd: (index: number, x: number, y: number) => void;
   onPointDragStart?: () => void;
   onPointDragMove?: (index: number, x: number, y: number) => void;
+  onSegmentMouseDown?: (segIndex: number, e: any) => void;
   onDblClick?: () => void;
   theme?: 'light' | 'dark';
+  listening?: boolean;
 }
 
-export const WireNode: React.FC<Props> = ({ wire, isSelected, onSelect, onPointDragStart, onPointDragEnd, onPointDragMove, onDblClick, theme = 'light' }) => {
+export const WireNode: React.FC<Props> = React.memo(({
+  wire,
+  isSelected,
+  onSelect,
+  onPointDragStart,
+  onPointDragEnd,
+  onPointDragMove,
+  onSegmentMouseDown,
+  onDblClick,
+  theme = 'light',
+  listening
+}) => {
   const points = wire.points.flatMap(p => [p.x, p.y]);
-  // Wire is selected ? bright blue : (dark ? pastel blue : dark navy)
   const defaultColor = theme === 'dark' ? '#EEEAE4' : '#30383E';
   let color = wire.color || defaultColor;
   if (isSelected) color = '#B9924D';
 
   return (
-    <Group>
+    <Group listening={listening !== undefined ? listening : true}>
+      {/* Base polyline */}
       <Line
         points={points}
         stroke={color}
@@ -32,6 +45,37 @@ export const WireNode: React.FC<Props> = ({ wire, isSelected, onSelect, onPointD
         onDblClick={onDblClick}
         onDblTap={onDblClick}
       />
+
+      {/* Moveable edge segments when selected */}
+      {isSelected && onSegmentMouseDown && wire.points.slice(0, -1).map((p1, i) => {
+        const p2 = wire.points[i + 1];
+        const isH = Math.abs(p2.y - p1.y) <= Math.abs(p2.x - p1.x);
+        const cursor = isH ? 'ns-resize' : 'ew-resize';
+
+        return (
+          <Line
+            key={`seg-hit-${i}`}
+            points={[p1.x, p1.y, p2.x, p2.y]}
+            stroke="transparent"
+            strokeWidth={4}
+            hitStrokeWidth={16}
+            onMouseEnter={(e) => {
+              const stage = e.target.getStage();
+              if (stage) stage.container().style.cursor = cursor;
+            }}
+            onMouseLeave={(e) => {
+              const stage = e.target.getStage();
+              if (stage) stage.container().style.cursor = '';
+            }}
+            onMouseDown={(e) => {
+              e.cancelBubble = true;
+              onSegmentMouseDown(i, e);
+            }}
+          />
+        );
+      })}
+
+      {/* Corner point drag handles when selected */}
       {isSelected && wire.points.map((p, i) => (
         <Circle
           key={i}
@@ -59,4 +103,4 @@ export const WireNode: React.FC<Props> = ({ wire, isSelected, onSelect, onPointD
       ))}
     </Group>
   );
-};
+});
